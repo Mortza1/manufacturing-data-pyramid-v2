@@ -22,6 +22,7 @@ export interface AppState {
   selectedRelationshipId: string | null;
   draggedLibraryItem: Omit<DataObject, 'id'> | null;
   dragHoveredLevelId: number | null;
+  dragPosition: [number, number, number] | null;
   touchSelectedItem: Omit<DataObject, 'id'> | null;
   
   placedObjects: DataObject[];
@@ -42,6 +43,7 @@ export interface AppState {
   setSelectedRelationshipId: (id: string | null) => void;
   setDraggedLibraryItem: (item: Omit<DataObject, 'id'> | null) => void;
   setDragHoveredLevelId: (level: number | null) => void;
+  setDragPosition: (position: [number, number, number] | null) => void;
   setTouchSelectedItem: (item: Omit<DataObject, 'id'> | null) => void;
   placeObject: (item: Omit<DataObject, 'id'>, position: [number, number, number], level: number) => void;
   removeObject: (id: string) => void;
@@ -69,6 +71,7 @@ export const useStore = create<AppState>()(
       selectedRelationshipId: null,
       draggedLibraryItem: null,
       dragHoveredLevelId: null,
+      dragPosition: null,
       touchSelectedItem: null,
       placedObjects: COURSES['data-science'].initialObjects,
 
@@ -97,6 +100,7 @@ export const useStore = create<AppState>()(
       setSelectedRelationshipId: (id) => set({ selectedRelationshipId: id, selectedObjectId: null, selectedLevelId: null }),
       setDraggedLibraryItem: (item) => set({ draggedLibraryItem: item }),
       setDragHoveredLevelId: (level) => set({ dragHoveredLevelId: level }),
+      setDragPosition: (position) => set({ dragPosition: position }),
       setTouchSelectedItem: (item) => set({ touchSelectedItem: item }),
       
       placeObject: (item, position, level) => set((state) => ({
@@ -121,12 +125,24 @@ export const useStore = create<AppState>()(
         selectedObjectId: null,
         selectedRelationshipId: null,
         dragHoveredLevelId: null,
+        dragPosition: null,
         touchSelectedItem: null,
         placedObjects: COURSES[state.courseMode].initialObjects
       })),
     }),
     {
       name: 'manufacturing-data-pyramid-storage',
+      version: 2,
+      migrate: (persistedState: any) => {
+        const mode = (persistedState?.courseMode || 'data-science') as CourseMode;
+        const userAddedObjects = Array.isArray(persistedState?.placedObjects)
+          ? persistedState.placedObjects.filter((object: DataObject) => object.isUserAdded)
+          : [];
+        return {
+          ...persistedState,
+          placedObjects: [...COURSES[mode].initialObjects, ...userAddedObjects],
+        };
+      },
       partialize: (state) => ({ 
         courseMode: state.courseMode,
         placedObjects: state.placedObjects, 

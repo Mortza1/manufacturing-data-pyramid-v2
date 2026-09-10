@@ -102,6 +102,28 @@ export function Controls() {
     );
   }
 
+  if (presentationMode) {
+    return (
+      <div className="pointer-events-auto absolute top-4 left-1/2 -translate-x-1/2 flex max-w-[96vw] items-center gap-1.5 rounded-full border border-white/15 bg-[#071018]/80 p-1.5 shadow-2xl backdrop-blur-2xl z-30 overflow-x-auto">
+        {(['data-science', 'fundamentals-ai', 'agentic-ai'] as CourseMode[]).map(cm => (
+          <button key={cm} onClick={() => setCourseMode(cm)} className={`whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-semibold transition-colors ${courseMode === cm ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}>
+            {cm === 'data-science' ? 'Data Science' : cm === 'fundamentals-ai' ? 'Fundamentals AI' : 'Agentic AI'}
+          </button>
+        ))}
+        <span className="mx-1 h-5 w-px bg-white/15" />
+        <button onClick={() => setExploded(!exploded)} className="rounded-full px-2.5 py-2 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">{exploded ? 'Assemble' : 'Explode'}</button>
+        <button onClick={() => setCutaway(!cutaway)} className={`rounded-full px-2.5 py-2 text-[10px] font-semibold ${cutaway ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}>Section</button>
+        <button onClick={() => setShowRelationships(!showRelationships)} className={`rounded-full px-2.5 py-2 text-[10px] font-semibold ${showRelationships ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}>Connect</button>
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map(lvl => <button key={lvl} onClick={() => setFocusLevel(focusLevel === lvl ? null : lvl)} className={`h-7 w-7 rounded-full text-[10px] font-mono ${focusLevel === lvl ? 'bg-foreground text-background' : 'bg-white/10 text-muted-foreground hover:text-foreground'}`}>{lvl}</button>)}
+        </div>
+        <button onClick={() => setJourneyActive(true)} className="rounded-full px-2.5 py-2 text-[10px] font-semibold text-emerald-300 hover:bg-emerald-300/10">Journey</button>
+        <button onClick={resetCourse} className="rounded-full px-2.5 py-2 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">Reset</button>
+        <button onClick={() => setPresentationMode(false)} className="rounded-full bg-white/10 px-3 py-2 text-[10px] font-semibold text-foreground hover:bg-white/20">Exit</button>
+      </div>
+    );
+  }
+
   return (
     <div className="pointer-events-auto absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-30 w-[96vw] md:w-auto">
       

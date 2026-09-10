@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { COURSES } from '../data';
 
 export function Connections() {
-  const { placedObjects, showRelationships, exploded, journeyActive, courseMode, selectedRelationshipId, setSelectedRelationshipId, isolateLevel } = useStore();
+  const { placedObjects, showRelationships, exploded, journeyActive, journeyStep, courseMode, selectedObjectId, selectedRelationshipId, setSelectedRelationshipId, isolateLevel } = useStore();
 
   const isDataScience = courseMode === 'data-science';
 
@@ -29,8 +29,8 @@ export function Connections() {
       }
 
       if (source && target && source.position && target.position) {
-         const sY = exploded ? (source.level - 0.5) + (source.level - 1) * 0.8 : (source.level - 0.5);
-         const tY = exploded ? (target.level - 0.5) + (target.level - 1) * 0.8 : (target.level - 0.5);
+         const sY = exploded ? (source.level - 0.5) + (source.level - 1) * 1.15 : (source.level - 0.5);
+         const tY = exploded ? (target.level - 0.5) + (target.level - 1) * 1.15 : (target.level - 0.5);
          
          connections.push({
             rel,
@@ -52,16 +52,18 @@ export function Connections() {
     <group position={[0, -2.5, 0]}>
       {lines.map((line, idx) => {
         const isSelected = selectedRelationshipId === line.rel.id;
+        const isObjectPath = !!selectedObjectId && (line.rel.sourceId === selectedObjectId || line.rel.targetId === selectedObjectId);
+        const isJourneyPath = journeyActive && idx <= journeyStep;
         return (
           <group key={idx}>
             <Line
               points={[line.start, line.end]}
-              color={isSelected ? selectColor : baseColor}
-              lineWidth={isSelected ? 6 : (isDataScience ? 4 : 2)}
+              color={isSelected || isJourneyPath || isObjectPath ? selectColor : baseColor}
+              lineWidth={isSelected ? 6 : (isJourneyPath || isObjectPath ? 4 : (isDataScience ? 2.5 : 2))}
               dashed={true}
               dashSize={0.2}
               dashScale={0.1}
-              opacity={isSelected ? 1 : 0.8}
+              opacity={isSelected || isJourneyPath || isObjectPath ? 1 : 0.48}
               transparent
               onClick={(e) => {
                 e.stopPropagation();

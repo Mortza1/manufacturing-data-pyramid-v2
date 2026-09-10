@@ -1,7 +1,9 @@
-import { OrbitControls, Environment, Grid, Sparkles, ContactShadows, BakeShadows } from '@react-three/drei';
+import { OrbitControls, Environment, Grid, Sparkles, ContactShadows, BakeShadows, Html } from '@react-three/drei';
 import { Pyramid } from './Pyramid';
 import { PlacedObjects } from './PlacedObjects';
 import { Connections } from './Connections';
+import { DataStreams } from './DataStreams';
+import { SceneEnvironment } from './SceneEnvironment';
 import { useStore } from '../store';
 import { COURSES } from '../data';
 import * as THREE from 'three';
@@ -39,7 +41,7 @@ function WebGLFallback() {
 }
 
 function CameraRig({ isInteracting }: { isInteracting: boolean }) {
-  const { journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, courseMode } = useStore();
+  const { journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode } = useStore();
   const vec = new THREE.Vector3();
   const target = new THREE.Vector3(0, 0, 0);
 
@@ -78,13 +80,21 @@ function CameraRig({ isInteracting }: { isInteracting: boolean }) {
       if (controls) {
         controls.target.lerp(target, 0.05);
       }
+    } else if (exploded) {
+      vec.set(12, 6.2, 14);
+      target.set(0, 0.25, 0);
+      state.camera.position.lerp(vec, 0.045);
+      const controls = state.controls as any;
+      if (controls) {
+        controls.target.lerp(target, 0.045);
+      }
     }
   });
   return null;
 }
 
 function DropHandler() {
-  const { draggedLibraryItem, placeObject, setDraggedLibraryItem, setDragHoveredLevelId } = useStore();
+  const { draggedLibraryItem, placeObject, setDraggedLibraryItem, setDragHoveredLevelId, setDragPosition } = useStore();
   const { camera, raycaster, scene, gl } = useThree();
 
   React.useEffect(() => {
@@ -115,6 +125,8 @@ function DropHandler() {
         lastLevelId = foundLevelId;
         setDragHoveredLevelId(foundLevelId);
       }
+      const point = intersects.find((hit) => hit.object.userData?.levelId)?.point;
+      setDragPosition(point ? [point.x, point.y, point.z] : null);
     };
 
     const handleDrop = (e: DragEvent) => {
@@ -133,16 +145,19 @@ function DropHandler() {
         if (obj.userData && obj.userData.levelId) {
           const pt = intersects[i].point;
           placeObject(draggedLibraryItem, [pt.x, 0, pt.z], obj.userData.levelId);
+           setDragPosition(null);
           break;
         }
       }
       setDraggedLibraryItem(null);
       setDragHoveredLevelId(null);
+      setDragPosition(null);
       lastLevelId = null;
     };
     
     const handleDragLeave = (e: DragEvent) => {
       setDragHoveredLevelId(null);
+      setDragPosition(null);
       lastLevelId = null;
     };
 
@@ -155,13 +170,35 @@ function DropHandler() {
       gl.domElement.removeEventListener('drop', handleDrop);
       gl.domElement.removeEventListener('dragleave', handleDragLeave);
     };
-  }, [gl, camera, raycaster, scene, draggedLibraryItem, placeObject, setDraggedLibraryItem, setDragHoveredLevelId]);
+  }, [gl, camera, raycaster, scene, draggedLibraryItem, placeObject, setDraggedLibraryItem, setDragHoveredLevelId, setDragPosition]);
 
   return null;
 }
 
+function DragGhost() {
+  const { draggedLibraryItem, dragPosition, dragHoveredLevelId } = useStore();
+  if (!draggedLibraryItem || !dragPosition) return null;
+  return (
+    <group position={dragPosition}>
+      <mesh>
+        <sphereGeometry args={[0.34, 20, 20]} />
+        <meshBasicMaterial color={dragHoveredLevelId ? '#67e8f9' : '#fbbf24'} transparent opacity={0.3} depthWrite={false} toneMapped={false} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.48, 0.025, 8, 28]} />
+        <meshBasicMaterial color={dragHoveredLevelId ? '#67e8f9' : '#fbbf24'} transparent opacity={0.9} toneMapped={false} />
+      </mesh>
+      <Html center distanceFactor={8} style={{ pointerEvents: 'none' }}>
+        <div className="rounded-full border border-cyan-300/70 bg-[#06141b]/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.45)] whitespace-nowrap">
+          {dragHoveredLevelId ? `Drop on L${dragHoveredLevelId}` : 'Place data'}
+        </div>
+      </Html>
+    </group>
+  );
+}
+
 export function PyramidScene() {
-  const { focusLevel, isolateLevel, selectedObjectId, reducedMotion, courseMode, cutaway, presentationMode, journeyActive } = useStore();
+  const { focusLevel, isolateLevel, selectedObjectId, reducedMotion, courseMode, cutaway, presentationMode, journeyActive, exploded } = useStore();
   const controlsRef = useRef<any>(null);
   const [userInteracted, setUserInteracted] = React.useState(false);
   
@@ -171,16 +208,16 @@ export function PyramidScene() {
     return <WebGLFallback />;
   }
 
-  const isInteracting = selectedObjectId !== null || focusLevel !== null || isolateLevel !== null || journeyActive || cutaway;
+  const isInteracting = selectedObjectId !== null || focusLevel !== null || isolateLevel !== null || journeyActive || cutaway || exploded;
   
   const bg = courseMode === 'data-science' ? '#050508' : (courseMode === 'fundamentals-ai' ? '#020617' : '#0a0a0f');
   const sparkleColor = courseMode === 'agentic-ai' ? '#d946ef' : (courseMode === 'fundamentals-ai' ? '#22d3ee' : '#3b82f6');
   const sparkleCount = courseMode === 'agentic-ai' ? 150 : (courseMode === 'fundamentals-ai' ? 120 : 80);
 
   return (
-    <Canvas
+      <Canvas
       shadows={{ type: THREE.PCFShadowMap }}
-      camera={{ position: [8, 5, 8], fov: 45 }}
+        camera={{ position: [10, 6.5, 10], fov: 42 }}
       className="w-full h-full"
       gl={{ antialias: true, alpha: false, localClippingEnabled: true }}
     >
@@ -203,9 +240,12 @@ export function PyramidScene() {
 
       <Suspense fallback={null}>
         <DropHandler />
+        <DragGhost />
+        <SceneEnvironment />
         <group position={[0, -0.5, 0]}>
           <Pyramid />
           <PlacedObjects />
+          <DataStreams />
           <Connections />
         </group>
         
@@ -226,16 +266,18 @@ export function PyramidScene() {
           renderOrder={-1} 
           position={[0, -3.0, 0]} 
           infiniteGrid 
-          fadeDistance={30} 
+          fadeDistance={36} 
           fadeStrength={5} 
-          cellColor="#1a1a24" 
-          sectionColor="#0a0a10" 
+          cellColor="#233243" 
+          sectionColor="#0c1620" 
+          cellThickness={0.55}
+          sectionThickness={1.2}
         />
         
         <ContactShadows 
           position={[0, -2.99, 0]} 
           opacity={0.6} 
-          scale={20} 
+          scale={24} 
           blur={2.5} 
           far={5} 
           color="#000000"

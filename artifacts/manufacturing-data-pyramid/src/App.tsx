@@ -15,12 +15,14 @@ import { LibraryPanel } from './components/LibraryPanel';
 import { ContextCard } from './components/ContextCard';
 import { Controls } from './components/Controls';
 import { AddDataDialog } from './components/AddDataDialog';
+import { useStore } from './store';
 
 const queryClient = new QueryClient();
 
 function Home() {
+  const presentationMode = useStore((state) => state.presentationMode);
   return (
-    <div className="h-[100dvh] w-full relative bg-background text-foreground font-sans overflow-hidden">
+    <div className={`h-[100dvh] w-full relative bg-background text-foreground font-sans overflow-hidden ${presentationMode ? 'presentation-stage' : ''}`}>
       {/* 3D Background */}
       <div className="absolute inset-0 z-0">
         <PyramidScene />
@@ -30,11 +32,11 @@ function Home() {
       <div className="absolute inset-0 z-10 pointer-events-none">
         
         {/* Header */}
-        <header className="absolute top-4 md:top-6 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto z-20 w-full px-4">
-          <h1 className="text-xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-br from-white via-white to-white/40 bg-clip-text text-transparent text-center drop-shadow-sm whitespace-nowrap">
+        <header className={`absolute ${presentationMode ? 'top-4 md:top-5' : 'top-4 md:top-6'} left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto z-20 w-full px-4`}>
+          <h1 className={`${presentationMode ? 'text-sm md:text-lg opacity-80' : 'text-xl md:text-3xl'} font-extrabold tracking-tight bg-gradient-to-br from-white via-white to-white/40 bg-clip-text text-transparent text-center drop-shadow-sm whitespace-nowrap`}>
             Manufacturing Data Pyramid
           </h1>
-          <p className="text-[10px] md:text-xs text-primary uppercase font-mono tracking-[0.2em] mt-1 md:mt-2 whitespace-nowrap">
+          <p className={`${presentationMode ? 'text-[8px] md:text-[10px]' : 'text-[10px] md:text-xs'} text-primary uppercase font-mono tracking-[0.2em] mt-1 md:mt-2 whitespace-nowrap`}>
             Data to Decision Intelligence
           </p>
         </header>

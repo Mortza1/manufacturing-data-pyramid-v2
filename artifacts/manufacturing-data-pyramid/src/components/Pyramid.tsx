@@ -5,11 +5,11 @@ import * as THREE from 'three';
 import { Edges, Html } from '@react-three/drei';
 
 const LEVELS = [
-  { id: 1, name: 'Shop-Floor Signals', color: '#1e293b', edgeColor: '#475569', height: 1, base: 4.0, top: 3.2, y: 0.5 },
-  { id: 2, name: 'Operational Context', color: '#0f172a', edgeColor: '#334155', height: 1, base: 3.2, top: 2.4, y: 1.5 },
-  { id: 3, name: 'Engineering Knowledge', color: '#172554', edgeColor: '#3b82f6', height: 1, base: 2.4, top: 1.6, y: 2.5 },
-  { id: 4, name: 'Enterprise Information', color: '#1e3a8a', edgeColor: '#60a5fa', height: 1, base: 1.6, top: 0.8, y: 3.5 },
-  { id: 5, name: 'Decision Intelligence', color: '#0891b2', edgeColor: '#22d3ee', height: 1, base: 0.8, top: 0, y: 4.5 },
+  { id: 1, name: 'Raw Signals', subtitle: 'Sense the physical process', color: '#17212d', edgeColor: '#64748b', height: 1.05, base: 5.4, top: 4.35, y: 0.5 },
+  { id: 2, name: 'Operations', subtitle: 'Contextualise the run', color: '#122336', edgeColor: '#2dd4bf', height: 1.05, base: 4.35, top: 3.35, y: 1.65 },
+  { id: 3, name: 'Engineering', subtitle: 'Compare with intent', color: '#172b4d', edgeColor: '#60a5fa', height: 1.05, base: 3.35, top: 2.35, y: 2.8 },
+  { id: 4, name: 'Enterprise', subtitle: 'Plan the system', color: '#24345f', edgeColor: '#a78bfa', height: 1.05, base: 2.35, top: 1.35, y: 3.95 },
+  { id: 5, name: 'Decisions', subtitle: 'Act with intelligence', color: '#0b5364', edgeColor: '#67e8f9', height: 1.05, base: 1.35, top: 0.15, y: 5.1 },
 ];
 
 const clipPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 1).normalize(), 0);
@@ -19,14 +19,14 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, onDou
   const [hovered, setHovered] = useState(false);
   const { reducedMotion, draggedLibraryItem, dragHoveredLevelId, placeObject, setDraggedLibraryItem, touchSelectedItem, setTouchSelectedItem, selectedLevelId, setSelectedLevelId } = useStore();
 
-  const targetY = isExploded ? level.y + (level.id - 1) * 0.8 : level.y;
+  const targetY = isExploded ? level.y + (level.id - 1) * 1.15 : level.y;
   
   const pendingItem = draggedLibraryItem || touchSelectedItem;
   const isValidDrop = !!pendingItem;
   const isDropTargetHovered = isValidDrop && (hovered || dragHoveredLevelId === level.id || !!touchSelectedItem);
   const isSelectedLevel = selectedLevelId === level.id;
 
-  const targetOpacity = !isVisible ? 0 : (!isActive ? 0.1 : (isDropTargetHovered ? 1 : ((hovered || dragHoveredLevelId === level.id) ? 0.9 : (isSelectedLevel ? 0.8 : ((selectedLevelId !== null && !pendingItem) ? 0.3 : 0.6)))));
+  const targetOpacity = !isVisible ? 0.08 : (!isActive ? 0.1 : (isDropTargetHovered ? 1 : ((hovered || dragHoveredLevelId === level.id) ? 0.9 : (isSelectedLevel ? 0.8 : ((selectedLevelId !== null && !pendingItem) ? 0.3 : 0.72)))));
   const isHighlighted = isDropTargetHovered || isSelectedLevel;
   const targetScale = (isHighlighted || (isActive && (hovered || dragHoveredLevelId === level.id))) ? [1.02, 1.02, 1.02] : [1, 1, 1];
 
@@ -89,6 +89,7 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, onDou
   };
 
   const isDataScience = mode === 'data-science';
+  const modeAccent = mode === 'fundamentals-ai' ? '#22d3ee' : mode === 'agentic-ai' ? '#d946ef' : level.edgeColor;
 
   return (
     <a.group position={position as any} scale={scale as any} visible={opacity.to(o => o > 0.01)}>
@@ -100,9 +101,10 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, onDou
         style={{ pointerEvents: 'none', transition: 'opacity 0.2s', opacity: isVisible ? 1 : 0 }}
         zIndexRange={[40, 0]}
       >
-        <div className={`px-2 py-1 rounded bg-black/60 backdrop-blur-sm border ${isSelectedLevel ? 'border-primary text-primary shadow-[0_0_10px_rgba(34,211,238,0.3)]' : 'border-white/10 text-white/60'} text-[10px] sm:text-xs whitespace-nowrap font-bold uppercase tracking-wider`}>
-          L{level.id}: {level.name}
-        </div>
+          <div className={`px-3 py-2 rounded-lg bg-[#071018]/80 backdrop-blur-md border ${isSelectedLevel ? 'border-primary text-primary shadow-[0_0_16px_rgba(34,211,238,0.35)]' : 'border-white/15 text-white/80'} whitespace-nowrap shadow-xl`}>
+            <div className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.18em]">L{level.id} · {level.name}</div>
+            <div className="mt-0.5 text-[9px] font-mono normal-case tracking-normal text-white/45">{level.subtitle}</div>
+          </div>
       </Html>
 
       {/* Invisible Hit Mesh for reliable raycasting and dropping */}
@@ -150,7 +152,7 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, onDou
           thickness={0.5}
           ior={1.5}
           envMapIntensity={isDataScience ? 2 : 1.5}
-          emissive={isHighlighted ? "#22d3ee" : level.edgeColor}
+           emissive={isHighlighted ? "#ffffff" : modeAccent}
           emissiveIntensity={isHighlighted ? 0.8 : (isDataScience ? 0.2 : 0.05)}
           clippingPlanes={isCutaway ? [clipPlane] : []}
           side={isCutaway ? THREE.DoubleSide : THREE.FrontSide}
@@ -160,7 +162,7 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, onDou
         <Edges 
            scale={1} 
            threshold={15} 
-           color={isHighlighted ? "#ffffff" : (isActive ? level.edgeColor : "#334155")} 
+            color={isHighlighted ? "#ffffff" : (isActive ? modeAccent : "#334155")} 
            opacity={isActive ? (isDataScience ? 1 : 0.8) : 0.2} 
            transparent 
         />

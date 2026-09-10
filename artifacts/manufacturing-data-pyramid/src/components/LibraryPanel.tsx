@@ -39,19 +39,22 @@ export function LibraryPanel() {
   if (journeyActive || presentationMode) return null;
 
   return (
-    <div className={`pointer-events-auto absolute left-0 top-24 bottom-[180px] md:bottom-24 w-[calc(100vw-48px)] md:w-80 max-w-[320px] bg-card/95 backdrop-blur-xl border-y border-r border-border rounded-r-lg flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-2xl z-40 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+    <div className={`pointer-events-auto absolute left-4 top-28 bottom-[180px] md:bottom-24 w-[calc(100vw-64px)] md:w-72 max-w-[288px] bg-[#071018]/90 backdrop-blur-2xl border border-white/10 rounded-2xl flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-2xl z-40 ${isOpen ? 'translate-x-0' : '-translate-x-[calc(100%+1rem)]'}`}>
       
       {/* Toggle Tab */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className={`absolute -right-10 top-12 bg-card/95 backdrop-blur-xl border border-l-0 border-border rounded-r-lg w-10 h-28 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:bg-card transition-colors shadow-[4px_0_15px_rgba(0,0,0,0.2)] group`}
+        className={`absolute -right-10 top-12 bg-[#071018]/95 backdrop-blur-xl border border-l-0 border-white/10 rounded-r-lg w-10 h-28 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:bg-card transition-colors shadow-[4px_0_15px_rgba(0,0,0,0.2)] group`}
       >
         <GripVertical size={16} className={`transition-transform ${isOpen ? '' : 'text-primary'}`} />
         <span style={{ writingMode: 'vertical-rl' }} className={`text-[10px] uppercase font-bold tracking-widest ${isOpen ? '' : 'text-primary'}`}>Data</span>
       </button>
 
-      <div className="p-4 border-b border-border flex justify-between items-center bg-card rounded-tr-lg shrink-0">
-        <h2 className="text-sm font-bold tracking-wider text-foreground uppercase">Data Library</h2>
+      <div className="p-4 border-b border-white/10 flex justify-between items-center rounded-t-2xl shrink-0">
+        <div>
+          <div className="text-[9px] font-mono uppercase tracking-[0.22em] text-primary/80">Palette / drag to place</div>
+          <h2 className="text-sm font-bold tracking-wider text-foreground uppercase mt-1">Data Library</h2>
+        </div>
         <button 
           onClick={() => setIsOpen(false)}
           className="md:hidden text-muted-foreground hover:text-foreground p-1 bg-secondary/50 rounded"
@@ -60,11 +63,11 @@ export function LibraryPanel() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin">
         {LIBRARY_ITEMS.map((item, idx) => {
           const isSelected = draggedLibraryItem?.name === item.name || touchSelectedItem?.name === item.name;
           return (
-          <div
+           <div
             key={idx}
             draggable
             onClick={() => {
@@ -79,31 +82,27 @@ export function LibraryPanel() {
               setTouchSelectedItem(null);
             }}
             onDragEnd={() => setDraggedLibraryItem(null)}
-            className={`group flex flex-col p-3 rounded-md border cursor-pointer active:cursor-grabbing transition-all ${
+             className={`group flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer active:cursor-grabbing transition-all ${
               isSelected 
                 ? 'bg-primary/10 border-primary shadow-[0_0_15px_rgba(34,211,238,0.15)]' 
                 : 'bg-secondary/50 border-border hover:border-muted-foreground/50 hover:bg-secondary'
             }`}
           >
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className={`p-1.5 rounded ${CategoryColor(item.category)}`}>
-                  <CategoryIcon category={item.category} className="w-4 h-4" />
-                </div>
-                <span className="text-sm font-semibold text-foreground">{item.name}</span>
-              </div>
-              <span className="text-[10px] uppercase font-mono text-muted-foreground tracking-wider bg-background px-1.5 py-0.5 rounded border border-border">L{item.level}</span>
-            </div>
-            <div className="pl-9 flex gap-2 text-xs text-muted-foreground">
-              <span className="font-mono">{item.type}</span>
-              <span>•</span>
-              <span className="truncate">{item.source}</span>
-            </div>
+             <div className={`shrink-0 p-2 rounded-lg ${CategoryColor(item.category)}`}>
+               <CategoryIcon category={item.category} className="w-5 h-5" />
+             </div>
+             <div className="min-w-0 flex-1">
+               <div className="flex items-center justify-between gap-2">
+                 <span className="text-xs font-semibold text-foreground truncate">{item.name}</span>
+                 <span className="shrink-0 text-[9px] uppercase font-mono text-muted-foreground tracking-wider bg-background/70 px-1.5 py-0.5 rounded border border-border">L{item.level}</span>
+               </div>
+               <div className="mt-1 text-[10px] text-muted-foreground truncate">{item.type} · {item.source}</div>
+             </div>
           </div>
         )})}
       </div>
       
-      <div className="p-4 border-t border-border text-xs text-muted-foreground text-center flex items-center justify-center gap-4 bg-card rounded-br-lg">
+       <div className="p-3 border-t border-white/10 text-[10px] text-muted-foreground text-center flex items-center justify-center gap-3 rounded-b-2xl">
         <span className="flex items-center gap-1.5"><MousePointer2 size={14} /> Drag</span>
         <span className="text-border">|</span>
         <span className="flex items-center gap-1.5"><Touchpad size={14} /> Tap to Select</span>

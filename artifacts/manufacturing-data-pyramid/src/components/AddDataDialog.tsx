@@ -22,8 +22,8 @@ export function AddDataDialog() {
     e.preventDefault();
     
     // Determine random place in level
-    const bases = [3.5, 2.8, 2.1, 1.4, 0.7]; // roughly matching pyramid logic
-    const tops = [2.8, 2.1, 1.4, 0.7, 0];
+    const bases = [5.4, 4.35, 3.35, 2.35, 1.35];
+    const tops = [4.35, 3.35, 2.35, 1.35, 0.15];
     const base = bases[level - 1];
     const top = tops[level - 1];
     

@@ -63,19 +63,33 @@ export interface CourseConfig {
 export const COURSES: Record<CourseMode, CourseConfig> = {
   'data-science': {
     initialObjects: [
-      { id: 'ds-1', name: 'Temperature Sensor', type: 'Signal', source: 'Shop Floor', level: 1, category: 'signal', position: [-1, 0, 1] },
-      { id: 'ds-2', name: 'Historian', type: 'Storage', source: 'SCADA', level: 2, category: 'time-series', position: [-0.6, 0, 0.6] },
-      { id: 'ds-3', name: 'MES Run', type: 'Context', source: 'MES', level: 2, category: 'event', position: [-0.3, 0, 0.3] },
-      { id: 'ds-4', name: 'Quality Result', type: 'Inspection', source: 'LIMS', level: 2, category: 'record', position: [0.3, 0, -0.3] },
-      { id: 'ds-5', name: 'Statistical Analysis', type: 'SPC', source: 'Analytics', level: 4, category: 'insight', position: [0, 0, 0] },
-      { id: 'ds-6', name: 'Management Decision', type: 'Action', source: 'Dashboard', level: 5, category: 'agent', position: [0, 0, 0] }
+      { id: 'ds-1', name: 'CNC Cell', type: 'Machine', source: 'Shop Floor', level: 1, category: 'event', position: [-1.6, 0, 0.9], description: 'The physical process where production signals originate.' },
+      { id: 'ds-2', name: 'Temperature Sensor', type: 'Signal', source: 'Injection Mold', level: 1, category: 'signal', position: [-0.6, 0, 1.25], description: 'Continuous thermal readings from the process.' },
+      { id: 'ds-3', name: 'Vibration Node', type: 'Signal', source: 'CNC Spindle', level: 1, category: 'signal', position: [0.7, 0, 0.95], description: 'High-frequency vibration indicating machine health.' },
+      { id: 'ds-4', name: 'Vision Camera', type: 'Image', source: 'Inspection Cell', level: 1, category: 'model', position: [1.55, 0, 0.25], description: 'Visual inspection captures quality evidence.' },
+      { id: 'ds-5', name: 'Historian', type: 'Storage', source: 'SCADA', level: 2, category: 'time-series', position: [-1.25, 0, 0.65], description: 'Time-series storage preserves the process history.' },
+      { id: 'ds-6', name: 'PLC / SCADA', type: 'State', source: 'Control Layer', level: 2, category: 'event', position: [-0.25, 0, 0.9], description: 'Control states turn raw signals into operating context.' },
+      { id: 'ds-7', name: 'MES Run', type: 'Context', source: 'MES', level: 2, category: 'record', position: [0.65, 0, 0.25], description: 'A production run joins signal history to a batch.' },
+      { id: 'ds-8', name: 'Quality Result', type: 'Inspection', source: 'LIMS', level: 2, category: 'record', position: [0.95, 0, -0.75], description: 'Inspection results expose process variation.' },
+      { id: 'ds-16', name: 'Maintenance Record', type: 'Work Order', source: 'CMMS', level: 2, category: 'document', position: [-0.9, 0, -0.65], description: 'Maintenance history explains the condition behind a signal.' },
+      { id: 'ds-9', name: 'CAD Assembly', type: '3D Geometry', source: 'PLM', level: 3, category: 'document', position: [-0.85, 0, 0.55], description: 'Engineering intent provides the reference geometry.' },
+      { id: 'ds-10', name: 'FEA Simulation', type: 'Stress Model', source: 'CAE', level: 3, category: 'model', position: [0.75, 0, -0.2], description: 'Simulation predicts how the part behaves.' },
+      { id: 'ds-11', name: 'ERP Order', type: 'Production Order', source: 'ERP', level: 4, category: 'record', position: [-0.55, 0, 0.25], description: 'Business demand frames the production decision.' },
+      { id: 'ds-12', name: 'Inventory Signal', type: 'Supply State', source: 'SCM', level: 4, category: 'time-series', position: [0.55, 0, -0.25], description: 'Material availability constrains the plan.' },
+      { id: 'ds-13', name: 'Statistical Analysis', type: 'SPC', source: 'Analytics', level: 4, category: 'insight', position: [0, 0, 0.75], description: 'Models process history to expose drift and risk.' },
+      { id: 'ds-14', name: 'AI Control Tower', type: 'Decision Model', source: 'Operations AI', level: 5, category: 'agent', position: [-0.75, 0, 0.15], description: 'Analytics and context become an operational recommendation.' },
+      { id: 'ds-15', name: 'Management Decision', type: 'Action', source: 'Executive Dashboard', level: 5, category: 'agent', position: [0.75, 0, -0.15], description: 'A decision routes production, maintenance, or quality action.' }
     ],
     relationships: [
-      { id: 'rel-1', sourceId: 'ds-1', targetId: 'ds-2', description: 'Raw temp signals stream to historian' },
-      { id: 'rel-2', sourceId: 'ds-2', targetId: 'ds-3', description: 'Aggregated to MES run context' },
-      { id: 'rel-3', sourceId: 'ds-3', targetId: 'ds-4', description: 'Run correlated to Quality Result' },
-      { id: 'rel-4', sourceId: 'ds-4', targetId: 'ds-5', description: 'Variance feeds statistical analysis' },
-      { id: 'rel-5', sourceId: 'ds-5', targetId: 'ds-6', description: 'Analysis dictates decision' }
+      { id: 'rel-1', sourceId: 'ds-2', targetId: 'ds-5', description: 'Raw temperature signals stream to the historian.' },
+      { id: 'rel-2', sourceId: 'ds-3', targetId: 'ds-6', description: 'Vibration and machine state are contextualised by controls.' },
+      { id: 'rel-3', sourceId: 'ds-5', targetId: 'ds-7', description: 'History is joined to the active MES production run.' },
+      { id: 'rel-4', sourceId: 'ds-7', targetId: 'ds-8', description: 'Run context is correlated with quality inspection.' },
+      { id: 'rel-5', sourceId: 'ds-8', targetId: 'ds-10', description: 'Observed variance is compared with engineering simulation.' },
+      { id: 'rel-6', sourceId: 'ds-10', targetId: 'ds-13', description: 'Engineering knowledge improves statistical analysis.' },
+      { id: 'rel-7', sourceId: 'ds-11', targetId: 'ds-13', description: 'Demand and production context frame the analysis.' },
+      { id: 'rel-8', sourceId: 'ds-13', targetId: 'ds-14', description: 'Analysis produces a ranked operational recommendation.' },
+      { id: 'rel-9', sourceId: 'ds-14', targetId: 'ds-15', description: 'Decision intelligence turns evidence into action.' }
     ],
     journeySteps: [
       { title: "Sources", desc: "Continuous raw signals generated from shop floor sensors.", level: 1 },
