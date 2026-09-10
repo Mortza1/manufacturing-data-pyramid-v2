@@ -8,19 +8,19 @@ import { Html } from '@react-three/drei';
 
 const clipPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 1).normalize(), 0);
 
-function ObjectLabel({ obj, isFocused, isSelected }: { obj: DataObject, isFocused: boolean, isSelected: boolean }) {
-  if (!isFocused && !isSelected) return null;
+function ObjectLabel({ obj, showLabel, isSelected }: { obj: DataObject, showLabel: boolean, isSelected: boolean }) {
+  if (!showLabel && !isSelected) return null;
   
   return (
-    <Html position={[0, 0.4, 0]} center style={{ pointerEvents: 'none' }}>
-      <div className={`px-2 py-1 rounded bg-black/80 backdrop-blur border text-[10px] whitespace-nowrap transition-all ${isSelected ? 'border-primary text-primary font-bold shadow-[0_0_10px_rgba(34,211,238,0.5)]' : 'border-white/20 text-white/80'}`}>
+    <Html position={[0, 0.6, 0]} center style={{ pointerEvents: 'none' }} zIndexRange={[50, 0]}>
+      <div className={`px-2 py-1 rounded bg-black/80 backdrop-blur border text-[10px] whitespace-nowrap transition-all ${isSelected ? 'border-primary text-primary font-bold shadow-[0_0_10px_rgba(34,211,238,0.5)]' : (obj.isUserAdded ? 'border-amber-400/50 text-amber-400/90' : 'border-white/20 text-white/80')}`}>
         {obj.name}
       </div>
     </Html>
   );
 }
 
-function ObjectMesh({ obj, isFocused, isVisible, isExploded, isCutaway, mode }: { obj: DataObject, isFocused: boolean, isVisible: boolean, isExploded: boolean, isCutaway: boolean, mode: string }) {
+function ObjectMesh({ obj, isFocused, isVisible, showLabel, isExploded, isCutaway, mode }: { obj: DataObject, isFocused: boolean, isVisible: boolean, showLabel: boolean, isExploded: boolean, isCutaway: boolean, mode: string }) {
   const meshRef = useRef<THREE.Group>(null);
   const innerRef = useRef<THREE.Mesh>(null);
   const { selectedObjectId, setSelectedObjectId, reducedMotion, setFocusLevel } = useStore();
@@ -52,15 +52,15 @@ function ObjectMesh({ obj, isFocused, isVisible, isExploded, isCutaway, mode }: 
 
   const getGeometry = () => {
     switch (obj.category) {
-      case 'signal': return <sphereGeometry args={[0.12, 32, 32]} />;
-      case 'time-series': return <cylinderGeometry args={[0.12, 0.12, 0.2, 16]} />;
-      case 'event': return <coneGeometry args={[0.15, 0.25, 4]} />;
-      case 'model': return <dodecahedronGeometry args={[0.15]} />;
-      case 'document': return <boxGeometry args={[0.18, 0.05, 0.22]} />;
-      case 'record': return <boxGeometry args={[0.15, 0.15, 0.15]} />;
-      case 'insight': return <octahedronGeometry args={[0.15]} />;
-      case 'agent': return <icosahedronGeometry args={[0.15]} />;
-      default: return <boxGeometry args={[0.15, 0.15, 0.15]} />;
+      case 'signal': return <sphereGeometry args={[0.2, 32, 32]} />;
+      case 'time-series': return <cylinderGeometry args={[0.2, 0.2, 0.35, 16]} />;
+      case 'event': return <coneGeometry args={[0.25, 0.4, 4]} />;
+      case 'model': return <dodecahedronGeometry args={[0.25]} />;
+      case 'document': return <boxGeometry args={[0.3, 0.1, 0.35]} />;
+      case 'record': return <boxGeometry args={[0.25, 0.25, 0.25]} />;
+      case 'insight': return <octahedronGeometry args={[0.25]} />;
+      case 'agent': return <icosahedronGeometry args={[0.25]} />;
+      default: return <boxGeometry args={[0.25, 0.25, 0.25]} />;
     }
   };
 
@@ -123,12 +123,12 @@ function ObjectMesh({ obj, isFocused, isVisible, isExploded, isCutaway, mode }: 
       {/* Outer subtle glow sphere when selected */}
       {isSelected && !reducedMotion && (
         <mesh>
-          <sphereGeometry args={[0.22, 16, 16]} />
+          <sphereGeometry args={[0.35, 16, 16]} />
           <a.meshBasicMaterial color={getColor()} transparent opacity={opacity.to(o => o * 0.2)} depthWrite={false} clippingPlanes={isCutaway ? [clipPlane] : []} />
         </mesh>
       )}
 
-      {isVisible && <ObjectLabel obj={obj} isFocused={isFocused} isSelected={isSelected} />}
+      {isVisible && <ObjectLabel obj={obj} showLabel={showLabel} isSelected={isSelected} />}
     </a.group>
   );
 }
@@ -144,6 +144,7 @@ export function PlacedObjects() {
           obj={obj}
           isFocused={focusLevel === null || focusLevel === obj.level}
           isVisible={isolateLevel === null || isolateLevel === obj.level}
+          showLabel={focusLevel === obj.level || isolateLevel === obj.level || !!obj.isUserAdded}
           isExploded={exploded}
           isCutaway={cutaway}
           mode={courseMode}

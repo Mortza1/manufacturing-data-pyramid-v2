@@ -85,7 +85,7 @@ function CameraRig({ isInteracting }: { isInteracting: boolean }) {
 
 function DropHandler() {
   const { draggedLibraryItem, placeObject, setDraggedLibraryItem, setDragHoveredLevelId } = useStore();
-  const { camera, raycaster, scene } = useThree();
+  const { camera, raycaster, scene, gl } = useThree();
 
   React.useEffect(() => {
     let lastLevelId: number | null = null;
@@ -95,7 +95,7 @@ function DropHandler() {
       if (!draggedLibraryItem) return;
       e.dataTransfer!.dropEffect = 'copy';
       
-      const rect = (e.target as HTMLElement).getBoundingClientRect();
+      const rect = gl.domElement.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -121,7 +121,7 @@ function DropHandler() {
       e.preventDefault();
       if (!draggedLibraryItem) return;
 
-      const rect = (e.target as HTMLElement).getBoundingClientRect();
+      const rect = gl.domElement.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -130,9 +130,9 @@ function DropHandler() {
       
       for (let i = 0; i < intersects.length; i++) {
         const obj = intersects[i].object;
-        if (obj.userData && obj.userData.levelId === draggedLibraryItem.level) {
+        if (obj.userData && obj.userData.levelId) {
           const pt = intersects[i].point;
-          placeObject(draggedLibraryItem, [pt.x, 0, pt.z], draggedLibraryItem.level);
+          placeObject(draggedLibraryItem, [pt.x, 0, pt.z], obj.userData.levelId);
           break;
         }
       }
@@ -146,21 +146,16 @@ function DropHandler() {
       lastLevelId = null;
     };
 
-    const canvas = document.querySelector('canvas');
-    if (canvas) {
-      canvas.addEventListener('dragover', handleDragOver);
-      canvas.addEventListener('drop', handleDrop);
-      canvas.addEventListener('dragleave', handleDragLeave);
-    }
+    gl.domElement.addEventListener('dragover', handleDragOver);
+    gl.domElement.addEventListener('drop', handleDrop);
+    gl.domElement.addEventListener('dragleave', handleDragLeave);
     
     return () => {
-      if (canvas) {
-        canvas.removeEventListener('dragover', handleDragOver);
-        canvas.removeEventListener('drop', handleDrop);
-        canvas.removeEventListener('dragleave', handleDragLeave);
-      }
+      gl.domElement.removeEventListener('dragover', handleDragOver);
+      gl.domElement.removeEventListener('drop', handleDrop);
+      gl.domElement.removeEventListener('dragleave', handleDragLeave);
     };
-  }, [camera, raycaster, scene, draggedLibraryItem, placeObject, setDraggedLibraryItem, setDragHoveredLevelId]);
+  }, [gl, camera, raycaster, scene, draggedLibraryItem, placeObject, setDraggedLibraryItem, setDragHoveredLevelId]);
 
   return null;
 }
@@ -168,6 +163,7 @@ function DropHandler() {
 export function PyramidScene() {
   const { focusLevel, isolateLevel, selectedObjectId, reducedMotion, courseMode, cutaway, presentationMode, journeyActive } = useStore();
   const controlsRef = useRef<any>(null);
+  const [userInteracted, setUserInteracted] = React.useState(false);
   
   const hasWebGL = useMemo(() => isWebGLAvailable(), []);
 
@@ -251,7 +247,8 @@ export function PyramidScene() {
       <OrbitControls
         ref={controlsRef}
         makeDefault
-        autoRotate={!isInteracting && !reducedMotion}
+        onStart={() => setUserInteracted(true)}
+        autoRotate={!isInteracting && !reducedMotion && !userInteracted}
         autoRotateSpeed={0.3}
         enablePan={!journeyActive}
         enableZoom={!journeyActive}

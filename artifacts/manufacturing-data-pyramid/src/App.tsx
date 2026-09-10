@@ -20,43 +20,34 @@ const queryClient = new QueryClient();
 
 function Home() {
   return (
-    <div className="min-h-[100dvh] w-full relative bg-background text-foreground font-sans overflow-hidden">
+    <div className="h-[100dvh] w-full relative bg-background text-foreground font-sans overflow-hidden">
       {/* 3D Background */}
       <div className="absolute inset-0 z-0">
         <PyramidScene />
       </div>
 
       {/* UI Overlay */}
-      <div className="relative z-10 pointer-events-none h-full">
+      <div className="absolute inset-0 z-10 pointer-events-none">
         
         {/* Header */}
-        <header className="absolute top-6 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto">
-          <h1 className="text-xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-br from-white via-white to-white/40 bg-clip-text text-transparent text-center drop-shadow-sm">
+        <header className="absolute top-4 md:top-6 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto z-20 w-full px-4">
+          <h1 className="text-xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-br from-white via-white to-white/40 bg-clip-text text-transparent text-center drop-shadow-sm whitespace-nowrap">
             Manufacturing Data Pyramid
           </h1>
-          <p className="text-[10px] md:text-xs text-primary uppercase font-mono tracking-[0.2em] mt-2">
+          <p className="text-[10px] md:text-xs text-primary uppercase font-mono tracking-[0.2em] mt-1 md:mt-2 whitespace-nowrap">
             Data to Decision Intelligence
           </p>
         </header>
 
         {/* Floating Add Data button & dialog */}
-        <div className="pointer-events-auto">
+        <div className="absolute top-6 right-4 md:right-8 pointer-events-auto z-30">
           <AddDataDialog />
         </div>
 
-        {/* Panels */}
-        <div className="pointer-events-auto">
-          <LibraryPanel />
-        </div>
-
-        <div className="pointer-events-auto">
-          <ContextCard />
-        </div>
-
-        {/* Controls */}
-        <div className="pointer-events-auto">
-          <Controls />
-        </div>
+        {/* Panels and Controls */}
+        <LibraryPanel />
+        <ContextCard />
+        <Controls />
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ export interface AppState {
   
   focusLevel: number | null;
   isolateLevel: number | null;
+  selectedLevelId: number | null;
   exploded: boolean;
   cutaway: boolean;
   showRelationships: boolean;
@@ -32,6 +33,7 @@ export interface AppState {
   setPresentationMode: (active: boolean) => void;
   setFocusLevel: (level: number | null) => void;
   setIsolateLevel: (level: number | null) => void;
+  setSelectedLevelId: (level: number | null) => void;
   setExploded: (exploded: boolean) => void;
   setCutaway: (cutaway: boolean) => void;
   setShowRelationships: (show: boolean) => void;
@@ -57,6 +59,7 @@ export const useStore = create<AppState>()(
       
       focusLevel: null,
       isolateLevel: null,
+      selectedLevelId: null,
       exploded: false,
       cutaway: false,
       showRelationships: false,
@@ -76,26 +79,28 @@ export const useStore = create<AppState>()(
         journeyPlaying: false,
         selectedObjectId: null,
         selectedRelationshipId: null,
+        selectedLevelId: null,
         placedObjects: COURSES[mode].initialObjects 
       }),
       setJourneyActive: (active) => set({ journeyActive: active, journeyStep: 0, journeyPlaying: active }),
       setJourneyStep: (step) => set({ journeyStep: step }),
       setJourneyPlaying: (playing) => set({ journeyPlaying: playing }),
       setPresentationMode: (active) => set({ presentationMode: active }),
-      setFocusLevel: (level) => set({ focusLevel: level }),
+      setFocusLevel: (level) => set({ focusLevel: level, selectedLevelId: level }),
       setIsolateLevel: (level) => set({ isolateLevel: level }),
+      setSelectedLevelId: (level) => set({ selectedLevelId: level }),
       setExploded: (exploded) => set({ exploded }),
       setCutaway: (cutaway) => set({ cutaway }),
       setShowRelationships: (showRelationships) => set({ showRelationships }),
       setReducedMotion: (reducedMotion) => set({ reducedMotion }),
-      setSelectedObjectId: (id) => set({ selectedObjectId: id, selectedRelationshipId: null }),
-      setSelectedRelationshipId: (id) => set({ selectedRelationshipId: id, selectedObjectId: null }),
+      setSelectedObjectId: (id) => set({ selectedObjectId: id, selectedRelationshipId: null, selectedLevelId: null }),
+      setSelectedRelationshipId: (id) => set({ selectedRelationshipId: id, selectedObjectId: null, selectedLevelId: null }),
       setDraggedLibraryItem: (item) => set({ draggedLibraryItem: item }),
       setDragHoveredLevelId: (level) => set({ dragHoveredLevelId: level }),
       setTouchSelectedItem: (item) => set({ touchSelectedItem: item }),
       
       placeObject: (item, position, level) => set((state) => ({
-        placedObjects: [...state.placedObjects, { ...item, id: uuidv4(), position, level }]
+        placedObjects: [...state.placedObjects, { ...item, id: uuidv4(), position, level, isUserAdded: true }]
       })),
       
       removeObject: (id) => set((state) => ({
@@ -109,6 +114,7 @@ export const useStore = create<AppState>()(
         journeyPlaying: false,
         focusLevel: null,
         isolateLevel: null,
+        selectedLevelId: null,
         exploded: false,
         cutaway: false,
         showRelationships: false,

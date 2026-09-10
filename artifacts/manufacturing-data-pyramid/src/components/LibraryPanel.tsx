@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { DataCategory } from '../data';
 import { LIBRARY_ITEMS } from '../data';
-import { GripVertical, Activity, Clock, FileText, Database, Brain, ArrowRight, Zap, Target, MousePointer2, Touchpad } from 'lucide-react';
+import { GripVertical, Activity, Clock, FileText, Database, Brain, ArrowRight, Zap, Target, MousePointer2, Touchpad, X } from 'lucide-react';
 
 const CategoryIcon = ({ category, className }: { category: DataCategory, className?: string }) => {
   switch (category) {
@@ -34,26 +34,33 @@ const CategoryColor = (category: DataCategory) => {
 
 export function LibraryPanel() {
   const { draggedLibraryItem, setDraggedLibraryItem, touchSelectedItem, setTouchSelectedItem, journeyActive, presentationMode } = useStore();
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
 
   if (journeyActive || presentationMode) return null;
 
   return (
-    <div className={`absolute left-0 top-24 bottom-32 md:bottom-24 w-80 max-w-[85vw] bg-card/90 backdrop-blur-xl border-y border-r border-border rounded-r-lg flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] z-10 ${isOpen ? 'translate-x-0' : '-translate-x-[calc(100%-2rem)]'}`}>
+    <div className={`pointer-events-auto absolute left-0 top-24 bottom-[180px] md:bottom-24 w-[calc(100vw-48px)] md:w-80 max-w-[320px] bg-card/95 backdrop-blur-xl border-y border-r border-border rounded-r-lg flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-2xl z-40 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       
       {/* Toggle Tab */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="absolute -right-10 top-1/2 -translate-y-1/2 bg-card/90 backdrop-blur-xl border border-l-0 border-border rounded-r-lg w-10 h-16 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors shadow-xl"
+        className={`absolute -right-10 top-12 bg-card/95 backdrop-blur-xl border border-l-0 border-border rounded-r-lg w-10 h-28 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:bg-card transition-colors shadow-[4px_0_15px_rgba(0,0,0,0.2)] group`}
       >
-        <GripVertical size={20} />
+        <GripVertical size={16} className={`transition-transform ${isOpen ? '' : 'text-primary'}`} />
+        <span style={{ writingMode: 'vertical-rl' }} className={`text-[10px] uppercase font-bold tracking-widest ${isOpen ? '' : 'text-primary'}`}>Data</span>
       </button>
 
-      <div className="p-4 border-b border-border flex justify-between items-center bg-card rounded-tr-lg">
+      <div className="p-4 border-b border-border flex justify-between items-center bg-card rounded-tr-lg shrink-0">
         <h2 className="text-sm font-bold tracking-wider text-foreground uppercase">Data Library</h2>
+        <button 
+          onClick={() => setIsOpen(false)}
+          className="md:hidden text-muted-foreground hover:text-foreground p-1 bg-secondary/50 rounded"
+        >
+          <X size={16} />
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
         {LIBRARY_ITEMS.map((item, idx) => {
           const isSelected = draggedLibraryItem?.name === item.name || touchSelectedItem?.name === item.name;
           return (

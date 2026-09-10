@@ -10,7 +10,16 @@ export interface DataObject {
   description?: string;
   category: DataCategory;
   position?: [number, number, number];
+  isUserAdded?: boolean;
 }
+
+export const LEVEL_CONTEXTS: Record<number, { name: string; purpose: string; examples: string }> = {
+  1: { name: 'Shop-Floor Signals', purpose: 'Raw high-frequency data generation and device states.', examples: 'Sensors, PLCs, Actuators, Vision Cameras' },
+  2: { name: 'Operational Context', purpose: 'State mapping, batch context, and aggregation.', examples: 'MES, SCADA, Historians, LIMS' },
+  3: { name: 'Engineering Knowledge', purpose: 'Design intent, physical geometry, and simulation.', examples: 'PLM, CAD, CAM, Simulation (FEA/CFD)' },
+  4: { name: 'Enterprise Information', purpose: 'Business logic, financial tracking, and supply chain.', examples: 'ERP, SCM, CMMS, CRM' },
+  5: { name: 'Decision Intelligence', purpose: 'Autonomous agents, prescriptive actions, and orchestration.', examples: 'Control Towers, Agentic Orchestrators, AI Planners' }
+};
 
 export type CourseMode = 'data-science' | 'fundamentals-ai' | 'agentic-ai';
 
