@@ -1,0 +1,89 @@
+import React, { useMemo } from 'react';
+import { useStore } from '../store';
+import { Line } from '@react-three/drei';
+import * as THREE from 'three';
+import { COURSES } from '../data';
+
+export function Connections() {
+  const { placedObjects, showRelationships, exploded, journeyActive, courseMode, selectedRelationshipId, setSelectedRelationshipId, isolateLevel } = useStore();
+
+  const isDataScience = courseMode === 'data-science';
+
+  const lines = useMemo(() => {
+    if (!showRelationships && !journeyActive) return [];
+
+    const connections: { rel: any, start: THREE.Vector3, end: THREE.Vector3 }[] = [];
+    
+    // Create a lookup for positions
+    const objMap = new Map(placedObjects.map(obj => [obj.id, obj]));
+
+    // Only draw specific modeled relationships for the current course
+    COURSES[courseMode].relationships.forEach(rel => {
+      const source = objMap.get(rel.sourceId);
+      const target = objMap.get(rel.targetId);
+      
+      // Handle isolate level logic: if isolateLevel is set, both source and target must be visible.
+      // Or at least one? Usually if level is isolated, we hide relationships across levels to keep it clean.
+      if (isolateLevel !== null && (source?.level !== isolateLevel || target?.level !== isolateLevel)) {
+        return; 
+      }
+
+      if (source && target && source.position && target.position) {
+         const sY = exploded ? (source.level - 0.5) + (source.level - 1) * 0.8 : (source.level - 0.5);
+         const tY = exploded ? (target.level - 0.5) + (target.level - 1) * 0.8 : (target.level - 0.5);
+         
+         connections.push({
+            rel,
+            start: new THREE.Vector3(source.position[0], sY, source.position[2]),
+            end: new THREE.Vector3(target.position[0], tY, target.position[2])
+         });
+      }
+    });
+
+    return connections;
+  }, [placedObjects, showRelationships, exploded, journeyActive, courseMode, isolateLevel]);
+
+  if (!showRelationships && !journeyActive) return null;
+
+  const baseColor = isDataScience ? "#22d3ee" : "#3b82f6";
+  const selectColor = "#ffffff";
+
+  return (
+    <group position={[0, -2.5, 0]}>
+      {lines.map((line, idx) => {
+        const isSelected = selectedRelationshipId === line.rel.id;
+        return (
+          <group key={idx}>
+            <Line
+              points={[line.start, line.end]}
+              color={isSelected ? selectColor : baseColor}
+              lineWidth={isSelected ? 6 : (isDataScience ? 4 : 2)}
+              dashed={true}
+              dashSize={0.2}
+              dashScale={0.1}
+              opacity={isSelected ? 1 : 0.8}
+              transparent
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedRelationshipId(line.rel.id);
+              }}
+            />
+            {/* Invisible thicker line for easier raycasting / clicking */}
+            <Line
+              points={[line.start, line.end]}
+              color="#000"
+              lineWidth={20}
+              opacity={0}
+              transparent
+              depthWrite={false}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedRelationshipId(line.rel.id);
+              }}
+            />
+          </group>
+        );
+      })}
+    </group>
+  );
+}

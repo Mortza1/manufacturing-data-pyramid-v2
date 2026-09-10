@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Manufacturing Data Pyramid"
+description = "A professional browser-based 3D educational experience for manufacturing training. Participants explore a layered manufacturing data pyramid, place and connect data objects, follow guided data journeys, and switch between Data Science, AI Fundamentals, and Agentic AI course overlays."
+version = "1.0.0"
+id = "artifacts/manufacturing-data-pyramid"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20670
+
+[services.development]
+run = "pnpm --filter @workspace/manufacturing-data-pyramid run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/manufacturing-data-pyramid", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/manufacturing-data-pyramid/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20670"
+BASE_PATH = "/"
