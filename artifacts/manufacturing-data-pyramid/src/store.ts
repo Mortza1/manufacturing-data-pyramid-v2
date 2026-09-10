@@ -16,6 +16,9 @@ export interface AppState {
   exploded: boolean;
   cutaway: boolean;
   showRelationships: boolean;
+  showLevelLabels: boolean;
+  pyramidOpacity: number;
+  sectionLevel: number | null;
   reducedMotion: boolean;
   
   selectedObjectId: string | null;
@@ -38,6 +41,9 @@ export interface AppState {
   setExploded: (exploded: boolean) => void;
   setCutaway: (cutaway: boolean) => void;
   setShowRelationships: (show: boolean) => void;
+  setShowLevelLabels: (show: boolean) => void;
+  setPyramidOpacity: (opacity: number) => void;
+  setSectionLevel: (level: number | null) => void;
   setReducedMotion: (reduced: boolean) => void;
   setSelectedObjectId: (id: string | null) => void;
   setSelectedRelationshipId: (id: string | null) => void;
@@ -65,6 +71,9 @@ export const useStore = create<AppState>()(
       exploded: false,
       cutaway: false,
       showRelationships: false,
+      showLevelLabels: true,
+      pyramidOpacity: 0.72,
+      sectionLevel: 3,
       reducedMotion: false,
       
       selectedObjectId: null,
@@ -91,10 +100,13 @@ export const useStore = create<AppState>()(
       setPresentationMode: (active) => set({ presentationMode: active }),
       setFocusLevel: (level) => set({ focusLevel: level, selectedLevelId: level }),
       setIsolateLevel: (level) => set({ isolateLevel: level }),
-      setSelectedLevelId: (level) => set({ selectedLevelId: level }),
+      setSelectedLevelId: (level) => set({ selectedLevelId: level, selectedObjectId: null, selectedRelationshipId: null }),
       setExploded: (exploded) => set({ exploded }),
       setCutaway: (cutaway) => set({ cutaway }),
       setShowRelationships: (showRelationships) => set({ showRelationships }),
+      setShowLevelLabels: (showLevelLabels) => set({ showLevelLabels }),
+      setPyramidOpacity: (pyramidOpacity) => set({ pyramidOpacity: Math.min(1, Math.max(0.18, pyramidOpacity)) }),
+      setSectionLevel: (sectionLevel) => set({ sectionLevel }),
       setReducedMotion: (reducedMotion) => set({ reducedMotion }),
       setSelectedObjectId: (id) => set({ selectedObjectId: id, selectedRelationshipId: null, selectedLevelId: null }),
       setSelectedRelationshipId: (id) => set({ selectedRelationshipId: id, selectedObjectId: null, selectedLevelId: null }),
@@ -121,6 +133,7 @@ export const useStore = create<AppState>()(
         selectedLevelId: null,
         exploded: false,
         cutaway: false,
+        sectionLevel: 3,
         showRelationships: false,
         selectedObjectId: null,
         selectedRelationshipId: null,
@@ -147,7 +160,10 @@ export const useStore = create<AppState>()(
         courseMode: state.courseMode,
         placedObjects: state.placedObjects, 
         reducedMotion: state.reducedMotion, 
-        presentationMode: state.presentationMode 
+        presentationMode: state.presentationMode,
+        showLevelLabels: state.showLevelLabels,
+        pyramidOpacity: state.pyramidOpacity,
+        sectionLevel: state.sectionLevel
       }),
     }
   )

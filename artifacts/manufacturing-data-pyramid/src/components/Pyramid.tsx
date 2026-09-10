@@ -1,5 +1,6 @@
 import React, { useRef, useMemo, useState } from 'react';
 import { useStore } from '../store';
+import { COURSES } from '../data';
 import { useSpring, a } from '@react-spring/three';
 import * as THREE from 'three';
 import { Edges, Html } from '@react-three/drei';
@@ -12,12 +13,15 @@ const LEVELS = [
   { id: 5, name: 'Decisions', subtitle: 'Act with intelligence', color: '#0b5364', edgeColor: '#67e8f9', height: 1.05, base: 1.35, top: 0.15, y: 5.1 },
 ];
 
-const clipPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 1).normalize(), 0);
-
-function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, onDoubleClick, onPointerDown, onPointerOver, onPointerOut, mode }: any) {
+function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, sectionLevel, showLabels, surfaceOpacity, onDoubleClick, onPointerDown, onPointerOver, onPointerOut, mode }: any) {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const { reducedMotion, draggedLibraryItem, dragHoveredLevelId, placeObject, setDraggedLibraryItem, touchSelectedItem, setTouchSelectedItem, selectedLevelId, setSelectedLevelId } = useStore();
+  const sectionClipPlane = useMemo(() => {
+    const plane = new THREE.Plane(new THREE.Vector3(-1, 0, 1).normalize(), 0);
+    plane.constant = ((sectionLevel ?? 3) - 3) * 0.75;
+    return plane;
+  }, [sectionLevel]);
 
   const targetY = isExploded ? level.y + (level.id - 1) * 1.15 : level.y;
   
@@ -98,7 +102,7 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, onDou
       <Html 
         position={[(level.base + level.top) / 2 * 0.9, 0, (level.base + level.top) / 2 * 0.9]} 
         center 
-        style={{ pointerEvents: 'none', transition: 'opacity 0.2s', opacity: isVisible ? 1 : 0 }}
+        style={{ pointerEvents: 'none', transition: 'opacity 0.2s', opacity: isVisible && showLabels ? 1 : 0 }}
         zIndexRange={[40, 0]}
       >
           <div className={`px-3 py-2 rounded-lg bg-[#071018]/80 backdrop-blur-md border ${isSelectedLevel ? 'border-primary text-primary shadow-[0_0_16px_rgba(34,211,238,0.35)]' : 'border-white/15 text-white/80'} whitespace-nowrap shadow-xl`}>
@@ -126,10 +130,10 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, onDou
               color={level.color} 
               roughness={0.7} 
               metalness={0.2}
-              clippingPlanes={[clipPlane]}
+              clippingPlanes={[sectionClipPlane]}
               side={THREE.DoubleSide}
               transparent
-              opacity={opacity}
+              opacity={opacity.to((value) => value * surfaceOpacity)}
            />
          </mesh>
       )}
@@ -145,7 +149,7 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, onDou
         <a.meshPhysicalMaterial
           color={isHighlighted ? "#22d3ee" : level.color}
           transparent
-          opacity={opacity}
+          opacity={opacity.to((value) => value * surfaceOpacity)}
           transmission={isDataScience ? 0.9 : 0.6}
           roughness={isDataScience ? 0.1 : 0.3}
           metalness={isDataScience ? 0.5 : 0.8}
@@ -154,7 +158,7 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, onDou
           envMapIntensity={isDataScience ? 2 : 1.5}
            emissive={isHighlighted ? "#ffffff" : modeAccent}
           emissiveIntensity={isHighlighted ? 0.8 : (isDataScience ? 0.2 : 0.05)}
-          clippingPlanes={isCutaway ? [clipPlane] : []}
+          clippingPlanes={isCutaway ? [sectionClipPlane] : []}
           side={isCutaway ? THREE.DoubleSide : THREE.FrontSide}
         />
         
@@ -172,13 +176,18 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, onDou
 }
 
 export function Pyramid() {
-  const { focusLevel, isolateLevel, setFocusLevel, exploded, cutaway, courseMode } = useStore();
+  const { focusLevel, isolateLevel, setFocusLevel, exploded, cutaway, sectionLevel, showLevelLabels, pyramidOpacity, courseMode, journeyActive, journeyStep } = useStore();
   const [hoveredLevel, setHoveredLevel] = useState<number | null>(null);
+  const journeyLevel = journeyActive
+    ? COURSES[courseMode].journeySteps[Math.min(journeyStep, COURSES[courseMode].journeySteps.length - 1)]?.level ?? null
+    : null;
   
   return (
     <group position={[0, -2.5, 0]}>
       {LEVELS.map((level) => {
-        const isActive = focusLevel === null || focusLevel === level.id;
+        const isActive = focusLevel === null
+          ? journeyLevel === null || journeyLevel === level.id
+          : focusLevel === level.id;
         const isVisible = isolateLevel === null || isolateLevel === level.id;
         return (
           <PyramidLevel
@@ -188,6 +197,9 @@ export function Pyramid() {
             isVisible={isVisible}
             isExploded={exploded}
             isCutaway={cutaway}
+            sectionLevel={sectionLevel}
+            showLabels={showLevelLabels}
+            surfaceOpacity={pyramidOpacity}
             mode={courseMode}
             onPointerDown={() => {}} // Could be used to click to select if we want
             onDoubleClick={() => setFocusLevel(focusLevel === level.id ? null : level.id)}

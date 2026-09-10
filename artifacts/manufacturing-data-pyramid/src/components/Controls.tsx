@@ -11,7 +11,10 @@ export function Controls() {
     journeyPlaying, setJourneyPlaying,
     exploded, setExploded, 
     cutaway, setCutaway,
+    sectionLevel, setSectionLevel,
     showRelationships, setShowRelationships,
+    showLevelLabels, setShowLevelLabels,
+    pyramidOpacity, setPyramidOpacity,
     focusLevel, setFocusLevel,
     isolateLevel, setIsolateLevel,
     presentationMode, setPresentationMode,
@@ -20,6 +23,10 @@ export function Controls() {
   const journeySteps = COURSES[courseMode].journeySteps;
   const lastJourneyStep = Math.max(0, journeySteps.length - 1);
   const currentJourneyStep = Math.min(Math.max(journeyStep, 0), lastJourneyStep);
+  const toggleSection = () => {
+    if (!cutaway) setSectionLevel(sectionLevel ?? 3);
+    setCutaway(!cutaway);
+  };
 
   // Journey interval effect
   useEffect(() => {
@@ -112,7 +119,10 @@ export function Controls() {
         ))}
         <span className="mx-1 h-5 w-px bg-white/15" />
         <button onClick={() => setExploded(!exploded)} className="rounded-full px-2.5 py-2 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">{exploded ? 'Assemble' : 'Explode'}</button>
-        <button onClick={() => setCutaway(!cutaway)} className={`rounded-full px-2.5 py-2 text-[10px] font-semibold ${cutaway ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}>Section</button>
+         <button onClick={toggleSection} className={`rounded-full px-2.5 py-2 text-[10px] font-semibold ${cutaway ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}>Section</button>
+         {cutaway && [1, 2, 3, 4, 5].map(level => (
+           <button key={level} onClick={() => setSectionLevel(level)} className={`h-7 w-7 rounded-full text-[10px] font-mono ${sectionLevel === level ? 'bg-primary text-primary-foreground' : 'bg-white/10 text-muted-foreground hover:text-foreground'}`}>{level}</button>
+         ))}
         <button onClick={() => setShowRelationships(!showRelationships)} className={`rounded-full px-2.5 py-2 text-[10px] font-semibold ${showRelationships ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}>Connect</button>
         <div className="flex items-center gap-1">
           {[1, 2, 3, 4, 5].map(lvl => <button key={lvl} onClick={() => setFocusLevel(focusLevel === lvl ? null : lvl)} className={`h-7 w-7 rounded-full text-[10px] font-mono ${focusLevel === lvl ? 'bg-foreground text-background' : 'bg-white/10 text-muted-foreground hover:text-foreground'}`}>{lvl}</button>)}
@@ -154,7 +164,7 @@ export function Controls() {
           </button>
 
           <button
-            onClick={() => setCutaway(!cutaway)}
+             onClick={toggleSection}
             className={`flex flex-col items-center justify-center flex-1 md:flex-none min-w-[3.5rem] md:min-w-[4rem] h-12 md:h-14 rounded-md transition-colors ${cutaway ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
           >
             <BoxSelect size={20} className="mb-0.5" />
@@ -235,6 +245,42 @@ export function Controls() {
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="pointer-events-auto flex max-w-[96vw] flex-wrap items-center justify-center gap-2 rounded-lg border border-border bg-card/90 px-2 py-1.5 shadow-xl backdrop-blur-xl">
+        <button
+          onClick={() => setShowLevelLabels(!showLevelLabels)}
+          className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold transition-colors ${showLevelLabels ? 'text-primary hover:bg-primary/10' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'}`}
+          aria-label={showLevelLabels ? 'Hide pyramid level labels' : 'Show pyramid level labels'}
+        >
+          {showLevelLabels ? <Eye size={13} /> : <EyeOff size={13} />}
+          Labels
+        </button>
+        <span className="h-5 w-px bg-border" />
+        <label className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground" title="Pyramid surface opacity">
+          <SlidersHorizontal size={13} />
+          Surface
+          <input
+            aria-label="Pyramid surface opacity"
+            type="range"
+            min="0.18"
+            max="1"
+            step="0.01"
+            value={pyramidOpacity}
+            onChange={(event) => setPyramidOpacity(Number(event.target.value))}
+            className="h-1 w-20 accent-cyan-400"
+          />
+          <span className="w-7 text-right font-mono text-[9px]">{Math.round(pyramidOpacity * 100)}%</span>
+        </label>
+        {cutaway && (
+          <>
+            <span className="h-5 w-px bg-border" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Section</span>
+            {[1, 2, 3, 4, 5].map(level => (
+              <button key={level} onClick={() => setSectionLevel(level)} className={`h-6 w-6 rounded text-[10px] font-mono ${sectionLevel === level ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>{level}</button>
+            ))}
+          </>
+        )}
       </div>
 
       {/* Presentation Mode Toggle */}

@@ -55,10 +55,10 @@ export function AddDataDialog() {
   }
 
   return (
-    <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="add-data-title">
       <div className="bg-card border border-border w-full max-w-lg rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between p-4 border-b border-border bg-muted/50 rounded-t-xl">
-          <h2 className="text-lg font-bold text-foreground">Add Custom Data</h2>
+          <h2 id="add-data-title" className="text-lg font-bold text-foreground">Add Custom Data</h2>
           <button onClick={() => setIsOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-white/10">
             <X size={20} />
           </button>
@@ -116,7 +116,7 @@ export function AddDataDialog() {
               <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-background border border-border rounded p-2.5 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none h-20 transition-all" />
             </div>
 
-            <div className="pt-4 border-t border-border flex justify-end gap-3">
+            <div className="pt-4 border-t border-border flex justify-end gap-3 sticky bottom-0 bg-card/95 backdrop-blur-sm">
               <button type="button" onClick={() => setIsOpen(false)} className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary rounded transition-colors">
                 Cancel
               </button>

@@ -5,9 +5,7 @@ import * as THREE from 'three';
 import { useStore } from '../store';
 import { DataObject } from '../data';
 import { COURSES } from '../data';
-import { Html } from '@react-three/drei';
-
-const clipPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 1).normalize(), 0);
+import { Html, Line } from '@react-three/drei';
 
 function ObjectLabel({ obj, showLabel, isSelected }: { obj: DataObject, showLabel: boolean, isSelected: boolean }) {
   if (!showLabel && !isSelected) return null;
@@ -31,7 +29,7 @@ function GlyphMaterial({ color, opacity, isSelected, isDataScience, isCutaway }:
       emissiveIntensity={isSelected ? 1.15 : 0.22}
       transparent
       opacity={opacity}
-      clippingPlanes={isCutaway ? [clipPlane] : []}
+      clippingPlanes={[]}
       toneMapped={false}
     />
   );
@@ -237,7 +235,7 @@ function ObjectMesh({ obj, isFocused, isRelated, isVisible, showLabel, isExplode
       {isSelected && !reducedMotion && (
         <mesh>
           <sphereGeometry args={[0.35, 16, 16]} />
-          <a.meshBasicMaterial color={getColor()} transparent opacity={opacity.to(o => o * 0.2)} depthWrite={false} clippingPlanes={isCutaway ? [clipPlane] : []} />
+           <a.meshBasicMaterial color={getColor()} transparent opacity={opacity.to(o => o * 0.2)} depthWrite={false} />
         </mesh>
       )}
 
@@ -247,24 +245,148 @@ function ObjectMesh({ obj, isFocused, isRelated, isVisible, showLabel, isExplode
 }
 
 export function PlacedObjects() {
-  const { placedObjects, focusLevel, isolateLevel, exploded, cutaway, courseMode, selectedObjectId } = useStore();
+  const { placedObjects, focusLevel, isolateLevel, exploded, cutaway, courseMode, selectedObjectId, selectedLevelId, journeyActive, journeyStep } = useStore();
   const relationships = COURSES[courseMode].relationships;
+  const journeyLevel = journeyActive
+    ? COURSES[courseMode].journeySteps[Math.min(journeyStep, COURSES[courseMode].journeySteps.length - 1)]?.level ?? null
+    : null;
 
   return (
     <group position={[0, -2.5, 0]}>
       {placedObjects.map((obj) => (
+        <React.Fragment key={obj.id}>
         <ObjectMesh
           key={obj.id}
           obj={obj}
-          isFocused={focusLevel === null || focusLevel === obj.level}
+          isFocused={focusLevel === null && (journeyLevel === null || journeyLevel === obj.level) || focusLevel === obj.level}
           isRelated={!!selectedObjectId && relationships.some((rel) => (rel.sourceId === selectedObjectId || rel.targetId === selectedObjectId) && (rel.sourceId === obj.id || rel.targetId === obj.id))}
           isVisible={isolateLevel === null || isolateLevel === obj.level}
-          showLabel={focusLevel === obj.level || isolateLevel === obj.level || !!obj.isUserAdded || obj.id === 'ds-2' || obj.id === 'ds-15'}
+          showLabel={focusLevel === obj.level || isolateLevel === obj.level || journeyLevel === obj.level || !!obj.isUserAdded || obj.id === 'ds-2' || obj.id === 'ds-15'}
           isExploded={exploded}
           isCutaway={cutaway}
           mode={courseMode}
         />
+        {exploded && <LevelAnchor obj={obj} />}
+        </React.Fragment>
       ))}
+      <LevelDataFan placedObjects={placedObjects} selectedLevelId={selectedLevelId} selectedObjectId={selectedObjectId} />
+    </group>
+  );
+}
+
+const LEVEL_ACCENTS: Record<number, string> = {
+  1: '#64748b',
+  2: '#2dd4bf',
+  3: '#60a5fa',
+  4: '#a78bfa',
+  5: '#67e8f9',
+};
+
+function LevelAnchor({ obj }: { obj: DataObject }) {
+  const targetY = (obj.level - 0.5) + (obj.level - 1) * 0.8;
+  const accent = LEVEL_ACCENTS[obj.level] ?? '#67e8f9';
+  return (
+    <group position={[obj.position?.[0] ?? 0, targetY, obj.position?.[2] ?? 0]}>
+      <mesh position={[0, -0.45, 0]}>
+        <cylinderGeometry args={[0.018, 0.018, 0.7, 8]} />
+        <meshBasicMaterial color={accent} transparent opacity={0.65} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, -0.82, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.26, 0.018, 8, 24]} />
+        <meshBasicMaterial color={accent} transparent opacity={0.75} toneMapped={false} />
+      </mesh>
+      <Html position={[0.32, -0.74, 0]} center style={{ pointerEvents: 'none' }} zIndexRange={[35, 0]}>
+        <span className="rounded-full border border-white/15 bg-[#071018]/80 px-1.5 py-0.5 text-[8px] font-mono font-bold text-white/70">
+          L{obj.level}
+        </span>
+      </Html>
+    </group>
+  );
+}
+
+function FanObject({ obj, index, count, isOpen, isSelected, onSelect }: {
+  obj: DataObject;
+  index: number;
+  count: number;
+  isOpen: boolean;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const levelY = obj.level - 0.5;
+  const angle = count === 1 ? 0 : ((index / (count - 1)) - 0.5) * 1.45;
+  const radius = 1.7;
+  const openPosition: [number, number, number] = [5.15 + Math.cos(angle) * radius, levelY + Math.sin(angle) * radius, 0];
+  const closedPosition: [number, number, number] = [5.2, levelY, 0];
+  const { reducedMotion } = useStore();
+  const { position, scale, opacity } = useSpring({
+    position: (isOpen ? openPosition : closedPosition) as [number, number, number],
+    scale: isOpen ? (isSelected ? [1.3, 1.3, 1.3] : [0.96, 0.96, 0.96]) : [0.01, 0.01, 0.01],
+    opacity: isOpen ? 1 : 0,
+    config: { mass: 0.8, tension: 190, friction: 22 },
+    immediate: reducedMotion,
+  });
+
+  return (
+    <a.group
+      position={position as any}
+      scale={scale as any}
+      visible={opacity.to(value => value > 0.01)}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect();
+      }}
+    >
+      <DataGlyph obj={obj} color={LEVEL_ACCENTS[obj.level] ?? '#67e8f9'} opacity={opacity} isSelected={isSelected} isDataScience={false} isCutaway={false} />
+      <ObjectLabel obj={obj} showLabel={isOpen} isSelected={isSelected} />
+    </a.group>
+  );
+}
+
+function LevelDataFan({ placedObjects, selectedLevelId, selectedObjectId }: {
+  placedObjects: DataObject[];
+  selectedLevelId: number | null;
+  selectedObjectId: string | null;
+}) {
+  const [displayLevel, setDisplayLevel] = React.useState<number | null>(selectedLevelId);
+
+  React.useEffect(() => {
+    if (selectedLevelId !== null) {
+      setDisplayLevel(selectedLevelId);
+      return;
+    }
+    const timer = window.setTimeout(() => setDisplayLevel(null), 420);
+    return () => window.clearTimeout(timer);
+  }, [selectedLevelId]);
+
+  if (displayLevel === null) return null;
+  const objects = placedObjects.filter(obj => obj.level === displayLevel);
+  const isOpen = selectedLevelId === displayLevel && selectedObjectId === null;
+  const levelY = displayLevel - 0.5;
+  const accent = LEVEL_ACCENTS[displayLevel] ?? '#67e8f9';
+
+  return (
+    <group>
+      <mesh position={[5.05, levelY, 0]}>
+        <sphereGeometry args={[0.1, 16, 16]} />
+        <meshBasicMaterial color={accent} transparent opacity={isOpen ? 0.9 : 0} toneMapped={false} />
+      </mesh>
+      {objects.map((obj, index) => {
+        const angle = objects.length === 1 ? 0 : ((index / (objects.length - 1)) - 0.5) * 1.45;
+        const end: [number, number, number] = [5.15 + Math.cos(angle) * 1.7, levelY + Math.sin(angle) * 1.7, 0];
+        return (
+          <React.Fragment key={`fan-${obj.id}`}>
+            <Line points={[[5.05, levelY, 0], end]} color={accent} lineWidth={1.5} transparent opacity={isOpen ? 0.45 : 0} />
+            <FanObject
+              obj={obj}
+              index={index}
+              count={objects.length}
+              isOpen={isOpen}
+              isSelected={selectedObjectId === obj.id}
+              onSelect={() => useStore.getState().setSelectedObjectId(selectedObjectId === obj.id ? null : obj.id)}
+            />
+          </React.Fragment>
+        );
+      })}
     </group>
   );
 }

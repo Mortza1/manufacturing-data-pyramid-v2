@@ -40,55 +40,83 @@ function WebGLFallback() {
   );
 }
 
-function CameraRig({ isInteracting }: { isInteracting: boolean }) {
+function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => void) | null> }) {
+  const { camera } = useThree();
   const { journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode } = useStore();
-  const vec = new THREE.Vector3();
-  const target = new THREE.Vector3(0, 0, 0);
+  const controlsRef = useRef<any>(null);
+  const transitionRef = useRef<{
+    from: THREE.Vector3;
+    to: THREE.Vector3;
+    fromTarget: THREE.Vector3;
+    target: THREE.Vector3;
+    elapsed: number;
+    duration: number;
+    active: boolean;
+  } | null>(null);
 
-  useFrame((state) => {
+  const modeKey = `${journeyActive}-${journeyStep}-${focusLevel}-${isolateLevel}-${cutaway}-${exploded}-${courseMode}`;
+
+  React.useEffect(() => {
+    const controls = controlsRef.current;
+    const fromTarget = controls?.target?.clone() ?? new THREE.Vector3(0, 0, 0);
+    const target = new THREE.Vector3(0, 0, 0);
+    const destination = new THREE.Vector3(10, 6.5, 10);
+
     if (journeyActive) {
-      const steps = COURSES[courseMode].journeySteps;
-      const lvl = steps[Math.min(journeyStep, steps.length - 1)].level;
-      const y = (lvl - 0.5) - 2.5; 
-      
-      vec.set(4, y + 1.5, 5);
-      target.set(0, y, 0);
-      
-      state.camera.position.lerp(vec, 0.05);
-      state.camera.lookAt(target);
-      
-      const controls = state.controls as any;
-      if (controls) {
-        controls.target.lerp(target, 0.05);
-      }
+      destination.set(12.5, 8.5, 13.5);
+      target.set(0, 0.15, 0);
     } else if (focusLevel !== null || isolateLevel !== null) {
-      const targetLvl = isolateLevel !== null ? isolateLevel : focusLevel!;
-      const y = (targetLvl - 0.5) - 2.5;
-      vec.set(cutaway ? 0 : 3.5, y + 1.5, cutaway ? 6 : 5);
-      target.set(0, y, 0);
-      state.camera.position.lerp(vec, 0.05);
-      
-      const controls = state.controls as any;
-      if (controls) {
-        controls.target.lerp(target, 0.05);
-      }
+      const targetLevel = isolateLevel ?? focusLevel ?? 3;
+      const y = (targetLevel - 0.5) - 2.5;
+      destination.set(cutaway ? 10.5 : 11, y + 4.8, cutaway ? 12.5 : 13);
+      target.set(0, y * 0.3, 0);
     } else if (cutaway) {
-      vec.set(0, 2, 9);
-      target.set(0, -0.5, 0);
-      state.camera.position.lerp(vec, 0.05);
-      const controls = state.controls as any;
-      if (controls) {
-        controls.target.lerp(target, 0.05);
-      }
+      destination.set(11, 7.5, 13);
+      target.set(0, 0.1, 0);
     } else if (exploded) {
-      vec.set(12, 6.2, 14);
+      destination.set(13, 8.5, 15);
       target.set(0, 0.25, 0);
-      state.camera.position.lerp(vec, 0.045);
-      const controls = state.controls as any;
-      if (controls) {
-        controls.target.lerp(target, 0.045);
-      }
+    } else {
+      cancelRef.current?.();
+      return;
     }
+
+    transitionRef.current = {
+      from: camera.position.clone(),
+      to: destination,
+      fromTarget,
+      target,
+      elapsed: 0,
+      duration: 650,
+      active: true,
+    };
+    cancelRef.current = () => {
+      if (transitionRef.current) transitionRef.current.active = false;
+    };
+
+    return () => {
+      if (cancelRef.current === undefined) return;
+      cancelRef.current = null;
+    };
+  }, [camera, cancelRef, modeKey, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode]);
+
+  useFrame((state, delta) => {
+    const controls = state.controls as any;
+    controlsRef.current = controls;
+    const transition = transitionRef.current;
+    if (!transition?.active) return;
+
+    transition.elapsed += delta * 1000;
+    const progress = Math.min(1, transition.elapsed / transition.duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    state.camera.position.lerpVectors(transition.from, transition.to, eased);
+    if (controls) {
+      controls.target.lerpVectors(transition.fromTarget, transition.target, eased);
+      controls.update();
+    } else {
+      state.camera.lookAt(transition.target);
+    }
+    if (progress >= 1) transition.active = false;
   });
   return null;
 }
@@ -199,7 +227,7 @@ function DragGhost() {
 
 export function PyramidScene() {
   const { focusLevel, isolateLevel, selectedObjectId, reducedMotion, courseMode, cutaway, presentationMode, journeyActive, exploded } = useStore();
-  const controlsRef = useRef<any>(null);
+  const cancelCameraTransitionRef = useRef<(() => void) | null>(null);
   const [userInteracted, setUserInteracted] = React.useState(false);
   
   const hasWebGL = useMemo(() => isWebGLAvailable(), []);
@@ -209,7 +237,6 @@ export function PyramidScene() {
   }
 
   const isInteracting = selectedObjectId !== null || focusLevel !== null || isolateLevel !== null || journeyActive || cutaway || exploded;
-  
   const bg = courseMode === 'data-science' ? '#050508' : (courseMode === 'fundamentals-ai' ? '#020617' : '#0a0a0f');
   const sparkleColor = courseMode === 'agentic-ai' ? '#d946ef' : (courseMode === 'fundamentals-ai' ? '#22d3ee' : '#3b82f6');
   const sparkleCount = courseMode === 'agentic-ai' ? 150 : (courseMode === 'fundamentals-ai' ? 120 : 80);
@@ -283,20 +310,23 @@ export function PyramidScene() {
           color="#000000"
         />
         
-        <CameraRig isInteracting={isInteracting} />
+        <CameraRig cancelRef={cancelCameraTransitionRef} />
       </Suspense>
 
       <OrbitControls
-        ref={controlsRef}
         makeDefault
-        onStart={() => setUserInteracted(true)}
+        onStart={() => {
+          cancelCameraTransitionRef.current?.();
+          setUserInteracted(true);
+        }}
         autoRotate={!isInteracting && !reducedMotion && !userInteracted}
         autoRotateSpeed={0.3}
-        enablePan={!journeyActive}
-        enableZoom={!journeyActive}
-        maxPolarAngle={Math.PI / 2 - 0.05}
-        minDistance={4}
-        maxDistance={25}
+        enablePan
+        enableZoom
+        minPolarAngle={0.01}
+        maxPolarAngle={Math.PI - 0.01}
+        minDistance={3}
+        maxDistance={32}
         dampingFactor={0.05}
         touches={{
           ONE: THREE.TOUCH.ROTATE,
