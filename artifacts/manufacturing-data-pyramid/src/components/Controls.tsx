@@ -17,16 +17,27 @@ export function Controls() {
     presentationMode, setPresentationMode,
     resetCourse
   } = useStore();
+  const journeySteps = COURSES[courseMode].journeySteps;
+  const lastJourneyStep = Math.max(0, journeySteps.length - 1);
+  const currentJourneyStep = Math.min(Math.max(journeyStep, 0), lastJourneyStep);
 
   // Journey interval effect
   useEffect(() => {
     if (!journeyActive || !journeyPlaying) return;
     const timer = setInterval(() => {
-      setJourneyStep(useStore.getState().journeyStep + 1);
-      // Wait, we need to check bounds. Let's get the current state securely without redefining:
       const state = useStore.getState();
       const steps = COURSES[state.courseMode].journeySteps;
-      if (state.journeyStep >= steps.length - 1) {
+      const lastStep = Math.max(0, steps.length - 1);
+
+      if (state.journeyStep >= lastStep) {
+        setJourneyPlaying(false);
+        return;
+      }
+
+      const nextStep = Math.min(state.journeyStep + 1, lastStep);
+      setJourneyStep(nextStep);
+
+      if (nextStep === lastStep) {
         setJourneyPlaying(false);
       }
     }, 5000);
@@ -34,40 +45,47 @@ export function Controls() {
   }, [journeyActive, journeyPlaying, courseMode, setJourneyStep, setJourneyPlaying]);
 
   if (journeyActive) {
-    const steps = COURSES[courseMode].journeySteps;
+    const steps = journeySteps;
     return (
       <div className="pointer-events-auto absolute bottom-8 left-1/2 -translate-x-1/2 bg-card/95 backdrop-blur-xl border rounded-full flex items-center px-6 py-4 gap-6 shadow-2xl z-30">
         <div className="flex-1 min-w-[250px] md:min-w-[350px]">
           <div className="text-xs text-primary font-mono uppercase tracking-wider mb-1">
-            Step {journeyStep + 1} of {steps.length}
+            Step {currentJourneyStep + 1} of {steps.length}
           </div>
           <div className="text-sm font-semibold text-foreground">
-            {steps[journeyStep].title}
+            {steps[currentJourneyStep].title}
           </div>
           <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
-            {steps[journeyStep].desc}
+            {steps[currentJourneyStep].desc}
           </div>
         </div>
 
         <div className="flex items-center gap-3 border-l border-r border-border px-6">
           <button 
-            disabled={journeyStep === 0}
-            onClick={() => setJourneyStep(journeyStep - 1)}
+            disabled={currentJourneyStep === 0}
+            onClick={() => setJourneyStep(Math.max(0, currentJourneyStep - 1))}
             className="p-2 text-muted-foreground hover:text-foreground hover:bg-white/5 rounded-full disabled:opacity-30 transition-colors"
           >
             <SkipBack size={20} />
           </button>
           
           <button
-            onClick={() => setJourneyPlaying(!journeyPlaying)}
+            onClick={() => setJourneyPlaying(
+              currentJourneyStep < lastJourneyStep ? !journeyPlaying : false
+            )}
+            disabled={currentJourneyStep === lastJourneyStep}
             className="p-2 text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 rounded-full transition-colors"
           >
             {journeyPlaying ? <Pause size={20} /> : <Play size={20} />}
           </button>
 
           <button 
-            disabled={journeyStep === steps.length - 1}
-            onClick={() => setJourneyStep(journeyStep + 1)}
+            disabled={currentJourneyStep === lastJourneyStep}
+            onClick={() => {
+              const nextStep = Math.min(currentJourneyStep + 1, lastJourneyStep);
+              setJourneyStep(nextStep);
+              if (nextStep === lastJourneyStep) setJourneyPlaying(false);
+            }}
             className="p-2 text-muted-foreground hover:text-foreground hover:bg-white/5 rounded-full disabled:opacity-30 transition-colors"
           >
             <SkipForward size={20} />
