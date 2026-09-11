@@ -11,6 +11,7 @@ export interface DataObject {
   category: DataCategory;
   position?: [number, number, number];
   isUserAdded?: boolean;
+  isActive?: boolean;
 }
 
 export const LEVEL_CONTEXTS: Record<number, { name: string; purpose: string; examples: string }> = {
@@ -20,6 +21,34 @@ export const LEVEL_CONTEXTS: Record<number, { name: string; purpose: string; exa
   4: { name: 'Enterprise Information', purpose: 'Business logic, financial tracking, and supply chain.', examples: 'ERP, SCM, CMMS, CRM' },
   5: { name: 'Decision Intelligence', purpose: 'Autonomous agents, prescriptive actions, and orchestration.', examples: 'Control Towers, Agentic Orchestrators, AI Planners' }
 };
+
+export const PYRAMID_LEVELS = [
+  { id: 1, name: 'Raw Signals', subtitle: 'Sense the physical process', color: '#17212d', edgeColor: '#64748b', height: 1.05, base: 5.4, top: 4.35, y: 0.5 },
+  { id: 2, name: 'Operations', subtitle: 'Contextualise the run', color: '#122336', edgeColor: '#2dd4bf', height: 1.05, base: 4.35, top: 3.35, y: 1.65 },
+  { id: 3, name: 'Engineering', subtitle: 'Compare with intent', color: '#172b4d', edgeColor: '#60a5fa', height: 1.05, base: 3.35, top: 2.35, y: 2.8 },
+  { id: 4, name: 'Enterprise', subtitle: 'Plan the system', color: '#24345f', edgeColor: '#a78bfa', height: 1.05, base: 2.35, top: 1.35, y: 3.95 },
+  { id: 5, name: 'Decisions', subtitle: 'Act with intelligence', color: '#0b5364', edgeColor: '#67e8f9', height: 1.05, base: 1.35, top: 0.15, y: 5.1 },
+] as const;
+
+export const DEFAULT_LEVEL_NAMES: Record<number, string> = Object.fromEntries(
+  PYRAMID_LEVELS.map((level) => [level.id, level.name]),
+);
+
+export const EXPLODED_LEVEL_SPACING = 1.15;
+export const DATA_OBJECT_PLATFORM_LIFT = 0.72;
+
+export function getLevelY(level: number, exploded = false) {
+  const definition = PYRAMID_LEVELS.find((item) => item.id === level);
+  return (definition?.y ?? 0.5) + (exploded ? (level - 1) * EXPLODED_LEVEL_SPACING : 0);
+}
+
+export function getDataObjectY(level: number, exploded = false) {
+  return getLevelY(level, exploded) + DATA_OBJECT_PLATFORM_LIFT;
+}
+
+export function isActiveDataObject(object: DataObject) {
+  return object.isActive === true || object.isUserAdded === true;
+}
 
 export type CourseMode = 'data-science' | 'fundamentals-ai' | 'agentic-ai';
 
@@ -57,7 +86,17 @@ export interface Relationship {
 export interface CourseConfig {
   initialObjects: DataObject[];
   relationships: Relationship[];
-  journeySteps: { title: string; desc: string; level: number }[];
+  journeySteps: { title: string; desc: string; level: number; objectIds?: string[]; relationshipIds?: string[] }[];
+}
+
+export function getJourneyStep(course: CourseConfig, step: number) {
+  return course.journeySteps[Math.min(Math.max(step, 0), Math.max(course.journeySteps.length - 1, 0))] ?? {
+    title: '',
+    desc: '',
+    level: 1,
+    objectIds: [],
+    relationshipIds: [],
+  };
 }
 
 export const COURSES: Record<CourseMode, CourseConfig> = {
@@ -92,12 +131,12 @@ export const COURSES: Record<CourseMode, CourseConfig> = {
       { id: 'rel-9', sourceId: 'ds-14', targetId: 'ds-15', description: 'Decision intelligence turns evidence into action.' }
     ],
     journeySteps: [
-      { title: "Sources", desc: "Continuous raw signals generated from shop floor sensors.", level: 1 },
-      { title: "Storage", desc: "High-frequency data is compressed and archived in the Historian.", level: 2 },
-      { title: "Contextualization", desc: "MES maps time-series data to specific production runs.", level: 2 },
-      { title: "Quality", desc: "LIMS results are joined with run context to identify deviations.", level: 2 },
-      { title: "Analysis", desc: "SPC models process historical variances to detect drift.", level: 4 },
-      { title: "Decision", desc: "Executives and rule engines make informed routing decisions.", level: 5 },
+      { title: "Sources", desc: "Continuous raw signals generated from shop floor sensors.", level: 1, objectIds: ['ds-1', 'ds-2', 'ds-3', 'ds-4'] },
+      { title: "Storage", desc: "High-frequency data is compressed and archived in the Historian.", level: 2, objectIds: ['ds-5', 'ds-6'], relationshipIds: ['rel-1', 'rel-2'] },
+      { title: "Contextualization", desc: "MES maps time-series data to specific production runs.", level: 2, objectIds: ['ds-7', 'ds-16'], relationshipIds: ['rel-3'] },
+      { title: "Quality", desc: "LIMS results are joined with run context to identify deviations.", level: 2, objectIds: ['ds-8'], relationshipIds: ['rel-4'] },
+      { title: "Analysis", desc: "SPC models process historical variances to detect drift.", level: 4, objectIds: ['ds-10', 'ds-13'], relationshipIds: ['rel-5', 'rel-6', 'rel-7', 'rel-8'] },
+      { title: "Decision", desc: "Executives and rule engines make informed routing decisions.", level: 5, objectIds: ['ds-14', 'ds-15'], relationshipIds: ['rel-9'] },
     ]
   },
   'fundamentals-ai': {
@@ -121,14 +160,15 @@ export const COURSES: Record<CourseMode, CourseConfig> = {
       { id: 'r-fai-4', sourceId: 'fai-7', targetId: 'fai-8', description: 'Text logs are converted to embeddings by NLP/LLM.' }
     ],
     journeySteps: [
-      { title: "Image to Vision", desc: "Visual data mapped to Computer Vision models.", level: 1 },
-      { title: "Time Series to Forecasting", desc: "Sequential data feeds anomaly and forecasting models.", level: 2 },
-      { title: "Tabular to Classification", desc: "Structured records train regression and classification.", level: 4 },
-      { title: "Text to NLP", desc: "Unstructured text is parsed by LLMs and embeddings.", level: 5 }
+      { title: "Image to Vision", desc: "Visual data mapped to Computer Vision models.", level: 1, objectIds: ['fai-1', 'fai-2'], relationshipIds: ['r-fai-1'] },
+      { title: "Time Series to Forecasting", desc: "Sequential data feeds anomaly and forecasting models.", level: 2, objectIds: ['fai-3', 'fai-4'], relationshipIds: ['r-fai-2'] },
+      { title: "Tabular to Classification", desc: "Structured records train regression and classification.", level: 4, objectIds: ['fai-5', 'fai-6'], relationshipIds: ['r-fai-3'] },
+      { title: "Text to NLP", desc: "Unstructured text is parsed by LLMs and embeddings.", level: 5, objectIds: ['fai-7', 'fai-8'], relationshipIds: ['r-fai-4'] }
     ]
   },
   'agentic-ai': {
     initialObjects: [
+      { id: 'aai-0', name: 'Sensor Telemetry', type: 'Signal', source: 'Shop Floor IoT', level: 1, category: 'signal', position: [-0.8, 0, 0.65] },
       { id: 'aai-1', name: 'Live Data Stream', type: 'Data', source: 'IoT Gateway', level: 2, category: 'time-series', position: [-0.5, 0, 0.5] },
       { id: 'aai-2', name: 'Predictive Model', type: 'Tool', source: 'MLOps', level: 4, category: 'model', position: [0.5, 0, 0.5] },
       { id: 'aai-3', name: 'Engineering Knowledge', type: 'Knowledge', source: 'PLM', level: 3, category: 'document', position: [-0.5, 0, -0.5] },
@@ -136,16 +176,17 @@ export const COURSES: Record<CourseMode, CourseConfig> = {
       { id: 'aai-5', name: 'Control Action', type: 'Action', source: 'MES', level: 2, category: 'event', position: [0.5, 0, -0.5] }
     ],
     relationships: [
+      { id: 'r-aai-0', sourceId: 'aai-0', targetId: 'aai-1', description: 'Shop-floor telemetry enters the agent data stream.' },
       { id: 'r-aai-1', sourceId: 'aai-1', targetId: 'aai-4', description: 'Agent monitors live data streams.' },
       { id: 'r-aai-2', sourceId: 'aai-3', targetId: 'aai-4', description: 'Agent retrieves required knowledge context.' },
       { id: 'r-aai-3', sourceId: 'aai-4', targetId: 'aai-2', description: 'Agent invokes predictive models as tools.' },
       { id: 'r-aai-4', sourceId: 'aai-4', targetId: 'aai-5', description: 'Agent executes autonomous control actions.' }
     ],
     journeySteps: [
-      { title: "Sensing Data", desc: "Agents monitor live operational data streams.", level: 2 },
-      { title: "Retrieving Knowledge", desc: "Agents pull necessary context from engineering systems.", level: 3 },
-      { title: "Invoking Tools", desc: "Agents use specialized predictive models to evaluate options.", level: 4 },
-      { title: "Taking Action", desc: "Agents execute autonomous interventions based on their reasoning.", level: 5 }
+      { title: "Sensing Data", desc: "Agents monitor live operational data streams.", level: 2, objectIds: ['aai-0', 'aai-1', 'aai-5'], relationshipIds: ['r-aai-0', 'r-aai-1'] },
+      { title: "Retrieving Knowledge", desc: "Agents pull necessary context from engineering systems.", level: 3, objectIds: ['aai-3', 'aai-4'], relationshipIds: ['r-aai-2'] },
+      { title: "Invoking Tools", desc: "Agents use specialized predictive models to evaluate options.", level: 4, objectIds: ['aai-2', 'aai-4'], relationshipIds: ['r-aai-3'] },
+      { title: "Taking Action", desc: "Agents execute autonomous interventions based on their reasoning.", level: 5, objectIds: ['aai-4', 'aai-5'], relationshipIds: ['r-aai-4'] }
     ]
   }
 };

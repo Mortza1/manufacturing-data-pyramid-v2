@@ -5,7 +5,7 @@ import { Plus, X } from 'lucide-react';
 import { CategoryIcon, CategoryColor } from './LibraryPanel';
 
 export function AddDataDialog() {
-  const { placeObject, journeyActive, presentationMode } = useStore();
+  const { placeObject, journeyActive, presentationMode, levelNames } = useStore();
   const [isOpen, setIsOpen] = useState(false);
   
   // Form State
@@ -85,11 +85,9 @@ export function AddDataDialog() {
               <div className="space-y-1.5">
                 <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Level</label>
                 <select value={level} onChange={e => setLevel(Number(e.target.value))} className="w-full bg-background border border-border rounded p-2.5 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all appearance-none cursor-pointer">
-                  <option value={1}>1 - Shop-Floor Signals</option>
-                  <option value={2}>2 - Operational Context</option>
-                  <option value={3}>3 - Engineering Knowledge</option>
-                  <option value={4}>4 - Enterprise Info</option>
-                  <option value={5}>5 - Decision Intelligence</option>
+                  {[1, 2, 3, 4, 5].map((levelId) => (
+                    <option key={levelId} value={levelId}>{levelId} - {levelNames[levelId]}</option>
+                  ))}
                 </select>
               </div>
             </div>

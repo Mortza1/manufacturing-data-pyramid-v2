@@ -5,7 +5,7 @@ import { Trash2, X, Network } from 'lucide-react';
 import { COURSES, LEVEL_CONTEXTS } from '../data';
 
 export function ContextCard() {
-  const { selectedObjectId, selectedRelationshipId, selectedLevelId, placedObjects, removeObject, setSelectedObjectId, setSelectedRelationshipId, setSelectedLevelId, courseMode, presentationMode, journeyActive, focusLevel, setFocusLevel, isolateLevel, setIsolateLevel } = useStore();
+  const { selectedObjectId, selectedRelationshipId, selectedLevelId, placedObjects, removeObject, setSelectedObjectId, setSelectedRelationshipId, setSelectedLevelId, courseMode, presentationMode, journeyActive, focusLevel, setFocusLevel, isolateLevel, setIsolateLevel, levelNames } = useStore();
 
   if (journeyActive) return null;
 
@@ -106,7 +106,7 @@ export function ContextCard() {
     return (
       <div className="pointer-events-auto absolute right-4 top-24 w-72 md:w-80 max-w-[85vw] bg-card/95 backdrop-blur-xl border border-border rounded-lg shadow-2xl flex flex-col animate-in slide-in-from-right-8 z-20">
         <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30 rounded-t-lg">
-          <h3 className="font-bold text-foreground text-sm flex items-center gap-2">Level {selectedLevelId}: {context.name}</h3>
+           <h3 className="font-bold text-foreground text-sm flex items-center gap-2">Level {selectedLevelId}: {levelNames[selectedLevelId] ?? context.name}</h3>
           <button onClick={() => setSelectedLevelId(null)} className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-white/10 transition-colors"><X size={16} /></button>
         </div>
         <div className="p-4 space-y-4">

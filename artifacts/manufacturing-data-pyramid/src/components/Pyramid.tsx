@@ -1,19 +1,11 @@
 import React, { useRef, useMemo, useState } from 'react';
 import { useStore } from '../store';
-import { COURSES } from '../data';
+import { COURSES, PYRAMID_LEVELS, EXPLODED_LEVEL_SPACING, getJourneyStep } from '../data';
 import { useSpring, a } from '@react-spring/three';
 import * as THREE from 'three';
 import { Edges, Html } from '@react-three/drei';
 
-const LEVELS = [
-  { id: 1, name: 'Raw Signals', subtitle: 'Sense the physical process', color: '#17212d', edgeColor: '#64748b', height: 1.05, base: 5.4, top: 4.35, y: 0.5 },
-  { id: 2, name: 'Operations', subtitle: 'Contextualise the run', color: '#122336', edgeColor: '#2dd4bf', height: 1.05, base: 4.35, top: 3.35, y: 1.65 },
-  { id: 3, name: 'Engineering', subtitle: 'Compare with intent', color: '#172b4d', edgeColor: '#60a5fa', height: 1.05, base: 3.35, top: 2.35, y: 2.8 },
-  { id: 4, name: 'Enterprise', subtitle: 'Plan the system', color: '#24345f', edgeColor: '#a78bfa', height: 1.05, base: 2.35, top: 1.35, y: 3.95 },
-  { id: 5, name: 'Decisions', subtitle: 'Act with intelligence', color: '#0b5364', edgeColor: '#67e8f9', height: 1.05, base: 1.35, top: 0.15, y: 5.1 },
-];
-
-function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, sectionLevel, showLabels, surfaceOpacity, onDoubleClick, onPointerDown, onPointerOver, onPointerOut, mode }: any) {
+function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, sectionLevel, showLabels, surfaceOpacity, displayName, onDoubleClick, onPointerDown, onPointerOver, onPointerOut, mode }: any) {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const { reducedMotion, draggedLibraryItem, dragHoveredLevelId, placeObject, setDraggedLibraryItem, touchSelectedItem, setTouchSelectedItem, selectedLevelId, setSelectedLevelId } = useStore();
@@ -23,7 +15,7 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, secti
     return plane;
   }, [sectionLevel]);
 
-  const targetY = isExploded ? level.y + (level.id - 1) * 1.15 : level.y;
+  const targetY = isExploded ? level.y + (level.id - 1) * EXPLODED_LEVEL_SPACING : level.y;
   
   const pendingItem = draggedLibraryItem || touchSelectedItem;
   const isValidDrop = !!pendingItem;
@@ -106,7 +98,7 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, secti
         zIndexRange={[40, 0]}
       >
           <div className={`px-3 py-2 rounded-lg bg-[#071018]/80 backdrop-blur-md border ${isSelectedLevel ? 'border-primary text-primary shadow-[0_0_16px_rgba(34,211,238,0.35)]' : 'border-white/15 text-white/80'} whitespace-nowrap shadow-xl`}>
-            <div className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.18em]">L{level.id} · {level.name}</div>
+            <div className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.18em]">L{level.id} · {displayName}</div>
             <div className="mt-0.5 text-[9px] font-mono normal-case tracking-normal text-white/45">{level.subtitle}</div>
           </div>
       </Html>
@@ -176,15 +168,14 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, secti
 }
 
 export function Pyramid() {
-  const { focusLevel, isolateLevel, setFocusLevel, exploded, cutaway, sectionLevel, showLevelLabels, pyramidOpacity, courseMode, journeyActive, journeyStep } = useStore();
+  const { focusLevel, isolateLevel, setFocusLevel, exploded, cutaway, sectionLevel, showLevelLabels, pyramidOpacity, courseMode, journeyActive, journeyStep, levelNames } = useStore();
   const [hoveredLevel, setHoveredLevel] = useState<number | null>(null);
-  const journeyLevel = journeyActive
-    ? COURSES[courseMode].journeySteps[Math.min(journeyStep, COURSES[courseMode].journeySteps.length - 1)]?.level ?? null
-    : null;
+  const journeyState = journeyActive ? getJourneyStep(COURSES[courseMode], journeyStep) : null;
+  const journeyLevel = journeyState?.level ?? null;
   
   return (
     <group position={[0, -2.5, 0]}>
-      {LEVELS.map((level) => {
+      {PYRAMID_LEVELS.map((level) => {
         const isActive = focusLevel === null
           ? journeyLevel === null || journeyLevel === level.id
           : focusLevel === level.id;
@@ -200,6 +191,7 @@ export function Pyramid() {
             sectionLevel={sectionLevel}
             showLabels={showLevelLabels}
             surfaceOpacity={pyramidOpacity}
+            displayName={levelNames[level.id] ?? level.name}
             mode={courseMode}
             onPointerDown={() => {}} // Could be used to click to select if we want
             onDoubleClick={() => setFocusLevel(focusLevel === level.id ? null : level.id)}

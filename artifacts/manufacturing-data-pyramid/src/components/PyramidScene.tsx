@@ -5,7 +5,7 @@ import { Connections } from './Connections';
 import { DataStreams } from './DataStreams';
 import { SceneEnvironment } from './SceneEnvironment';
 import { useStore } from '../store';
-import { COURSES } from '../data';
+import { COURSES, getJourneyStep } from '../data';
 import * as THREE from 'three';
 import React, { Suspense, useRef, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
@@ -63,8 +63,10 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
     const destination = new THREE.Vector3(10, 6.5, 10);
 
     if (journeyActive) {
+      const journeyLevel = getJourneyStep(COURSES[courseMode], journeyStep).level;
+      const journeyY = (journeyLevel - 0.5) - 2.5;
       destination.set(12.5, 8.5, 13.5);
-      target.set(0, 0.15, 0);
+      target.set(0, journeyY * 0.22, 0);
     } else if (focusLevel !== null || isolateLevel !== null) {
       const targetLevel = isolateLevel ?? focusLevel ?? 3;
       const y = (targetLevel - 0.5) - 2.5;

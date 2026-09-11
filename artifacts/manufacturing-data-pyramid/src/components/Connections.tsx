@@ -2,10 +2,10 @@ import React, { useMemo } from 'react';
 import { useStore } from '../store';
 import { Line } from '@react-three/drei';
 import * as THREE from 'three';
-import { COURSES } from '../data';
+import { COURSES, getDataObjectY, getJourneyStep, isActiveDataObject } from '../data';
 
 export function Connections() {
-  const { placedObjects, showRelationships, exploded, journeyActive, journeyStep, courseMode, selectedObjectId, selectedRelationshipId, setSelectedRelationshipId, isolateLevel } = useStore();
+  const { placedObjects, showRelationships, exploded, cutaway, journeyActive, journeyStep, activeDataOnly, courseMode, selectedObjectId, selectedRelationshipId, setSelectedRelationshipId, isolateLevel } = useStore();
 
   const isDataScience = courseMode === 'data-science';
 
@@ -14,8 +14,8 @@ export function Connections() {
 
     const connections: { rel: any, start: THREE.Vector3, end: THREE.Vector3 }[] = [];
     
-    // Create a lookup for positions
-    const objMap = new Map(placedObjects.map(obj => [obj.id, obj]));
+    const visibleObjects = placedObjects.filter((obj) => !(activeDataOnly && (exploded || cutaway)) || isActiveDataObject(obj));
+    const objMap = new Map(visibleObjects.map(obj => [obj.id, obj]));
 
     // Only draw specific modeled relationships for the current course
     COURSES[courseMode].relationships.forEach(rel => {
@@ -29,8 +29,8 @@ export function Connections() {
       }
 
       if (source && target && source.position && target.position) {
-         const sY = exploded ? (source.level - 0.5) + (source.level - 1) * 1.15 : (source.level - 0.5);
-         const tY = exploded ? (target.level - 0.5) + (target.level - 1) * 1.15 : (target.level - 0.5);
+          const sY = getDataObjectY(source.level, exploded);
+          const tY = getDataObjectY(target.level, exploded);
          
          connections.push({
             rel,
@@ -41,7 +41,7 @@ export function Connections() {
     });
 
     return connections;
-  }, [placedObjects, showRelationships, exploded, journeyActive, courseMode, isolateLevel]);
+  }, [placedObjects, showRelationships, exploded, cutaway, journeyActive, courseMode, isolateLevel, activeDataOnly]);
 
   if (!showRelationships && !journeyActive) return null;
 
@@ -53,7 +53,8 @@ export function Connections() {
       {lines.map((line, idx) => {
         const isSelected = selectedRelationshipId === line.rel.id;
         const isObjectPath = !!selectedObjectId && (line.rel.sourceId === selectedObjectId || line.rel.targetId === selectedObjectId);
-        const isJourneyPath = journeyActive && idx <= journeyStep;
+        const journeyState = getJourneyStep(COURSES[courseMode], journeyStep);
+        const isJourneyPath = journeyActive && (journeyState.relationshipIds?.includes(line.rel.id) ?? false);
         return (
           <group key={idx}>
             <Line

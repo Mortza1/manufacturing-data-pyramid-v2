@@ -3,8 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { useSpring, a } from '@react-spring/three';
 import * as THREE from 'three';
 import { useStore } from '../store';
-import { DataObject } from '../data';
-import { COURSES } from '../data';
+import { DataObject, COURSES, getDataObjectY, getJourneyStep, isActiveDataObject, getLevelY } from '../data';
 import { Html, Line } from '@react-three/drei';
 
 function ObjectLabel({ obj, showLabel, isSelected }: { obj: DataObject, showLabel: boolean, isSelected: boolean }) {
@@ -163,8 +162,7 @@ function ObjectMesh({ obj, isFocused, isRelated, isVisible, showLabel, isExplode
   const isSelected = selectedObjectId === obj.id;
   const isDataScience = mode === 'data-science';
 
-  const baseLevelY = (obj.level - 0.5); 
-  const targetY = isExploded ? baseLevelY + (obj.level - 1) * 0.8 : baseLevelY;
+  const targetY = getDataObjectY(obj.level, isExploded);
 
   const { position, scale, opacity } = useSpring({
     position: [obj.position![0], targetY, obj.position![2]] as [number, number, number],
@@ -245,23 +243,25 @@ function ObjectMesh({ obj, isFocused, isRelated, isVisible, showLabel, isExplode
 }
 
 export function PlacedObjects() {
-  const { placedObjects, focusLevel, isolateLevel, exploded, cutaway, courseMode, selectedObjectId, selectedLevelId, journeyActive, journeyStep } = useStore();
+  const { placedObjects, focusLevel, isolateLevel, exploded, cutaway, activeDataOnly, courseMode, selectedObjectId, selectedLevelId, journeyActive, journeyStep } = useStore();
   const relationships = COURSES[courseMode].relationships;
-  const journeyLevel = journeyActive
-    ? COURSES[courseMode].journeySteps[Math.min(journeyStep, COURSES[courseMode].journeySteps.length - 1)]?.level ?? null
-    : null;
+  const journeyState = journeyActive ? getJourneyStep(COURSES[courseMode], journeyStep) : null;
+  const journeyLevel = journeyState?.level ?? null;
+  const visibleObjects = placedObjects.filter((obj) => !(activeDataOnly && (exploded || cutaway)) || isActiveDataObject(obj));
 
   return (
     <group position={[0, -2.5, 0]}>
-      {placedObjects.map((obj) => (
+      {visibleObjects.map((obj) => (
         <React.Fragment key={obj.id}>
         <ObjectMesh
           key={obj.id}
           obj={obj}
-          isFocused={focusLevel === null && (journeyLevel === null || journeyLevel === obj.level) || focusLevel === obj.level}
+          isFocused={focusLevel === null && (!journeyActive
+            ? true
+            : (journeyState?.objectIds?.includes(obj.id) ?? journeyLevel === obj.level)) || focusLevel === obj.level}
           isRelated={!!selectedObjectId && relationships.some((rel) => (rel.sourceId === selectedObjectId || rel.targetId === selectedObjectId) && (rel.sourceId === obj.id || rel.targetId === obj.id))}
           isVisible={isolateLevel === null || isolateLevel === obj.level}
-          showLabel={focusLevel === obj.level || isolateLevel === obj.level || journeyLevel === obj.level || !!obj.isUserAdded || obj.id === 'ds-2' || obj.id === 'ds-15'}
+          showLabel={focusLevel === obj.level || isolateLevel === obj.level || (journeyState?.objectIds?.includes(obj.id) ?? journeyLevel === obj.level) || !!obj.isUserAdded}
           isExploded={exploded}
           isCutaway={cutaway}
           mode={courseMode}
@@ -269,7 +269,7 @@ export function PlacedObjects() {
         {exploded && <LevelAnchor obj={obj} />}
         </React.Fragment>
       ))}
-      <LevelDataFan placedObjects={placedObjects} selectedLevelId={selectedLevelId} selectedObjectId={selectedObjectId} />
+      {!exploded && <LevelDataFan placedObjects={visibleObjects} selectedLevelId={selectedLevelId} selectedObjectId={selectedObjectId} />}
     </group>
   );
 }
@@ -283,19 +283,21 @@ const LEVEL_ACCENTS: Record<number, string> = {
 };
 
 function LevelAnchor({ obj }: { obj: DataObject }) {
-  const targetY = (obj.level - 0.5) + (obj.level - 1) * 0.8;
+  const targetY = getDataObjectY(obj.level, true);
+  const platformTop = getLevelY(obj.level, true) + 0.525;
+  const stemHeight = Math.max(0.12, targetY - platformTop);
   const accent = LEVEL_ACCENTS[obj.level] ?? '#67e8f9';
   return (
     <group position={[obj.position?.[0] ?? 0, targetY, obj.position?.[2] ?? 0]}>
-      <mesh position={[0, -0.45, 0]}>
-        <cylinderGeometry args={[0.018, 0.018, 0.7, 8]} />
+      <mesh position={[0, -stemHeight / 2, 0]}>
+        <cylinderGeometry args={[0.018, 0.018, stemHeight, 8]} />
         <meshBasicMaterial color={accent} transparent opacity={0.65} toneMapped={false} />
       </mesh>
-      <mesh position={[0, -0.82, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, -stemHeight, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.26, 0.018, 8, 24]} />
         <meshBasicMaterial color={accent} transparent opacity={0.75} toneMapped={false} />
       </mesh>
-      <Html position={[0.32, -0.74, 0]} center style={{ pointerEvents: 'none' }} zIndexRange={[35, 0]}>
+      <Html position={[0.32, -stemHeight - 0.02, 0]} center style={{ pointerEvents: 'none' }} zIndexRange={[35, 0]}>
         <span className="rounded-full border border-white/15 bg-[#071018]/80 px-1.5 py-0.5 text-[8px] font-mono font-bold text-white/70">
           L{obj.level}
         </span>
@@ -312,7 +314,7 @@ function FanObject({ obj, index, count, isOpen, isSelected, onSelect }: {
   isSelected: boolean;
   onSelect: () => void;
 }) {
-  const levelY = obj.level - 0.5;
+  const levelY = getDataObjectY(obj.level, false);
   const angle = count === 1 ? 0 : ((index / (count - 1)) - 0.5) * 1.45;
   const radius = 1.7;
   const openPosition: [number, number, number] = [5.15 + Math.cos(angle) * radius, levelY + Math.sin(angle) * radius, 0];
@@ -361,7 +363,7 @@ function LevelDataFan({ placedObjects, selectedLevelId, selectedObjectId }: {
   if (displayLevel === null) return null;
   const objects = placedObjects.filter(obj => obj.level === displayLevel);
   const isOpen = selectedLevelId === displayLevel && selectedObjectId === null;
-  const levelY = displayLevel - 0.5;
+  const levelY = getDataObjectY(displayLevel, false);
   const accent = LEVEL_ACCENTS[displayLevel] ?? '#67e8f9';
 
   return (

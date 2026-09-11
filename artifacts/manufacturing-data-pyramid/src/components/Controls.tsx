@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { Layers, Network, Presentation, Maximize2, Minimize2, Play, Pause, SkipBack, SkipForward, X, RotateCcw, BoxSelect, Cpu, Sparkles, SlidersHorizontal, MonitorPlay, Eye, EyeOff } from 'lucide-react';
-import { COURSES, CourseMode } from '../data';
+import { Layers, Network, Presentation, Maximize2, Minimize2, Play, Pause, SkipBack, SkipForward, X, RotateCcw, BoxSelect, Cpu, Sparkles, SlidersHorizontal, MonitorPlay, Eye, EyeOff, Edit3, Check } from 'lucide-react';
+import { COURSES, CourseMode, getJourneyStep, isActiveDataObject } from '../data';
 
 export function Controls() {
   const { 
@@ -12,17 +12,26 @@ export function Controls() {
     exploded, setExploded, 
     cutaway, setCutaway,
     sectionLevel, setSectionLevel,
+    activeDataOnly, setActiveDataOnly,
     showRelationships, setShowRelationships,
     showLevelLabels, setShowLevelLabels,
     pyramidOpacity, setPyramidOpacity,
     focusLevel, setFocusLevel,
     isolateLevel, setIsolateLevel,
     presentationMode, setPresentationMode,
-    resetCourse
+    resetCourse,
+    autoFillDemo,
+    clearActiveData,
+    placedObjects,
+    levelNames,
+    setLevelName
   } = useStore();
+  const [namesOpen, setNamesOpen] = useState(false);
   const journeySteps = COURSES[courseMode].journeySteps;
   const lastJourneyStep = Math.max(0, journeySteps.length - 1);
   const currentJourneyStep = Math.min(Math.max(journeyStep, 0), lastJourneyStep);
+  const currentJourney = getJourneyStep(COURSES[courseMode], currentJourneyStep);
+  const activeCount = placedObjects.filter(isActiveDataObject).length;
   const toggleSection = () => {
     if (!cutaway) setSectionLevel(sectionLevel ?? 3);
     setCutaway(!cutaway);
@@ -60,11 +69,16 @@ export function Controls() {
             Step {currentJourneyStep + 1} of {steps.length}
           </div>
           <div className="text-sm font-semibold text-foreground">
-            {steps[currentJourneyStep].title}
+            {currentJourney.title}
           </div>
           <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
-            {steps[currentJourneyStep].desc}
+            {currentJourney.desc}
           </div>
+          <JourneyLevelSummary
+            placedObjects={placedObjects}
+            levelNames={levelNames}
+            activeLevel={currentJourney.level}
+          />
         </div>
 
         <div className="flex items-center gap-3 border-l border-r border-border px-6">
@@ -123,6 +137,13 @@ export function Controls() {
          {cutaway && [1, 2, 3, 4, 5].map(level => (
            <button key={level} onClick={() => setSectionLevel(level)} className={`h-7 w-7 rounded-full text-[10px] font-mono ${sectionLevel === level ? 'bg-primary text-primary-foreground' : 'bg-white/10 text-muted-foreground hover:text-foreground'}`}>{level}</button>
          ))}
+          {(exploded || cutaway) && (
+            <>
+              <span className="mx-1 h-5 w-px bg-white/15" />
+              <button onClick={() => setActiveDataOnly(false)} className={`rounded-full px-2.5 py-2 text-[10px] font-semibold ${!activeDataOnly ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}>Rep + Active</button>
+              <button onClick={() => setActiveDataOnly(true)} className={`rounded-full px-2.5 py-2 text-[10px] font-semibold ${activeDataOnly ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}>Active Only</button>
+            </>
+          )}
         <button onClick={() => setShowRelationships(!showRelationships)} className={`rounded-full px-2.5 py-2 text-[10px] font-semibold ${showRelationships ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}>Connect</button>
         <div className="flex items-center gap-1">
           {[1, 2, 3, 4, 5].map(lvl => <button key={lvl} onClick={() => setFocusLevel(focusLevel === lvl ? null : lvl)} className={`h-7 w-7 rounded-full text-[10px] font-mono ${focusLevel === lvl ? 'bg-foreground text-background' : 'bg-white/10 text-muted-foreground hover:text-foreground'}`}>{lvl}</button>)}
@@ -247,7 +268,42 @@ export function Controls() {
         </div>
       </div>
 
-      <div className="pointer-events-auto flex max-w-[96vw] flex-wrap items-center justify-center gap-2 rounded-lg border border-border bg-card/90 px-2 py-1.5 shadow-xl backdrop-blur-xl">
+      <div className="pointer-events-auto relative flex max-w-[96vw] flex-wrap items-center justify-center gap-2 rounded-lg border border-border bg-card/90 px-2 py-1.5 shadow-xl backdrop-blur-xl">
+        <button
+          onClick={autoFillDemo}
+          className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold text-emerald-300 transition-colors hover:bg-emerald-300/10"
+          title="Populate all five levels with the representative demo dataset"
+        >
+          <Sparkles size={13} /> Auto Fill
+        </button>
+        {activeCount > 0 && (
+          <button
+            onClick={clearActiveData}
+            className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+            title="Remove active data and return to representative examples"
+          >
+            <RotateCcw size={12} /> Clear Active
+          </button>
+        )}
+        {(exploded || cutaway) && (
+          <>
+            <span className="h-5 w-px bg-border" />
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Inspect</span>
+            <button
+              onClick={() => setActiveDataOnly(false)}
+              className={`rounded-md px-2 py-1.5 text-[10px] font-semibold transition-colors ${!activeDataOnly ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'}`}
+            >
+              Rep + Active
+            </button>
+            <button
+              onClick={() => setActiveDataOnly(true)}
+              className={`rounded-md px-2 py-1.5 text-[10px] font-semibold transition-colors ${activeDataOnly ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'}`}
+            >
+              Active Only
+            </button>
+          </>
+        )}
+        <span className="h-5 w-px bg-border" />
         <button
           onClick={() => setShowLevelLabels(!showLevelLabels)}
           className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold transition-colors ${showLevelLabels ? 'text-primary hover:bg-primary/10' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'}`}
@@ -272,6 +328,14 @@ export function Controls() {
           />
           <span className="w-7 text-right font-mono text-[9px]">{Math.round(pyramidOpacity * 100)}%</span>
         </label>
+        <span className="h-5 w-px bg-border" />
+        <button
+          onClick={() => setNamesOpen((open) => !open)}
+          className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold transition-colors ${namesOpen ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'}`}
+          aria-expanded={namesOpen}
+        >
+          {namesOpen ? <Check size={13} /> : <Edit3 size={13} />} Names
+        </button>
         {cutaway && (
           <>
             <span className="h-5 w-px bg-border" />
@@ -280,6 +344,22 @@ export function Controls() {
               <button key={level} onClick={() => setSectionLevel(level)} className={`h-6 w-6 rounded text-[10px] font-mono ${sectionLevel === level ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>{level}</button>
             ))}
           </>
+        )}
+        {namesOpen && (
+          <div className="absolute bottom-full right-0 mb-2 grid w-[min(92vw,22rem)] grid-cols-1 gap-1.5 rounded-lg border border-border bg-card/95 p-2 shadow-2xl backdrop-blur-xl">
+            <div className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Edit level names</div>
+            {[1, 2, 3, 4, 5].map((level) => (
+              <label key={level} className="flex items-center gap-2 rounded-md bg-background/60 px-2 py-1.5">
+                <span className="w-6 font-mono text-[10px] text-primary">L{level}</span>
+                <input
+                  value={levelNames[level] ?? ''}
+                  onChange={(event) => setLevelName(level, event.target.value)}
+                  className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none"
+                  aria-label={`Level ${level} name`}
+                />
+              </label>
+            ))}
+          </div>
         )}
       </div>
 
@@ -291,6 +371,37 @@ export function Controls() {
         <MonitorPlay size={14} />
         {presentationMode ? 'Exit Presentation' : 'Enter Presentation'}
       </button>
+    </div>
+  );
+}
+
+function JourneyLevelSummary({ placedObjects, levelNames, activeLevel }: {
+  placedObjects: { level: number; name: string }[];
+  levelNames: Record<number, string>;
+  activeLevel: number;
+}) {
+  return (
+    <div className="mt-3 grid grid-cols-5 gap-1.5 border-t border-border/70 pt-2">
+      {[1, 2, 3, 4, 5].map((level) => {
+        const objects = placedObjects.filter((object) => object.level === level);
+        return (
+          <div
+            key={level}
+            className={`min-w-0 rounded-md border px-1.5 py-1.5 transition-colors ${activeLevel === level ? 'border-primary/60 bg-primary/10' : 'border-border/60 bg-background/30'}`}
+            title={objects.map((object) => object.name).join(', ') || 'No data elements'}
+          >
+            <div className="flex items-center justify-between gap-1">
+              <span className={`truncate text-[9px] font-semibold uppercase tracking-wider ${activeLevel === level ? 'text-primary' : 'text-muted-foreground'}`}>
+                L{level} · {levelNames[level] ?? 'Level'}
+              </span>
+              <span className="font-mono text-[9px] text-foreground/70">{objects.length}</span>
+            </div>
+            <div className="mt-0.5 truncate text-[8px] text-muted-foreground">
+              {objects.length ? objects.slice(0, 2).map((object) => object.name).join(' · ') : 'Empty'}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

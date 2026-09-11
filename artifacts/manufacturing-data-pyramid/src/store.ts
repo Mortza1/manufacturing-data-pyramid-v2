@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
-import { COURSES, CourseMode, DataObject, DataCategory } from './data';
+import { COURSES, DEFAULT_LEVEL_NAMES, CourseMode, DataObject, DataCategory } from './data';
 
 export interface AppState {
   courseMode: CourseMode;
@@ -19,6 +19,8 @@ export interface AppState {
   showLevelLabels: boolean;
   pyramidOpacity: number;
   sectionLevel: number | null;
+  activeDataOnly: boolean;
+  levelNames: Record<number, string>;
   reducedMotion: boolean;
   
   selectedObjectId: string | null;
@@ -44,6 +46,8 @@ export interface AppState {
   setShowLevelLabels: (show: boolean) => void;
   setPyramidOpacity: (opacity: number) => void;
   setSectionLevel: (level: number | null) => void;
+  setActiveDataOnly: (activeOnly: boolean) => void;
+  setLevelName: (level: number, name: string) => void;
   setReducedMotion: (reduced: boolean) => void;
   setSelectedObjectId: (id: string | null) => void;
   setSelectedRelationshipId: (id: string | null) => void;
@@ -54,7 +58,15 @@ export interface AppState {
   placeObject: (item: Omit<DataObject, 'id'>, position: [number, number, number], level: number) => void;
   removeObject: (id: string) => void;
   resetCourse: () => void;
+  autoFillDemo: () => void;
+  clearActiveData: () => void;
 }
+
+const representativeObjects = (mode: CourseMode) =>
+  COURSES[mode].initialObjects.map(({ isActive, isUserAdded, ...object }) => object);
+
+const activeDemoObjects = (mode: CourseMode) =>
+  COURSES[mode].initialObjects.map((object) => ({ ...object, isActive: true, isUserAdded: false }));
 
 export const useStore = create<AppState>()(
   persist(
@@ -74,6 +86,8 @@ export const useStore = create<AppState>()(
       showLevelLabels: true,
       pyramidOpacity: 0.72,
       sectionLevel: 3,
+      activeDataOnly: false,
+      levelNames: { ...DEFAULT_LEVEL_NAMES },
       reducedMotion: false,
       
       selectedObjectId: null,
@@ -92,10 +106,27 @@ export const useStore = create<AppState>()(
         selectedObjectId: null,
         selectedRelationshipId: null,
         selectedLevelId: null,
-        placedObjects: COURSES[mode].initialObjects 
+         placedObjects: representativeObjects(mode),
+         activeDataOnly: false
       }),
-      setJourneyActive: (active) => set({ journeyActive: active, journeyStep: 0, journeyPlaying: active }),
-      setJourneyStep: (step) => set({ journeyStep: step }),
+      setJourneyActive: (active) => set((state) => ({
+        journeyActive: active,
+        journeyStep: 0,
+        journeyPlaying: active,
+        focusLevel: active ? null : state.focusLevel,
+        isolateLevel: active ? null : state.isolateLevel,
+        selectedObjectId: null,
+        selectedRelationshipId: null,
+        selectedLevelId: null,
+      })),
+      setJourneyStep: (step) => set((state) => ({
+        journeyStep: step,
+        focusLevel: state.journeyActive ? null : state.focusLevel,
+        isolateLevel: state.journeyActive ? null : state.isolateLevel,
+        selectedObjectId: null,
+        selectedRelationshipId: null,
+        selectedLevelId: null,
+      })),
       setJourneyPlaying: (playing) => set({ journeyPlaying: playing }),
       setPresentationMode: (active) => set({ presentationMode: active }),
       setFocusLevel: (level) => set({ focusLevel: level, selectedLevelId: level }),
@@ -107,6 +138,10 @@ export const useStore = create<AppState>()(
       setShowLevelLabels: (showLevelLabels) => set({ showLevelLabels }),
       setPyramidOpacity: (pyramidOpacity) => set({ pyramidOpacity: Math.min(1, Math.max(0.18, pyramidOpacity)) }),
       setSectionLevel: (sectionLevel) => set({ sectionLevel }),
+      setActiveDataOnly: (activeDataOnly) => set({ activeDataOnly }),
+      setLevelName: (level, name) => set((state) => ({
+        levelNames: { ...state.levelNames, [level]: name.trim() || DEFAULT_LEVEL_NAMES[level] },
+      })),
       setReducedMotion: (reducedMotion) => set({ reducedMotion }),
       setSelectedObjectId: (id) => set({ selectedObjectId: id, selectedRelationshipId: null, selectedLevelId: null }),
       setSelectedRelationshipId: (id) => set({ selectedRelationshipId: id, selectedObjectId: null, selectedLevelId: null }),
@@ -116,7 +151,7 @@ export const useStore = create<AppState>()(
       setTouchSelectedItem: (item) => set({ touchSelectedItem: item }),
       
       placeObject: (item, position, level) => set((state) => ({
-        placedObjects: [...state.placedObjects, { ...item, id: uuidv4(), position, level, isUserAdded: true }]
+        placedObjects: [...state.placedObjects, { ...item, id: uuidv4(), position, level, isUserAdded: true, isActive: true }]
       })),
       
       removeObject: (id) => set((state) => ({
@@ -134,18 +169,33 @@ export const useStore = create<AppState>()(
         exploded: false,
         cutaway: false,
         sectionLevel: 3,
+        activeDataOnly: false,
         showRelationships: false,
         selectedObjectId: null,
         selectedRelationshipId: null,
         dragHoveredLevelId: null,
         dragPosition: null,
         touchSelectedItem: null,
-        placedObjects: COURSES[state.courseMode].initialObjects
+        placedObjects: representativeObjects(state.courseMode)
+      })),
+      autoFillDemo: () => set((state) => ({
+        placedObjects: activeDemoObjects(state.courseMode),
+        activeDataOnly: false,
+        selectedObjectId: null,
+        selectedRelationshipId: null,
+        selectedLevelId: null,
+      })),
+      clearActiveData: () => set((state) => ({
+        placedObjects: representativeObjects(state.courseMode),
+        activeDataOnly: false,
+        selectedObjectId: null,
+        selectedRelationshipId: null,
+        selectedLevelId: null,
       })),
     }),
     {
       name: 'manufacturing-data-pyramid-storage',
-      version: 2,
+      version: 3,
       migrate: (persistedState: any) => {
         const mode = (persistedState?.courseMode || 'data-science') as CourseMode;
         const userAddedObjects = Array.isArray(persistedState?.placedObjects)
@@ -153,7 +203,10 @@ export const useStore = create<AppState>()(
           : [];
         return {
           ...persistedState,
-          placedObjects: [...COURSES[mode].initialObjects, ...userAddedObjects],
+           placedObjects: [
+             ...representativeObjects(mode),
+             ...userAddedObjects.map((object: DataObject) => ({ ...object, isActive: true })),
+           ],
         };
       },
       partialize: (state) => ({ 
@@ -163,7 +216,9 @@ export const useStore = create<AppState>()(
         presentationMode: state.presentationMode,
         showLevelLabels: state.showLevelLabels,
         pyramidOpacity: state.pyramidOpacity,
-        sectionLevel: state.sectionLevel
+        sectionLevel: state.sectionLevel,
+        activeDataOnly: state.activeDataOnly,
+        levelNames: state.levelNames
       }),
     }
   )

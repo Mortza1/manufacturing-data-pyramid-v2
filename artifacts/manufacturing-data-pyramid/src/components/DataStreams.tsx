@@ -3,7 +3,7 @@ import { Line } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../store';
-import { COURSES } from '../data';
+import { COURSES, getJourneyStep, getLevelY } from '../data';
 
 const STREAMS = [
   { x: -0.35, z: 1.05, phase: 0.1, color: '#38bdf8' },
@@ -58,12 +58,10 @@ export function DataStreams() {
     : courseMode === 'agentic-ai'
       ? ['#d946ef', '#a78bfa', '#22d3ee']
       : ['#38bdf8', '#2dd4bf', '#a78bfa'];
-  const activeLevel = journeyActive
-    ? COURSES[courseMode].journeySteps[Math.min(journeyStep, COURSES[courseMode].journeySteps.length - 1)].level
-    : 5;
+  const activeLevel = journeyActive ? getJourneyStep(COURSES[courseMode], journeyStep).level : 5;
 
   const streamHeight = (level: number) =>
-    (level - 0.5) + (exploded ? (level - 1) * 1.15 : 0);
+    getLevelY(level, exploded);
 
   const paths = useMemo(() => STREAMS.map((stream, index) => ({
     ...stream,
