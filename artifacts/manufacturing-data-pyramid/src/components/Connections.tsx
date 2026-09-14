@@ -1,8 +1,28 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useStore } from '../store';
 import { Line } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { COURSES, getDataObjectY, getJourneyStep, isActiveDataObject } from '../data';
+
+function RelationshipPulse({ start, end, phase }: { start: THREE.Vector3; end: THREE.Vector3; phase: number }) {
+  const ref = useRef<THREE.Mesh>(null);
+  const progress = useRef(phase);
+
+  useFrame((_, delta) => {
+    if (!ref.current) return;
+    progress.current = (progress.current + delta * 0.34) % 1;
+    ref.current.position.lerpVectors(start, end, progress.current);
+    ref.current.scale.setScalar(0.85 + Math.sin(progress.current * Math.PI * 2) * 0.18);
+  });
+
+  return (
+    <mesh ref={ref}>
+      <sphereGeometry args={[0.07, 12, 12]} />
+      <meshBasicMaterial color="#e0f2fe" toneMapped={false} />
+    </mesh>
+  );
+}
 
 export function Connections() {
   const { placedObjects, showRelationships, exploded, cutaway, journeyActive, journeyStep, activeDataOnly, courseMode, selectedObjectId, selectedRelationshipId, setSelectedRelationshipId, isolateLevel } = useStore();
@@ -71,6 +91,13 @@ export function Connections() {
                 setSelectedRelationshipId(line.rel.id);
               }}
             />
+            {isJourneyPath && (
+              <RelationshipPulse
+                start={line.start}
+                end={line.end}
+                phase={(idx * 0.23) % 1}
+              />
+            )}
             {/* Invisible thicker line for easier raycasting / clicking */}
             <Line
               points={[line.start, line.end]}

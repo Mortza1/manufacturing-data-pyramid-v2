@@ -51,6 +51,35 @@ function StreamPulse({ x, z, phase, color, exploded, activeHeight, reducedMotion
   );
 }
 
+function FlowParticle({ x, z, phase, color, activeHeight, reducedMotion }: {
+  x: number;
+  z: number;
+  phase: number;
+  color: string;
+  activeHeight: number;
+  reducedMotion: boolean;
+}) {
+  const ref = useRef<THREE.Mesh>(null);
+  const travel = useRef(phase);
+
+  useFrame((_, delta) => {
+    if (!ref.current || reducedMotion) return;
+    travel.current = (travel.current + delta * 0.2) % 1;
+    const yStart = 0.28;
+    const yEnd = Math.max(yStart, activeHeight);
+    const drift = Math.sin(travel.current * Math.PI * 2) * 0.06;
+    ref.current.position.set(drift, yStart + (yEnd - yStart) * travel.current, 0);
+    ref.current.scale.setScalar(0.8 + Math.sin(travel.current * Math.PI * 2) * 0.18);
+  });
+
+  return (
+    <mesh ref={ref} position={[0, 0.28, 0]}>
+      <sphereGeometry args={[0.045, 10, 10]} />
+      <meshBasicMaterial color={color} transparent opacity={0.82} toneMapped={false} />
+    </mesh>
+  );
+}
+
 export function DataStreams() {
   const { exploded, journeyActive, journeyStep, courseMode, reducedMotion } = useStore();
   const palette = courseMode === 'fundamentals-ai'
@@ -84,10 +113,10 @@ export function DataStreams() {
             color={stream.color}
             lineWidth={journeyActive ? 3 : 1.5}
             transparent
-            opacity={journeyActive ? 0.8 : 0.32}
+            opacity={journeyActive ? 0.86 : 0.32}
             dashed
-            dashSize={0.16}
-            dashScale={0.7}
+            dashSize={journeyActive ? 0.2 : 0.16}
+            dashScale={journeyActive ? 0.85 : 0.7}
           />
           <StreamPulse
             x={stream.x}
@@ -98,6 +127,17 @@ export function DataStreams() {
             activeHeight={streamHeight(activeLevel)}
             reducedMotion={reducedMotion}
           />
+          {journeyActive && [0, 1].map((particle) => (
+            <FlowParticle
+              key={particle}
+              x={stream.x}
+              z={stream.z}
+              phase={(stream.phase + particle * 0.38) % 1}
+              color={stream.color}
+              activeHeight={streamHeight(activeLevel)}
+              reducedMotion={reducedMotion}
+            />
+          ))}
         </group>
       ))}
       <mesh position={[0, streamHeight(1) - 0.05, 0.2]} rotation={[Math.PI / 2, 0, 0]}>

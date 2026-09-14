@@ -18,14 +18,14 @@ function ObjectLabel({ obj, showLabel, isSelected }: { obj: DataObject, showLabe
   );
 }
 
-function GlyphMaterial({ color, opacity, isSelected, isDataScience, isCutaway }: { color: string; opacity: any; isSelected: boolean; isDataScience: boolean; isCutaway: boolean }) {
+function GlyphMaterial({ color, opacity, isSelected, isJourneyHighlighted, isDataScience, isCutaway }: { color: string; opacity: any; isSelected: boolean; isJourneyHighlighted: boolean; isDataScience: boolean; isCutaway: boolean }) {
   return (
     <a.meshPhysicalMaterial
       color={color}
       roughness={isDataScience ? 0.18 : 0.32}
       metalness={isDataScience ? 0.85 : 0.62}
       emissive={color}
-      emissiveIntensity={isSelected ? 1.15 : 0.22}
+      emissiveIntensity={isSelected ? 1.15 : (isJourneyHighlighted ? 0.68 : 0.22)}
       transparent
       opacity={opacity}
       clippingPlanes={[]}
@@ -34,9 +34,9 @@ function GlyphMaterial({ color, opacity, isSelected, isDataScience, isCutaway }:
   );
 }
 
-function DataGlyph({ obj, color, opacity, isSelected, isDataScience, isCutaway }: { obj: DataObject; color: string; opacity: any; isSelected: boolean; isDataScience: boolean; isCutaway: boolean }): ReactNode {
+function DataGlyph({ obj, color, opacity, isSelected, isJourneyHighlighted, isDataScience, isCutaway }: { obj: DataObject; color: string; opacity: any; isSelected: boolean; isJourneyHighlighted: boolean; isDataScience: boolean; isCutaway: boolean }): ReactNode {
   const name = obj.name.toLowerCase();
-  const material = <GlyphMaterial color={color} opacity={opacity} isSelected={isSelected} isDataScience={isDataScience} isCutaway={isCutaway} />;
+  const material = <GlyphMaterial color={color} opacity={opacity} isSelected={isSelected} isJourneyHighlighted={isJourneyHighlighted} isDataScience={isDataScience} isCutaway={isCutaway} />;
   const accent = isSelected ? '#ffffff' : color;
 
   if (name.includes('cnc')) {
@@ -154,7 +154,7 @@ function DataGlyph({ obj, color, opacity, isSelected, isDataScience, isCutaway }
   }
 }
 
-function ObjectMesh({ obj, isFocused, isRelated, isVisible, showLabel, isExploded, isCutaway, mode }: { obj: DataObject, isFocused: boolean, isRelated: boolean, isVisible: boolean, showLabel: boolean, isExploded: boolean, isCutaway: boolean, mode: string }) {
+function ObjectMesh({ obj, isFocused, isRelated, isJourneyHighlighted, isVisible, showLabel, isExploded, isCutaway, mode }: { obj: DataObject, isFocused: boolean, isRelated: boolean, isJourneyHighlighted: boolean, isVisible: boolean, showLabel: boolean, isExploded: boolean, isCutaway: boolean, mode: string }) {
   const meshRef = useRef<THREE.Group>(null);
   const innerRef = useRef<THREE.Mesh>(null);
   const { selectedObjectId, setSelectedObjectId, reducedMotion, setFocusLevel } = useStore();
@@ -166,7 +166,7 @@ function ObjectMesh({ obj, isFocused, isRelated, isVisible, showLabel, isExplode
 
   const { position, scale, opacity } = useSpring({
     position: [obj.position![0], targetY, obj.position![2]] as [number, number, number],
-    scale: isSelected ? [1.34, 1.34, 1.34] : [1.08, 1.08, 1.08],
+     scale: isSelected ? [1.34, 1.34, 1.34] : (isJourneyHighlighted ? [1.16, 1.16, 1.16] : [1.08, 1.08, 1.08]),
     opacity: isVisible ? (isFocused && (!selectedObjectId || isSelected || isRelated) ? 1 : 0.12) : 0.08,
     config: { mass: 1, tension: 200, friction: 20 },
     immediate: reducedMotion
@@ -226,7 +226,7 @@ function ObjectMesh({ obj, isFocused, isRelated, isVisible, showLabel, isExplode
       visible={opacity.to(o => o > 0.01)}
     >
       <group ref={innerRef}>
-        <DataGlyph obj={obj} color={getColor()} opacity={opacity} isSelected={isSelected} isDataScience={isDataScience} isCutaway={isCutaway} />
+         <DataGlyph obj={obj} color={getColor()} opacity={opacity} isSelected={isSelected} isJourneyHighlighted={isJourneyHighlighted} isDataScience={isDataScience} isCutaway={isCutaway} />
       </group>
       
       {/* Outer subtle glow sphere when selected */}
@@ -253,19 +253,25 @@ export function PlacedObjects() {
     <group position={[0, -2.5, 0]}>
       {visibleObjects.map((obj) => (
         <React.Fragment key={obj.id}>
-        <ObjectMesh
+        {(() => {
+          const isJourneyHighlighted = journeyActive && (journeyState?.objectIds?.length
+            ? journeyState.objectIds.includes(obj.id)
+            : journeyLevel === obj.level);
+          return <ObjectMesh
           key={obj.id}
           obj={obj}
+          isJourneyHighlighted={isJourneyHighlighted}
           isFocused={focusLevel === null && (!journeyActive
             ? true
-            : (journeyState?.objectIds?.includes(obj.id) ?? journeyLevel === obj.level)) || focusLevel === obj.level}
+            : isJourneyHighlighted) || focusLevel === obj.level}
           isRelated={!!selectedObjectId && relationships.some((rel) => (rel.sourceId === selectedObjectId || rel.targetId === selectedObjectId) && (rel.sourceId === obj.id || rel.targetId === obj.id))}
           isVisible={isolateLevel === null || isolateLevel === obj.level}
-          showLabel={focusLevel === obj.level || isolateLevel === obj.level || (journeyState?.objectIds?.includes(obj.id) ?? journeyLevel === obj.level) || !!obj.isUserAdded}
+          showLabel={focusLevel === obj.level || isolateLevel === obj.level || isJourneyHighlighted || !!obj.isUserAdded}
           isExploded={exploded}
           isCutaway={cutaway}
           mode={courseMode}
-        />
+        />;
+        })()}
         {exploded && <LevelAnchor obj={obj} />}
         </React.Fragment>
       ))}
@@ -338,7 +344,7 @@ function FanObject({ obj, index, count, isOpen, isSelected, onSelect }: {
         onSelect();
       }}
     >
-      <DataGlyph obj={obj} color={LEVEL_ACCENTS[obj.level] ?? '#67e8f9'} opacity={opacity} isSelected={isSelected} isDataScience={false} isCutaway={false} />
+      <DataGlyph obj={obj} color={LEVEL_ACCENTS[obj.level] ?? '#67e8f9'} opacity={opacity} isSelected={isSelected} isJourneyHighlighted={false} isDataScience={false} isCutaway={false} />
       <ObjectLabel obj={obj} showLabel={isOpen} isSelected={isSelected} />
     </a.group>
   );

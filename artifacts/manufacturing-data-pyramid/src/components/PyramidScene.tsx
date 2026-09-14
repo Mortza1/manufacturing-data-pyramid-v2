@@ -5,7 +5,7 @@ import { Connections } from './Connections';
 import { DataStreams } from './DataStreams';
 import { SceneEnvironment } from './SceneEnvironment';
 import { useStore } from '../store';
-import { COURSES, getJourneyStep } from '../data';
+import { COURSES, getJourneyStep, getLevelY } from '../data';
 import * as THREE from 'three';
 import React, { Suspense, useRef, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
@@ -64,9 +64,9 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
 
     if (journeyActive) {
       const journeyLevel = getJourneyStep(COURSES[courseMode], journeyStep).level;
-      const journeyY = (journeyLevel - 0.5) - 2.5;
+      const journeyY = getLevelY(journeyLevel) - 2.5;
       destination.set(12.5, 8.5, 13.5);
-      target.set(0, journeyY * 0.22, 0);
+      target.set(0, journeyY * 0.34, 0);
     } else if (focusLevel !== null || isolateLevel !== null) {
       const targetLevel = isolateLevel ?? focusLevel ?? 3;
       const y = (targetLevel - 0.5) - 2.5;
@@ -89,7 +89,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
       fromTarget,
       target,
       elapsed: 0,
-      duration: 650,
+       duration: journeyActive ? 900 : 650,
       active: true,
     };
     cancelRef.current = () => {
@@ -110,7 +110,9 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
 
     transition.elapsed += delta * 1000;
     const progress = Math.min(1, transition.elapsed / transition.duration);
-    const eased = 1 - Math.pow(1 - progress, 3);
+    const eased = progress < 0.5
+      ? 4 * progress * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
     state.camera.position.lerpVectors(transition.from, transition.to, eased);
     if (controls) {
       controls.target.lerpVectors(transition.fromTarget, transition.target, eased);
@@ -251,7 +253,8 @@ export function PyramidScene() {
       gl={{ antialias: true, alpha: false, localClippingEnabled: true }}
     >
       <color attach="background" args={[bg]} />
-      <fog attach="fog" args={[bg, 10, 35]} />
+      {/* Keep atmospheric depth from changing pyramid layer opacity while zooming. */}
+      <fog attach="fog" args={[bg, 80, 180]} />
 
       <ambientLight intensity={courseMode === 'fundamentals-ai' ? 0.3 : 0.6} />
       <spotLight 

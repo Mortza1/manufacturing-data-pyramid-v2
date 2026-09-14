@@ -63,7 +63,9 @@ export interface AppState {
 }
 
 const representativeObjects = (mode: CourseMode) =>
-  COURSES[mode].initialObjects.map(({ isActive, isUserAdded, ...object }) => object);
+  COURSES[mode].initialObjects
+    .filter((object) => !['ds-14', 'ds-15'].includes(object.id))
+    .map(({ isActive, isUserAdded, ...object }) => object);
 
 const activeDemoObjects = (mode: CourseMode) =>
   COURSES[mode].initialObjects.map((object) => ({ ...object, isActive: true, isUserAdded: false }));
@@ -81,7 +83,7 @@ export const useStore = create<AppState>()(
       isolateLevel: null,
       selectedLevelId: null,
       exploded: false,
-      cutaway: false,
+      cutaway: true,
       showRelationships: false,
       showLevelLabels: true,
       pyramidOpacity: 0.72,
@@ -96,7 +98,7 @@ export const useStore = create<AppState>()(
       dragHoveredLevelId: null,
       dragPosition: null,
       touchSelectedItem: null,
-      placedObjects: COURSES['data-science'].initialObjects,
+      placedObjects: representativeObjects('data-science'),
 
       setCourseMode: (mode) => set({ 
         courseMode: mode, 
@@ -167,7 +169,7 @@ export const useStore = create<AppState>()(
         isolateLevel: null,
         selectedLevelId: null,
         exploded: false,
-        cutaway: false,
+        cutaway: true,
         sectionLevel: 3,
         activeDataOnly: false,
         showRelationships: false,
@@ -195,18 +197,18 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'manufacturing-data-pyramid-storage',
-      version: 3,
+      version: 4,
       migrate: (persistedState: any) => {
         const mode = (persistedState?.courseMode || 'data-science') as CourseMode;
-        const userAddedObjects = Array.isArray(persistedState?.placedObjects)
-          ? persistedState.placedObjects.filter((object: DataObject) => object.isUserAdded)
+        const persistedObjects = Array.isArray(persistedState?.placedObjects)
+          ? persistedState.placedObjects
           : [];
+        const hasActiveData = persistedObjects.some((object: DataObject) => object.isUserAdded || object.isActive);
         return {
           ...persistedState,
-           placedObjects: [
-             ...representativeObjects(mode),
-             ...userAddedObjects.map((object: DataObject) => ({ ...object, isActive: true })),
-           ],
+          placedObjects: hasActiveData
+            ? persistedObjects.map((object: DataObject) => object.isUserAdded ? { ...object, isActive: true } : object)
+            : representativeObjects(mode),
         };
       },
       partialize: (state) => ({ 

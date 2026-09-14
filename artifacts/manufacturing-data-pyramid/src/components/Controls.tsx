@@ -61,12 +61,11 @@ export function Controls() {
   }, [journeyActive, journeyPlaying, courseMode, setJourneyStep, setJourneyPlaying]);
 
   if (journeyActive) {
-    const steps = journeySteps;
     return (
       <div className="pointer-events-auto absolute bottom-8 left-1/2 -translate-x-1/2 bg-card/95 backdrop-blur-xl border rounded-full flex items-center px-6 py-4 gap-6 shadow-2xl z-30">
         <div className="flex-1 min-w-[250px] md:min-w-[350px]">
           <div className="text-xs text-primary font-mono uppercase tracking-wider mb-1">
-            Step {currentJourneyStep + 1} of {steps.length}
+             Journey stage
           </div>
           <div className="text-sm font-semibold text-foreground">
             {currentJourney.title}

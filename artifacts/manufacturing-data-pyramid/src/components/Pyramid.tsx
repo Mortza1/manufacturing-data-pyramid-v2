@@ -5,7 +5,7 @@ import { useSpring, a } from '@react-spring/three';
 import * as THREE from 'three';
 import { Edges, Html } from '@react-three/drei';
 
-function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, sectionLevel, showLabels, surfaceOpacity, displayName, onDoubleClick, onPointerDown, onPointerOver, onPointerOut, mode }: any) {
+function PyramidLevel({ level, isActive, isJourneyActiveLevel, isVisible, isExploded, isCutaway, sectionLevel, showLabels, surfaceOpacity, displayName, onDoubleClick, onPointerDown, onPointerOver, onPointerOut, mode }: any) {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const { reducedMotion, draggedLibraryItem, dragHoveredLevelId, placeObject, setDraggedLibraryItem, touchSelectedItem, setTouchSelectedItem, selectedLevelId, setSelectedLevelId } = useStore();
@@ -23,7 +23,7 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, secti
   const isSelectedLevel = selectedLevelId === level.id;
 
   const targetOpacity = !isVisible ? 0.08 : (!isActive ? 0.1 : (isDropTargetHovered ? 1 : ((hovered || dragHoveredLevelId === level.id) ? 0.9 : (isSelectedLevel ? 0.8 : ((selectedLevelId !== null && !pendingItem) ? 0.3 : 0.72)))));
-  const isHighlighted = isDropTargetHovered || isSelectedLevel;
+  const isHighlighted = isDropTargetHovered || isSelectedLevel || isJourneyActiveLevel;
   const targetScale = (isHighlighted || (isActive && (hovered || dragHoveredLevelId === level.id))) ? [1.02, 1.02, 1.02] : [1, 1, 1];
 
   const { position, opacity, scale } = useSpring({
@@ -138,21 +138,24 @@ function PyramidLevel({ level, isActive, isVisible, isExploded, isCutaway, secti
         receiveShadow
         raycast={() => null} // Handled by hit mesh
       >
-        <a.meshPhysicalMaterial
+          <a.meshPhysicalMaterial
           color={isHighlighted ? "#22d3ee" : level.color}
           transparent
           opacity={opacity.to((value) => value * surfaceOpacity)}
-          transmission={isDataScience ? 0.9 : 0.6}
+           transmission={0}
           roughness={isDataScience ? 0.1 : 0.3}
           metalness={isDataScience ? 0.5 : 0.8}
           thickness={0.5}
           ior={1.5}
           envMapIntensity={isDataScience ? 2 : 1.5}
-           emissive={isHighlighted ? "#ffffff" : modeAccent}
-          emissiveIntensity={isHighlighted ? 0.8 : (isDataScience ? 0.2 : 0.05)}
+           emissive={isJourneyActiveLevel ? modeAccent : (isHighlighted ? "#ffffff" : modeAccent)}
+           emissiveIntensity={isJourneyActiveLevel ? 0.5 : (isHighlighted ? 0.8 : (isDataScience ? 0.2 : 0.05))}
           clippingPlanes={isCutaway ? [sectionClipPlane] : []}
           side={isCutaway ? THREE.DoubleSide : THREE.FrontSide}
         />
+        {isJourneyActiveLevel && (
+          <pointLight color={modeAccent} intensity={0.7} distance={4.5} decay={2} />
+        )}
         
         {/* Metallic Wireframe Edges */}
         <Edges 
@@ -185,6 +188,7 @@ export function Pyramid() {
             key={level.id}
             level={level}
             isActive={isActive}
+            isJourneyActiveLevel={journeyActive && journeyLevel === level.id}
             isVisible={isVisible}
             isExploded={exploded}
             isCutaway={cutaway}
