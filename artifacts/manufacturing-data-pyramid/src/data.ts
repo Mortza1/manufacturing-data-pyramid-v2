@@ -167,7 +167,7 @@ export const FORGING_LOOPS: ConnectionLoop[] = [
   {
     id: 'forge-process-optimisation',
     name: 'Process Optimisation Loop',
-    color: '#22d3ee',
+    color: '#ff3b4f',
     visible: true,
     relationships: [
       { id: 'forge-po-1', sourceId: 'forge-thermocouple', targetId: 'forge-events', description: 'Thermocouple data enters the process state and event stream.' },
@@ -185,7 +185,7 @@ export const FORGING_LOOPS: ConnectionLoop[] = [
   {
     id: 'forge-predictive-maintenance',
     name: 'Predictive Maintenance Loop',
-    color: '#fb7185',
+    color: '#ff9f1c',
     visible: true,
     relationships: [
       { id: 'forge-pm-1', sourceId: 'forge-thermocouple', targetId: 'forge-working-fail', description: 'Thermal signatures expose changing working or fail states.' },
