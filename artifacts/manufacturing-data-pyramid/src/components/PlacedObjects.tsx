@@ -34,10 +34,201 @@ function GlyphMaterial({ color, opacity, isSelected, isJourneyHighlighted, isDat
   );
 }
 
-export function DataGlyph({ obj, color, opacity, isSelected, isJourneyHighlighted, isDataScience, isCutaway }: { obj: DataObject; color: string; opacity: any; isSelected: boolean; isJourneyHighlighted: boolean; isDataScience: boolean; isCutaway: boolean }): ReactNode {
+export function DataGlyph({ obj, color, opacity, isSelected, isJourneyHighlighted, isDataScience, isCutaway, isForging = false }: { obj: DataObject; color: string; opacity: any; isSelected: boolean; isJourneyHighlighted: boolean; isDataScience: boolean; isCutaway: boolean; isForging?: boolean }): ReactNode {
   const name = obj.name.toLowerCase();
   const material = <GlyphMaterial color={color} opacity={opacity} isSelected={isSelected} isJourneyHighlighted={isJourneyHighlighted} isDataScience={isDataScience} isCutaway={isCutaway} />;
   const accent = isSelected ? '#ffffff' : color;
+
+  if (isForging && name.includes('video')) {
+    return (
+      <group>
+        <mesh castShadow><boxGeometry args={[0.58, 0.42, 0.42]} />{material}</mesh>
+        <mesh position={[0, 0, 0.26]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.15, 0.15, 0.1, 20]} /><meshBasicMaterial color="#081018" /></mesh>
+        <mesh position={[0, 0, 0.32]} rotation={[Math.PI / 2, 0, 0]}><circleGeometry args={[0.085, 20]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+        <mesh position={[0, 0.29, 0]}><boxGeometry args={[0.2, 0.06, 0.16]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+      </group>
+    );
+  }
+
+  if (isForging && name.includes('thermocouple')) {
+    return (
+      <group>
+        <mesh position={[0, 0.2, 0]} castShadow><cylinderGeometry args={[0.13, 0.18, 0.42, 12]} />{material}</mesh>
+        <mesh position={[0, -0.18, 0]} castShadow><cylinderGeometry args={[0.07, 0.09, 0.38, 10]} />{material}</mesh>
+        <mesh position={[0, -0.39, 0]}><sphereGeometry args={[0.09, 12, 12]} />{material}</mesh>
+        <mesh position={[0, 0.45, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.18, 0.018, 8, 24]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+      </group>
+    );
+  }
+
+  if (isForging && name === 'force') {
+    return (
+      <group>
+        <mesh castShadow><cylinderGeometry args={[0.24, 0.28, 0.28, 16]} />{material}</mesh>
+        <mesh position={[0, 0.2, 0]}><torusGeometry args={[0.2, 0.035, 8, 24]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+        <mesh position={[0, 0.38, 0]}><coneGeometry args={[0.12, 0.25, 6]} />{material}</mesh>
+        <mesh position={[0.34, 0.1, 0]} rotation={[0, 0, -Math.PI / 2]}><boxGeometry args={[0.08, 0.34, 0.08]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+      </group>
+    );
+  }
+
+  if (isForging && name.includes('displacement')) {
+    return (
+      <group>
+        <mesh castShadow><boxGeometry args={[0.72, 0.12, 0.18]} />{material}</mesh>
+        <mesh position={[-0.18, 0.13, 0]}><boxGeometry args={[0.07, 0.22, 0.28]} />{material}</mesh>
+        <mesh position={[0.16, 0.15, 0]}><boxGeometry args={[0.18, 0.2, 0.32]} />{material}</mesh>
+        <mesh position={[0.16, 0.16, 0.18]}><boxGeometry args={[0.06, 0.08, 0.22]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+      </group>
+    );
+  }
+
+  if (isForging && name.includes('microstructure')) {
+    return (
+      <group rotation={[0.15, 0.2, 0]}>
+        <mesh castShadow><boxGeometry args={[0.62, 0.08, 0.52]} />{material}</mesh>
+        {[-0.16, 0, 0.16].map((x) => <mesh key={`x-${x}`} position={[x, 0.055, 0]} rotation={[0, 0, Math.PI / 2]}><torusGeometry args={[0.1, 0.012, 6, 12]} /><meshBasicMaterial color={accent} transparent opacity={0.8} toneMapped={false} /></mesh>)}
+        {[-0.12, 0.12].map((z) => <mesh key={`z-${z}`} position={[0, 0.06, z]}><boxGeometry args={[0.48, 0.012, 0.018]} /><meshBasicMaterial color={accent} transparent opacity={0.7} toneMapped={false} /></mesh>)}
+      </group>
+    );
+  }
+
+  if (isForging && name.includes('product measurement')) {
+    return (
+      <group>
+        <mesh position={[0, 0.12, 0]}><boxGeometry args={[0.64, 0.07, 0.08]} />{material}</mesh>
+        <mesh position={[-0.25, 0.25, 0]}><boxGeometry args={[0.07, 0.3, 0.08]} />{material}</mesh>
+        <mesh position={[0.24, 0.22, 0]}><boxGeometry args={[0.07, 0.24, 0.08]} />{material}</mesh>
+        <mesh position={[0.05, 0.22, 0.03]}><boxGeometry args={[0.22, 0.04, 0.04]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+      </group>
+    );
+  }
+
+  if (isForging && (name.includes('process state') || name === 'events')) {
+    return (
+      <group>
+        <mesh castShadow><boxGeometry args={[0.58, 0.42, 0.16]} />{material}</mesh>
+        {[-0.16, 0, 0.16].map((x, index) => <mesh key={x} position={[x, 0, 0.1]}><sphereGeometry args={[0.045, 10, 10]} /><meshBasicMaterial color={index === 1 ? '#fbbf24' : accent} toneMapped={false} /></mesh>)}
+        <mesh position={[0, -0.1, 0.1]}><boxGeometry args={[0.38, 0.035, 0.02]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+      </group>
+    );
+  }
+
+  if (isForging && name.includes('process settings')) {
+    return (
+      <group>
+        <mesh castShadow><boxGeometry args={[0.62, 0.42, 0.18]} />{material}</mesh>
+        {[-0.12, 0.02, 0.16].map((x, index) => (
+          <group key={x} position={[x, 0, 0.12]}>
+            <mesh><boxGeometry args={[0.035, 0.25, 0.02]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+            <mesh position={[0, index % 2 ? 0.04 : -0.04, 0.025]}><sphereGeometry args={[0.055, 10, 10]} /><meshBasicMaterial color="#fbbf24" toneMapped={false} /></mesh>
+          </group>
+        ))}
+      </group>
+    );
+  }
+
+  if (isForging && name.includes('process control')) {
+    return (
+      <group>
+        <mesh castShadow><boxGeometry args={[0.64, 0.42, 0.28]} />{material}</mesh>
+        <mesh position={[0, 0.05, 0.16]}><boxGeometry args={[0.32, 0.17, 0.025]} /><meshBasicMaterial color="#061019" /></mesh>
+        {[-0.22, 0.22].map((x) => <mesh key={x} position={[x, -0.12, 0.16]}><sphereGeometry args={[0.04, 10, 10]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>)}
+      </group>
+    );
+  }
+
+  if (isForging && name.includes('physical process')) {
+    return (
+      <group>
+        <mesh castShadow><boxGeometry args={[0.66, 0.18, 0.52]} />{material}</mesh>
+        <mesh position={[0, 0.28, 0]}><boxGeometry args={[0.16, 0.4, 0.16]} />{material}</mesh>
+        <mesh position={[0, 0.03, 0]}><boxGeometry args={[0.32, 0.08, 0.3]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+      </group>
+    );
+  }
+
+  if (isForging && name.includes('product geometry')) {
+    return (
+      <group rotation={[0.2, 0.3, 0]}>
+        <mesh castShadow><boxGeometry args={[0.58, 0.18, 0.42]} />{material}</mesh>
+        <mesh position={[0.2, 0.18, 0]}><cylinderGeometry args={[0.12, 0.12, 0.32, 8]} />{material}</mesh>
+        <lineSegments><edgesGeometry args={[new THREE.BoxGeometry(0.78, 0.72, 0.62)]} /><lineBasicMaterial color={accent} transparent opacity={0.9} toneMapped={false} /></lineSegments>
+      </group>
+    );
+  }
+
+  if (isForging && name === 'quality') {
+    return (
+      <group>
+        <mesh castShadow><boxGeometry args={[0.52, 0.58, 0.12]} />{material}</mesh>
+        <mesh position={[0, 0.08, 0.09]} rotation={[0, 0, -0.7]}><boxGeometry args={[0.25, 0.06, 0.03]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+        <mesh position={[0.04, -0.07, 0.1]} rotation={[0, 0, 0.7]}><boxGeometry args={[0.35, 0.06, 0.03]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+      </group>
+    );
+  }
+
+  if (isForging && (name === 'cost' || name === 'profit')) {
+    return (
+      <group>
+        <mesh castShadow><boxGeometry args={[0.55, 0.42, 0.16]} />{material}</mesh>
+        <mesh position={[0, 0, 0.12]}><cylinderGeometry args={[0.13, 0.13, 0.04, 20]} /><meshBasicMaterial color="#fbbf24" toneMapped={false} /></mesh>
+        <mesh position={[0, 0, 0.15]}><boxGeometry args={[0.025, 0.16, 0.02]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+      </group>
+    );
+  }
+
+  if (isForging && (name.includes('machine condition') || name === 'reliability')) {
+    return (
+      <group>
+        <mesh castShadow><cylinderGeometry args={[0.28, 0.28, 0.12, 20]} />{material}</mesh>
+        <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.21, 0.035, 8, 20, Math.PI]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+        <mesh position={[0, 0.04, 0.14]} rotation={[0, 0, -0.55]}><boxGeometry args={[0.23, 0.035, 0.035]} /><meshBasicMaterial color="#fbbf24" toneMapped={false} /></mesh>
+      </group>
+    );
+  }
+
+  if (isForging && name.includes('maintenance plan')) {
+    return (
+      <group>
+        <mesh castShadow><boxGeometry args={[0.54, 0.56, 0.12]} />{material}</mesh>
+        {[-0.14, 0, 0.14].map((y) => <mesh key={y} position={[-0.12, y, 0.1]}><boxGeometry args={[0.05, 0.05, 0.03]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>)}
+        {[-0.14, 0, 0.14].map((y) => <mesh key={`line-${y}`} position={[0.08, y, 0.1]}><boxGeometry args={[0.22, 0.03, 0.02]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>)}
+      </group>
+    );
+  }
+
+  if (isForging && (name.includes('maintenance decision') || name === 'decision-making' || name === 'management')) {
+    return (
+      <group>
+        <mesh castShadow><icosahedronGeometry args={[0.32, 1]} />{material}</mesh>
+        <mesh rotation={[Math.PI / 2, 0.2, 0]}><torusGeometry args={[0.5, 0.025, 8, 28]} /><meshBasicMaterial color={accent} transparent opacity={0.8} toneMapped={false} /></mesh>
+        <mesh position={[0, 0.05, 0.28]}><coneGeometry args={[0.11, 0.22, 4]} /><meshBasicMaterial color="#fbbf24" toneMapped={false} /></mesh>
+      </group>
+    );
+  }
+
+  if (isForging && name === 'sustainability') {
+    return (
+      <group rotation={[0.2, 0, -0.35]}>
+        <mesh castShadow><sphereGeometry args={[0.28, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.65]} />{material}</mesh>
+        <mesh position={[0, -0.22, 0]}><boxGeometry args={[0.04, 0.32, 0.04]} /><meshBasicMaterial color={accent} toneMapped={false} /></mesh>
+      </group>
+    );
+  }
+
+  if (isForging && (name === 'resources' || name === 'sales')) {
+    return (
+      <group>
+        {[-0.18, 0.18].map((x) => (
+          <group key={x} position={[x, 0, 0]}>
+            <mesh position={[0, 0.18, 0]}><sphereGeometry args={[0.1, 12, 12]} />{material}</mesh>
+            <mesh position={[0, -0.04, 0]}><capsuleGeometry args={[0.1, 0.22, 6, 10]} />{material}</mesh>
+          </group>
+        ))}
+      </group>
+    );
+  }
 
   if (name.includes('cnc')) {
     return (

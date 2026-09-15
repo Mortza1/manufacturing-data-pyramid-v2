@@ -40,6 +40,9 @@ function ForgingLevel({
   exploded,
   separateSectors,
   showLabels,
+  labelDistance,
+  focusedSector,
+  hideOtherSectors,
   opacity,
   cutaway,
   sectionLevel,
@@ -48,6 +51,9 @@ function ForgingLevel({
   exploded: boolean;
   separateSectors: boolean;
   showLabels: boolean;
+  labelDistance: number;
+  focusedSector: ForgingSector | null;
+  hideOtherSectors: boolean;
   opacity: number;
   cutaway: boolean;
   sectionLevel: number | null;
@@ -70,7 +76,7 @@ function ForgingLevel({
     <group position={[0, y, 0]}>
       <mesh geometry={geometry} castShadow receiveShadow>
         <meshPhysicalMaterial
-          color={level.color}
+          color={['#111c27', '#152230', '#182736', '#1b2a38', '#1e2d3b'][level.id - 1]}
           transparent
           opacity={opacity * (separateSectors ? 0.28 : 0.7)}
           roughness={0.28}
@@ -79,13 +85,15 @@ function ForgingLevel({
           clippingPlanes={cutaway ? [sectionClipPlane] : []}
           side={THREE.DoubleSide}
         />
-        <Edges color={level.edgeColor} threshold={15} opacity={separateSectors ? 0.25 : 0.9} transparent />
+        <Edges color="#8da2b5" threshold={15} opacity={separateSectors ? 0.22 : 0.5} transparent />
       </mesh>
 
       {FORGING_SECTORS.map((sector) => {
         const isLeft = sector === 'product' || sector === 'process';
         const isBack = sector === 'product' || sector === 'machine';
         const offset = separateSectors ? FORGING_SECTOR_OFFSETS[sector] : [0, 0];
+        const isFocused = focusedSector === null || focusedSector === sector;
+        const isVisible = !hideOtherSectors || isFocused;
         return (
           <mesh
             key={sector}
@@ -102,13 +110,13 @@ function ForgingLevel({
               emissive={FORGING_SECTOR_COLORS[sector]}
               emissiveIntensity={separateSectors ? 0.22 : 0.08}
               transparent
-              opacity={opacity * (separateSectors ? 0.64 : 0.3)}
+              opacity={opacity * (isVisible ? (focusedSector === sector ? 0.68 : (separateSectors ? 0.5 : 0.24)) : 0)}
               toneMapped={false}
             />
             <Html
               position={[0, 0.08, 0]}
               center
-              style={{ pointerEvents: 'none', opacity: showLabels ? 0.75 : 0 }}
+               style={{ pointerEvents: 'none', opacity: showLabels && isVisible ? (focusedSector === sector ? 1 : 0.5) : 0 }}
               zIndexRange={[30, 0]}
             >
               <span
@@ -127,7 +135,7 @@ function ForgingLevel({
       })}
 
       <Html
-        position={[level.base + 0.9, 0.05, 0]}
+        position={[level.base + 0.9 + labelDistance, 0.05, 0]}
         center
         style={{ pointerEvents: 'none', opacity: showLabels ? 1 : 0 }}
         zIndexRange={[35, 0]}
@@ -144,7 +152,17 @@ function ForgingLevel({
 }
 
 export function ForgingPyramid() {
-  const { forgingExploded, forgingSeparateSectors, forgingShowLabels, forgingPyramidOpacity, forgingCutaway, forgingSectionLevel } = useStore();
+  const {
+    forgingExploded,
+    forgingSeparateSectors,
+    forgingShowLabels,
+    forgingLabelDistance,
+    forgingPyramidOpacity,
+    forgingCutaway,
+    forgingSectionLevel,
+    forgingFocusedSector,
+    forgingHideOtherSectors,
+  } = useStore();
   return (
     <group position={[0, -2.5, 0]}>
       {FORGING_LEVELS.map((level) => (
@@ -154,6 +172,9 @@ export function ForgingPyramid() {
           exploded={forgingExploded}
           separateSectors={forgingSeparateSectors}
           showLabels={forgingShowLabels}
+          labelDistance={forgingLabelDistance}
+          focusedSector={forgingFocusedSector}
+          hideOtherSectors={forgingHideOtherSectors}
           opacity={forgingPyramidOpacity}
           cutaway={forgingCutaway}
           sectionLevel={forgingSectionLevel}
@@ -164,16 +185,27 @@ export function ForgingPyramid() {
 }
 
 function ForgingObjectMesh({ object }: { object: any }) {
-  const { selectedObjectId, setSelectedObjectId, forgingExploded, forgingSeparateSectors, forgingShowLabels } = useStore();
+  const {
+    selectedObjectId,
+    setSelectedObjectId,
+    forgingExploded,
+    forgingSeparateSectors,
+    forgingShowLabels,
+    forgingFocusedSector,
+    forgingHideOtherSectors,
+  } = useStore();
   const selected = selectedObjectId === object.id;
   const innerRef = useRef<THREE.Group>(null);
   const sector = getSector(object);
   const color = FORGING_SECTOR_COLORS[sector];
+  const isFocusedSector = forgingFocusedSector === null || forgingFocusedSector === sector;
+  const sectorVisible = !forgingHideOtherSectors || isFocusedSector;
+  const sectorOpacity = selected ? 1 : (forgingFocusedSector === sector ? 1 : (forgingFocusedSector ? 0.16 : 1));
   const targetPosition = getObjectPosition(object, forgingExploded, forgingSeparateSectors);
   const { position, scale, opacity } = useSpring({
     position: targetPosition,
     scale: selected ? [1.32, 1.32, 1.32] : [1.08, 1.08, 1.08],
-    opacity: 1,
+    opacity: sectorVisible ? sectorOpacity : 0,
     config: { mass: 1, tension: 190, friction: 22 },
   });
 
@@ -185,6 +217,7 @@ function ForgingObjectMesh({ object }: { object: any }) {
     <a.group
       position={position as any}
       scale={scale as any}
+      visible={sectorVisible}
       onClick={(event) => {
         event.stopPropagation();
         setSelectedObjectId(selected ? null : object.id);
@@ -200,6 +233,7 @@ function ForgingObjectMesh({ object }: { object: any }) {
           isJourneyHighlighted={false}
           isDataScience={false}
           isCutaway={false}
+           isForging
         />
       </group>
       {selected && (
@@ -208,7 +242,7 @@ function ForgingObjectMesh({ object }: { object: any }) {
           <meshBasicMaterial color={color} transparent opacity={0.18} depthWrite={false} toneMapped={false} />
         </mesh>
       )}
-      {(forgingShowLabels || selected) && (
+      {(forgingShowLabels && isFocusedSector || selected) && (
         <Html position={[0, 0.62, 0]} center style={{ pointerEvents: 'none' }} zIndexRange={[55, 0]}>
           <div
             className="rounded border px-2 py-1 text-[10px] font-semibold whitespace-nowrap shadow-xl backdrop-blur"
@@ -231,16 +265,28 @@ export function ForgingObjects() {
   );
 }
 
-function getLoopLines(loops: ConnectionLoop[], objects: any[], exploded: boolean, separateSectors: boolean) {
+function getLoopLines(
+  loops: ConnectionLoop[],
+  objects: any[],
+  exploded: boolean,
+  separateSectors: boolean,
+  focusedSector: ForgingSector | null,
+  hideOtherSectors: boolean,
+) {
   const objectMap = new Map(objects.map((object) => [object.id, object]));
   return loops.flatMap((loop) => loop.visible
     ? loop.relationships.flatMap((relationship) => {
       const source = objectMap.get(relationship.sourceId);
       const target = objectMap.get(relationship.targetId);
       if (!source || !target) return [];
+      const sourceSector = getSector(source);
+      const targetSector = getSector(target);
+      const relevant = focusedSector === null || sourceSector === focusedSector || targetSector === focusedSector;
+      if (hideOtherSectors && focusedSector !== null && !relevant) return [];
       return [{
         loop,
         relationship,
+        relevant,
         start: new THREE.Vector3(...getObjectPosition(source, exploded, separateSectors)),
         end: new THREE.Vector3(...getObjectPosition(target, exploded, separateSectors)),
       }];
@@ -248,46 +294,92 @@ function getLoopLines(loops: ConnectionLoop[], objects: any[], exploded: boolean
     : []);
 }
 
+function getRoute(start: THREE.Vector3, end: THREE.Vector3, relationshipId: string) {
+  const direction = end.clone().sub(start);
+  const distance = Math.max(direction.length(), 0.01);
+  direction.normalize();
+  const attachedStart = start.clone().addScaledVector(direction, 0.38);
+  const attachedEnd = end.clone().addScaledVector(direction, -0.48);
+  const midpoint = attachedStart.clone().lerp(attachedEnd, 0.5);
+  const lateral = new THREE.Vector3(-direction.z, 0, direction.x);
+  if (lateral.lengthSq() < 0.01) lateral.set(1, 0, 0);
+  lateral.normalize();
+  const lane = ((relationshipId.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 3) - 1) * 0.18;
+  const control = midpoint
+    .addScaledVector(lateral, lane)
+    .add(new THREE.Vector3(0, 0.68 + Math.min(distance * 0.16, 0.8), 0));
+  const curve = new THREE.QuadraticBezierCurve3(attachedStart, control, attachedEnd);
+  const points = curve.getPoints(24);
+  const tangent = curve.getTangent(0.985).normalize();
+  const arrowPosition = attachedEnd.clone().addScaledVector(tangent, -0.16);
+  const arrowQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
+  return { points, arrowPosition, arrowQuaternion };
+}
+
 export function ForgingConnections() {
-  const { forgingLoops, forgingObjects, forgingExploded, forgingSeparateSectors, selectedRelationshipId, setSelectedRelationshipId } = useStore();
+  const {
+    forgingLoops,
+    forgingObjects,
+    forgingExploded,
+    forgingSeparateSectors,
+    forgingFocusedSector,
+    forgingHideOtherSectors,
+    selectedRelationshipId,
+    selectedForgingLoopId,
+    setSelectedRelationshipId,
+    setSelectedForgingLoopId,
+  } = useStore();
   const lines = useMemo(
-    () => getLoopLines(forgingLoops, forgingObjects, forgingExploded, forgingSeparateSectors),
-    [forgingLoops, forgingObjects, forgingExploded, forgingSeparateSectors],
+    () => getLoopLines(
+      forgingLoops,
+      forgingObjects,
+      forgingExploded,
+      forgingSeparateSectors,
+      forgingFocusedSector,
+      forgingHideOtherSectors,
+    ),
+    [forgingLoops, forgingObjects, forgingExploded, forgingSeparateSectors, forgingFocusedSector, forgingHideOtherSectors],
   );
 
   return (
     <group position={[0, -2.5, 0]}>
-      {lines.map(({ loop, relationship, start, end }) => {
+      {lines.map(({ loop, relationship, relevant, start, end }) => {
         const selected = selectedRelationshipId === relationship.id;
+        const dominant = selectedForgingLoopId === loop.id || selected;
+        const route = getRoute(start, end, relationship.id);
+        const lineOpacity = selectedForgingLoopId || selectedRelationshipId
+          ? (dominant ? 1 : (relevant ? 0.2 : 0.06))
+          : (relevant ? 0.86 : 0.16);
+        const lineWidth = dominant ? 4.5 : (relevant ? 2.2 : 1);
         return (
-          <React.Fragment key={relationship.id}>
+          <group
+            key={relationship.id}
+            onClick={(event) => {
+              event.stopPropagation();
+              setSelectedForgingLoopId(loop.id);
+              setSelectedRelationshipId(relationship.id);
+            }}
+          >
             <Line
-              points={[start, end]}
+              points={route.points}
               color={selected ? '#ffffff' : loop.color}
-              lineWidth={selected ? 5 : 2.5}
+              lineWidth={lineWidth}
               transparent
-              opacity={selected ? 1 : 0.72}
-              dashed
-              dashSize={0.2}
-              dashScale={0.1}
-              onClick={(event) => {
-                event.stopPropagation();
-                setSelectedRelationshipId(relationship.id);
-              }}
+              opacity={lineOpacity}
             />
             <Line
-              points={[start, end]}
+              points={route.points}
               color="#000"
-              lineWidth={18}
+              lineWidth={14}
               opacity={0}
               transparent
               depthWrite={false}
-              onClick={(event) => {
-                event.stopPropagation();
-                setSelectedRelationshipId(relationship.id);
-              }}
             />
-          </React.Fragment>
+            <mesh position={route.arrowPosition} quaternion={route.arrowQuaternion}>
+              <coneGeometry args={[dominant ? 0.16 : 0.12, dominant ? 0.42 : 0.32, 8]} />
+              <meshBasicMaterial color={selected ? '#ffffff' : loop.color} transparent opacity={lineOpacity} toneMapped={false} />
+            </mesh>
+          </group>
         );
       })}
     </group>

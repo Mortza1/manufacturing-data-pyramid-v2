@@ -111,7 +111,11 @@ export interface AppState {
   forgingCutaway: boolean;
   forgingSectionLevel: number | null;
   forgingShowLabels: boolean;
+  forgingLabelDistance: number;
   forgingPyramidOpacity: number;
+  forgingFocusedSector: ForgingSector | null;
+  forgingHideOtherSectors: boolean;
+  selectedForgingLoopId: string | null;
   mainPyramidSnapshot: MainPyramidSnapshot | null;
   enterForgingCaseStudy: () => void;
   exitForgingCaseStudy: () => void;
@@ -120,10 +124,15 @@ export interface AppState {
   setForgingCutaway: (cutaway: boolean) => void;
   setForgingSectionLevel: (level: number | null) => void;
   setForgingShowLabels: (show: boolean) => void;
+  setForgingLabelDistance: (distance: number) => void;
   setForgingPyramidOpacity: (opacity: number) => void;
+  setForgingFocusedSector: (sector: ForgingSector | null) => void;
+  setForgingHideOtherSectors: (hide: boolean) => void;
   setForgingObject: (id: string, patch: Partial<Pick<DataObject, 'name' | 'level' | 'sector' | 'type' | 'source' | 'description' | 'category'>>) => void;
   removeForgingObject: (id: string) => void;
   toggleForgingLoop: (id: string) => void;
+  setSelectedForgingLoopId: (id: string | null) => void;
+  deleteForgingLoop: (id: string) => void;
   createForgingLoop: (name: string, color: string, sourceId: string, targetId: string) => void;
   addForgingConnection: (loopId: string, sourceId: string, targetId: string) => void;
 }
@@ -173,7 +182,11 @@ export const useStore = create<AppState>()(
       forgingCutaway: false,
       forgingSectionLevel: 3,
       forgingShowLabels: true,
+      forgingLabelDistance: 0.9,
       forgingPyramidOpacity: 0.72,
+      forgingFocusedSector: null,
+      forgingHideOtherSectors: false,
+      selectedForgingLoopId: null,
       mainPyramidSnapshot: null,
 
       setCourseMode: (mode) => set({ 
@@ -281,7 +294,11 @@ export const useStore = create<AppState>()(
           forgingCutaway: false,
           forgingSectionLevel: 3,
           forgingShowLabels: true,
+          forgingLabelDistance: 0.9,
           forgingPyramidOpacity: 0.72,
+          forgingFocusedSector: null,
+          forgingHideOtherSectors: false,
+          selectedForgingLoopId: null,
           mainPyramidSnapshot: {
             courseMode: state.courseMode,
             journeyActive: state.journeyActive,
@@ -323,9 +340,19 @@ export const useStore = create<AppState>()(
       setForgingCutaway: (forgingCutaway) => set({ forgingCutaway }),
       setForgingSectionLevel: (forgingSectionLevel) => set({ forgingSectionLevel }),
       setForgingShowLabels: (forgingShowLabels) => set({ forgingShowLabels }),
+      setForgingLabelDistance: (forgingLabelDistance) => set({
+        forgingLabelDistance: Math.min(3.5, Math.max(0, forgingLabelDistance)),
+      }),
       setForgingPyramidOpacity: (forgingPyramidOpacity) => set({
         forgingPyramidOpacity: Math.min(1, Math.max(0.18, forgingPyramidOpacity)),
       }),
+      setForgingFocusedSector: (forgingFocusedSector) => set({
+        forgingFocusedSector,
+        forgingHideOtherSectors: false,
+      }),
+      setForgingHideOtherSectors: (forgingHideOtherSectors) => set((state) => ({
+        forgingHideOtherSectors: state.forgingFocusedSector ? forgingHideOtherSectors : false,
+      })),
       setForgingObject: (id, patch) => set((state) => ({
         forgingObjects: state.forgingObjects.map((object) => {
           if (object.id !== id) return object;
@@ -347,6 +374,20 @@ export const useStore = create<AppState>()(
       toggleForgingLoop: (id) => set((state) => ({
         forgingLoops: state.forgingLoops.map((loop) => loop.id === id ? { ...loop, visible: !loop.visible } : loop),
       })),
+      setSelectedForgingLoopId: (selectedForgingLoopId) => set({
+        selectedForgingLoopId,
+        selectedRelationshipId: null,
+      }),
+      deleteForgingLoop: (id) => set((state) => {
+        const deletingSelectedRelationship = state.forgingLoops
+          .find((loop) => loop.id === id)
+          ?.relationships.some((relationship) => relationship.id === state.selectedRelationshipId);
+        return {
+          forgingLoops: state.forgingLoops.filter((loop) => loop.id !== id),
+          selectedForgingLoopId: state.selectedForgingLoopId === id ? null : state.selectedForgingLoopId,
+          selectedRelationshipId: deletingSelectedRelationship ? null : state.selectedRelationshipId,
+        };
+      }),
       createForgingLoop: (name, color, sourceId, targetId) => set((state) => ({
         forgingLoops: [
           ...state.forgingLoops,

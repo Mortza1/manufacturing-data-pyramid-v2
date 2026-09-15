@@ -12,6 +12,8 @@ import {
   Plus,
   SlidersHorizontal,
   Split,
+  Target,
+  Trash2,
   X,
 } from 'lucide-react';
 import { useStore } from '../store';
@@ -33,9 +35,18 @@ export function ForgingControls() {
     setForgingSeparateSectors,
     forgingShowLabels,
     setForgingShowLabels,
+    forgingLabelDistance,
+    setForgingLabelDistance,
     forgingPyramidOpacity,
     setForgingPyramidOpacity,
+    forgingFocusedSector,
+    setForgingFocusedSector,
+    forgingHideOtherSectors,
+    setForgingHideOtherSectors,
     toggleForgingLoop,
+    selectedForgingLoopId,
+    setSelectedForgingLoopId,
+    deleteForgingLoop,
     createForgingLoop,
     addForgingConnection,
     exitForgingCaseStudy,
@@ -60,6 +71,7 @@ export function ForgingControls() {
     if (!sourceId || !targetId || sourceId === targetId) return;
     if (selectedLoopId) {
       addForgingConnection(selectedLoopId, sourceId, targetId);
+      setSelectedForgingLoopId(selectedLoopId);
     } else {
       createForgingLoop(loopName, loopColor, sourceId, targetId);
       setLoopName('');
@@ -69,9 +81,23 @@ export function ForgingControls() {
 
   const openNewLoop = () => {
     setSelectedLoopId('');
+    setSelectedForgingLoopId(null);
     setLoopName('');
     setLoopColor('#facc15');
     setLoopEditorOpen(true);
+  };
+
+  const selectLoop = (id: string) => {
+    setSelectedLoopId(id);
+    setSelectedForgingLoopId(id || null);
+  };
+
+  const removeSelectedLoop = () => {
+    if (!selectedLoopId) return;
+    deleteForgingLoop(selectedLoopId);
+    setSelectedLoopId('');
+    setSelectedForgingLoopId(null);
+    setLoopEditorOpen(false);
   };
 
   return (
@@ -119,11 +145,51 @@ export function ForgingControls() {
           </div>
         )}
         <span className="h-6 w-px bg-white/15" />
+        <div className="flex items-center gap-1">
+          <Target size={13} className="text-cyan-200" />
+          <span className="text-[10px] font-semibold text-muted-foreground">Sector</span>
+          <button
+            onClick={() => setForgingFocusedSector(null)}
+            className={`rounded px-2 py-1 text-[10px] font-semibold ${forgingFocusedSector === null ? 'bg-cyan-300 text-slate-950' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}
+          >
+            All
+          </button>
+          {SECTORS.map((sector) => (
+            <button
+              key={sector}
+              onClick={() => setForgingFocusedSector(sector)}
+              className="rounded px-2 py-1 text-[10px] font-semibold transition-colors"
+              style={{
+                color: forgingFocusedSector === sector ? '#061018' : FORGING_SECTOR_COLORS[sector],
+                backgroundColor: forgingFocusedSector === sector ? FORGING_SECTOR_COLORS[sector] : `${FORGING_SECTOR_COLORS[sector]}18`,
+              }}
+            >
+              {FORGING_SECTOR_LABELS[sector].split(' / ')[0]}
+            </button>
+          ))}
+          <button
+            onClick={() => setForgingHideOtherSectors(!forgingHideOtherSectors)}
+            disabled={!forgingFocusedSector}
+            className={`flex items-center gap-1 rounded px-2 py-1 text-[10px] font-semibold ${forgingHideOtherSectors ? 'bg-rose-300/20 text-rose-100' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'} disabled:cursor-not-allowed disabled:opacity-40`}
+            title="Hide all sectors except the focused sector"
+          >
+            {forgingHideOtherSectors ? <EyeOff size={12} /> : <Eye size={12} />} Hide others
+          </button>
+        </div>
+        <span className="h-6 w-px bg-white/15" />
         <button
           onClick={() => setLoopEditorOpen(!loopEditorOpen)}
           className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold ${loopEditorOpen ? 'bg-amber-300/15 text-amber-100' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}
         >
           <Plus size={13} /> Add Connection
+        </button>
+        <button
+          onClick={removeSelectedLoop}
+          disabled={!selectedLoopId}
+          className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold text-rose-200 hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-35"
+          title="Delete the selected loop without deleting its data elements"
+        >
+          <Trash2 size={13} /> Delete Loop
         </button>
         <button
           onClick={() => setLegendOpen(!legendOpen)}
@@ -147,6 +213,19 @@ export function ForgingControls() {
             step="0.01"
             value={forgingPyramidOpacity}
             onChange={(event) => setForgingPyramidOpacity(Number(event.target.value))}
+            className="h-1 w-16 accent-cyan-400"
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground" title="Move forging level labels farther from the pyramid">
+          <span className="whitespace-nowrap">Label distance</span>
+          <input
+            aria-label="Forging level label distance"
+            type="range"
+            min="0"
+            max="3.5"
+            step="0.1"
+            value={forgingLabelDistance}
+            onChange={(event) => setForgingLabelDistance(Number(event.target.value))}
             className="h-1 w-16 accent-cyan-400"
           />
         </label>
@@ -174,15 +253,24 @@ export function ForgingControls() {
           ))}
           <span className="mx-1 h-3 w-px bg-white/15" />
           {forgingLoops.map((loop) => (
-            <button
-              key={loop.id}
-              onClick={() => toggleForgingLoop(loop.id)}
-              className={`flex items-center gap-1 transition-colors ${loop.visible ? 'text-white/80' : 'text-white/30 line-through'}`}
-              title={loop.visible ? `Hide ${loop.name}` : `Show ${loop.name}`}
-            >
-              <i className="h-2 w-2 rounded-full" style={{ backgroundColor: loop.color }} />
-              {loop.name}
-            </button>
+            <span key={loop.id} className={`flex items-center gap-1 rounded px-1 ${selectedForgingLoopId === loop.id ? 'bg-white/10' : ''}`}>
+              <button
+                onClick={() => selectLoop(loop.id)}
+                className={`flex items-center gap-1 transition-colors ${loop.visible ? 'text-white/80' : 'text-white/30 line-through'}`}
+                title={`Highlight ${loop.name}`}
+              >
+                <i className="h-2 w-2 rounded-full" style={{ backgroundColor: loop.color }} />
+                {loop.name}
+              </button>
+              <button
+                onClick={() => toggleForgingLoop(loop.id)}
+                className="rounded p-0.5 text-white/50 hover:text-white"
+                title={loop.visible ? `Hide ${loop.name}` : `Show ${loop.name}`}
+                aria-label={loop.visible ? `Hide ${loop.name}` : `Show ${loop.name}`}
+              >
+                {loop.visible ? <Eye size={11} /> : <EyeOff size={11} />}
+              </button>
+            </span>
           ))}
         </div>
       )}
@@ -199,7 +287,7 @@ export function ForgingControls() {
             </div>
             <button type="button" onClick={() => setLoopEditorOpen(false)} className="p-1 text-muted-foreground hover:text-foreground"><X size={15} /></button>
           </div>
-          <select value={selectedLoopId} onChange={(event) => setSelectedLoopId(event.target.value)} className="rounded border border-white/10 bg-black/30 px-2 py-2 text-foreground">
+           <select value={selectedLoopId} onChange={(event) => selectLoop(event.target.value)} className="rounded border border-white/10 bg-black/30 px-2 py-2 text-foreground">
             <option value="">Create a new loop…</option>
             {forgingLoops.map((loop) => <option key={loop.id} value={loop.id}>{loop.name}</option>)}
           </select>
