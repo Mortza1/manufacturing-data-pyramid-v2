@@ -116,6 +116,8 @@ export interface AppState {
   forgingFocusedSector: ForgingSector | null;
   forgingHideOtherSectors: boolean;
   selectedForgingLoopId: string | null;
+  forgingArrowThickness: number;
+  forgingShowOnlyLoopId: string | null;
   mainPyramidSnapshot: MainPyramidSnapshot | null;
   enterForgingCaseStudy: () => void;
   exitForgingCaseStudy: () => void;
@@ -128,10 +130,13 @@ export interface AppState {
   setForgingPyramidOpacity: (opacity: number) => void;
   setForgingFocusedSector: (sector: ForgingSector | null) => void;
   setForgingHideOtherSectors: (hide: boolean) => void;
+  setForgingArrowThickness: (thickness: number) => void;
+  setForgingShowOnlyLoop: (id: string | null) => void;
   setForgingObject: (id: string, patch: Partial<Pick<DataObject, 'name' | 'level' | 'sector' | 'type' | 'source' | 'description' | 'category'>>) => void;
   removeForgingObject: (id: string) => void;
   toggleForgingLoop: (id: string) => void;
   setSelectedForgingLoopId: (id: string | null) => void;
+  setForgingLoopColor: (id: string, color: string) => void;
   deleteForgingLoop: (id: string) => void;
   createForgingLoop: (name: string, color: string, sourceId: string, targetId: string) => void;
   addForgingConnection: (loopId: string, sourceId: string, targetId: string) => void;
@@ -187,6 +192,8 @@ export const useStore = create<AppState>()(
       forgingFocusedSector: null,
       forgingHideOtherSectors: false,
       selectedForgingLoopId: null,
+      forgingArrowThickness: 1,
+      forgingShowOnlyLoopId: null,
       mainPyramidSnapshot: null,
 
       setCourseMode: (mode) => set({ 
@@ -299,6 +306,8 @@ export const useStore = create<AppState>()(
           forgingFocusedSector: null,
           forgingHideOtherSectors: false,
           selectedForgingLoopId: null,
+          forgingArrowThickness: 1,
+          forgingShowOnlyLoopId: null,
           mainPyramidSnapshot: {
             courseMode: state.courseMode,
             journeyActive: state.journeyActive,
@@ -353,6 +362,10 @@ export const useStore = create<AppState>()(
       setForgingHideOtherSectors: (forgingHideOtherSectors) => set((state) => ({
         forgingHideOtherSectors: state.forgingFocusedSector ? forgingHideOtherSectors : false,
       })),
+      setForgingArrowThickness: (forgingArrowThickness) => set({
+        forgingArrowThickness: Math.min(2.8, Math.max(0.45, forgingArrowThickness)),
+      }),
+      setForgingShowOnlyLoop: (forgingShowOnlyLoopId) => set({ forgingShowOnlyLoopId }),
       setForgingObject: (id, patch) => set((state) => ({
         forgingObjects: state.forgingObjects.map((object) => {
           if (object.id !== id) return object;
@@ -378,6 +391,11 @@ export const useStore = create<AppState>()(
         selectedForgingLoopId,
         selectedRelationshipId: null,
       }),
+      setForgingLoopColor: (id, color) => set((state) => ({
+        forgingLoops: state.forgingLoops.map((loop) => loop.id === id
+          ? { ...loop, color: color || loop.color }
+          : loop),
+      })),
       deleteForgingLoop: (id) => set((state) => {
         const deletingSelectedRelationship = state.forgingLoops
           .find((loop) => loop.id === id)
@@ -385,6 +403,7 @@ export const useStore = create<AppState>()(
         return {
           forgingLoops: state.forgingLoops.filter((loop) => loop.id !== id),
           selectedForgingLoopId: state.selectedForgingLoopId === id ? null : state.selectedForgingLoopId,
+          forgingShowOnlyLoopId: state.forgingShowOnlyLoopId === id ? null : state.forgingShowOnlyLoopId,
           selectedRelationshipId: deletingSelectedRelationship ? null : state.selectedRelationshipId,
         };
       }),

@@ -43,9 +43,14 @@ export function ForgingControls() {
     setForgingFocusedSector,
     forgingHideOtherSectors,
     setForgingHideOtherSectors,
+    forgingArrowThickness,
+    setForgingArrowThickness,
+    forgingShowOnlyLoopId,
+    setForgingShowOnlyLoop,
     toggleForgingLoop,
     selectedForgingLoopId,
     setSelectedForgingLoopId,
+    setForgingLoopColor,
     deleteForgingLoop,
     createForgingLoop,
     addForgingConnection,
@@ -56,10 +61,12 @@ export function ForgingControls() {
   const [legendOpen, setLegendOpen] = useState(true);
   const [loopEditorOpen, setLoopEditorOpen] = useState(false);
   const [loopName, setLoopName] = useState('');
-  const [loopColor, setLoopColor] = useState('#facc15');
+  const [loopColor, setLoopColor] = useState('#ff3b4f');
   const [selectedLoopId, setSelectedLoopId] = useState(forgingLoops[0]?.id ?? '');
   const [sourceId, setSourceId] = useState(forgingObjects[0]?.id ?? '');
   const [targetId, setTargetId] = useState(forgingObjects[1]?.id ?? '');
+  const activeLoopId = selectedForgingLoopId ?? selectedLoopId;
+  const activeLoop = forgingLoops.find((loop) => loop.id === activeLoopId);
 
   const levelOptions = useMemo(
     () => FORGING_LEVELS.map((level) => ({ id: level.id, label: `L${level.id - 1}` })),
@@ -83,7 +90,7 @@ export function ForgingControls() {
     setSelectedLoopId('');
     setSelectedForgingLoopId(null);
     setLoopName('');
-    setLoopColor('#facc15');
+    setLoopColor('#ff3b4f');
     setLoopEditorOpen(true);
   };
 
@@ -191,6 +198,40 @@ export function ForgingControls() {
         >
           <Trash2 size={13} /> Delete Loop
         </button>
+        <button
+          onClick={() => setForgingShowOnlyLoop(forgingShowOnlyLoopId === activeLoopId ? null : activeLoopId)}
+          disabled={!activeLoopId}
+          className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold ${forgingShowOnlyLoopId ? 'bg-amber-300/20 text-amber-100' : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'} disabled:cursor-not-allowed disabled:opacity-35`}
+          title={forgingShowOnlyLoopId ? 'Return to the full case-study view' : 'Hide unrelated data elements and loop arrows'}
+        >
+          {forgingShowOnlyLoopId ? <Eye size={13} /> : <EyeOff size={13} />}
+          {forgingShowOnlyLoopId ? 'Show all loops' : 'Show only this loop'}
+        </button>
+        <label className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground" title="Forging loop arrow thickness">
+          <span className="whitespace-nowrap">Arrow thickness</span>
+          <input
+            aria-label="Forging loop arrow thickness"
+            type="range"
+            min="0.45"
+            max="2.8"
+            step="0.05"
+            value={forgingArrowThickness}
+            onChange={(event) => setForgingArrowThickness(Number(event.target.value))}
+            className="h-1 w-16 accent-rose-400"
+          />
+        </label>
+        {activeLoop && (
+          <label className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground" title={`Colour for ${activeLoop.name}`}>
+            <span className="whitespace-nowrap">Arrow colour</span>
+            <input
+              aria-label={`Arrow colour for ${activeLoop.name}`}
+              type="color"
+              value={activeLoop.color}
+              onChange={(event) => setForgingLoopColor(activeLoop.id, event.target.value)}
+              className="h-6 w-8 rounded border border-white/10 bg-black/30 p-0.5"
+            />
+          </label>
+        )}
         <button
           onClick={() => setLegendOpen(!legendOpen)}
           className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground"
