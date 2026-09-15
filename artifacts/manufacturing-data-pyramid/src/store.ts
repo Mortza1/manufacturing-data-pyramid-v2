@@ -1,7 +1,50 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
-import { COURSES, DEFAULT_LEVEL_NAMES, CourseMode, DataObject, DataCategory } from './data';
+import {
+  COURSES,
+  DEFAULT_LEVEL_NAMES,
+  CourseMode,
+  DataObject,
+  DataCategory,
+  ConnectionLoop,
+  FORGING_LOOPS,
+  FORGING_OBJECTS,
+  ForgingSector,
+  FORGING_SECTOR_ANCHORS,
+} from './data';
+
+interface MainPyramidSnapshot {
+  courseMode: CourseMode;
+  journeyActive: boolean;
+  journeyStep: number;
+  journeyPlaying: boolean;
+  presentationMode: boolean;
+  focusLevel: number | null;
+  isolateLevel: number | null;
+  selectedLevelId: number | null;
+  exploded: boolean;
+  cutaway: boolean;
+  showRelationships: boolean;
+  showLevelLabels: boolean;
+  pyramidOpacity: number;
+  sectionLevel: number | null;
+  activeDataOnly: boolean;
+  levelNames: Record<number, string>;
+  selectedObjectId: string | null;
+  selectedRelationshipId: string | null;
+  placedObjects: DataObject[];
+}
+
+const cloneForgingObjects = () => FORGING_OBJECTS.map((object) => ({
+  ...object,
+  position: object.position ? [...object.position] as [number, number, number] : undefined,
+}));
+
+const cloneForgingLoops = () => FORGING_LOOPS.map((loop) => ({
+  ...loop,
+  relationships: loop.relationships.map((relationship) => ({ ...relationship })),
+}));
 
 export interface AppState {
   courseMode: CourseMode;
@@ -60,6 +103,29 @@ export interface AppState {
   resetCourse: () => void;
   autoFillDemo: () => void;
   clearActiveData: () => void;
+  forgingCaseStudy: boolean;
+  forgingObjects: DataObject[];
+  forgingLoops: ConnectionLoop[];
+  forgingSeparateSectors: boolean;
+  forgingExploded: boolean;
+  forgingCutaway: boolean;
+  forgingSectionLevel: number | null;
+  forgingShowLabels: boolean;
+  forgingPyramidOpacity: number;
+  mainPyramidSnapshot: MainPyramidSnapshot | null;
+  enterForgingCaseStudy: () => void;
+  exitForgingCaseStudy: () => void;
+  setForgingSeparateSectors: (separate: boolean) => void;
+  setForgingExploded: (exploded: boolean) => void;
+  setForgingCutaway: (cutaway: boolean) => void;
+  setForgingSectionLevel: (level: number | null) => void;
+  setForgingShowLabels: (show: boolean) => void;
+  setForgingPyramidOpacity: (opacity: number) => void;
+  setForgingObject: (id: string, patch: Partial<Pick<DataObject, 'name' | 'level' | 'sector' | 'type' | 'source' | 'description' | 'category'>>) => void;
+  removeForgingObject: (id: string) => void;
+  toggleForgingLoop: (id: string) => void;
+  createForgingLoop: (name: string, color: string, sourceId: string, targetId: string) => void;
+  addForgingConnection: (loopId: string, sourceId: string, targetId: string) => void;
 }
 
 const representativeObjects = (mode: CourseMode) =>
@@ -99,6 +165,16 @@ export const useStore = create<AppState>()(
       dragPosition: null,
       touchSelectedItem: null,
       placedObjects: representativeObjects('data-science'),
+      forgingCaseStudy: false,
+      forgingObjects: cloneForgingObjects(),
+      forgingLoops: cloneForgingLoops(),
+      forgingSeparateSectors: false,
+      forgingExploded: false,
+      forgingCutaway: false,
+      forgingSectionLevel: 3,
+      forgingShowLabels: true,
+      forgingPyramidOpacity: 0.72,
+      mainPyramidSnapshot: null,
 
       setCourseMode: (mode) => set({ 
         courseMode: mode, 
@@ -193,6 +269,114 @@ export const useStore = create<AppState>()(
         selectedObjectId: null,
         selectedRelationshipId: null,
         selectedLevelId: null,
+      })),
+      enterForgingCaseStudy: () => set((state) => {
+        if (state.forgingCaseStudy) return state;
+        return {
+          forgingCaseStudy: true,
+          forgingObjects: cloneForgingObjects(),
+          forgingLoops: cloneForgingLoops(),
+          forgingSeparateSectors: false,
+          forgingExploded: false,
+          forgingCutaway: false,
+          forgingSectionLevel: 3,
+          forgingShowLabels: true,
+          forgingPyramidOpacity: 0.72,
+          mainPyramidSnapshot: {
+            courseMode: state.courseMode,
+            journeyActive: state.journeyActive,
+            journeyStep: state.journeyStep,
+            journeyPlaying: state.journeyPlaying,
+            presentationMode: state.presentationMode,
+            focusLevel: state.focusLevel,
+            isolateLevel: state.isolateLevel,
+            selectedLevelId: state.selectedLevelId,
+            exploded: state.exploded,
+            cutaway: state.cutaway,
+            showRelationships: state.showRelationships,
+            showLevelLabels: state.showLevelLabels,
+            pyramidOpacity: state.pyramidOpacity,
+            sectionLevel: state.sectionLevel,
+            activeDataOnly: state.activeDataOnly,
+            levelNames: state.levelNames,
+            selectedObjectId: state.selectedObjectId,
+            selectedRelationshipId: state.selectedRelationshipId,
+            placedObjects: state.placedObjects,
+          },
+          journeyActive: false,
+          journeyPlaying: false,
+          presentationMode: false,
+          selectedObjectId: null,
+          selectedRelationshipId: null,
+          selectedLevelId: null,
+        };
+      }),
+      exitForgingCaseStudy: () => set((state) => state.mainPyramidSnapshot
+        ? {
+          ...state.mainPyramidSnapshot,
+          forgingCaseStudy: false,
+          mainPyramidSnapshot: null,
+        }
+        : { forgingCaseStudy: false }),
+      setForgingSeparateSectors: (forgingSeparateSectors) => set({ forgingSeparateSectors }),
+      setForgingExploded: (forgingExploded) => set({ forgingExploded }),
+      setForgingCutaway: (forgingCutaway) => set({ forgingCutaway }),
+      setForgingSectionLevel: (forgingSectionLevel) => set({ forgingSectionLevel }),
+      setForgingShowLabels: (forgingShowLabels) => set({ forgingShowLabels }),
+      setForgingPyramidOpacity: (forgingPyramidOpacity) => set({
+        forgingPyramidOpacity: Math.min(1, Math.max(0.18, forgingPyramidOpacity)),
+      }),
+      setForgingObject: (id, patch) => set((state) => ({
+        forgingObjects: state.forgingObjects.map((object) => {
+          if (object.id !== id) return object;
+          const nextSector = patch.sector ?? object.sector;
+          const nextPosition = patch.sector && nextSector
+            ? [FORGING_SECTOR_ANCHORS[nextSector][0], 0, FORGING_SECTOR_ANCHORS[nextSector][1]] as [number, number, number]
+            : object.position;
+          return { ...object, ...patch, position: nextPosition };
+        }),
+      })),
+      removeForgingObject: (id) => set((state) => ({
+        forgingObjects: state.forgingObjects.filter((object) => object.id !== id),
+        selectedObjectId: state.selectedObjectId === id ? null : state.selectedObjectId,
+        forgingLoops: state.forgingLoops.map((loop) => ({
+          ...loop,
+          relationships: loop.relationships.filter((relationship) => relationship.sourceId !== id && relationship.targetId !== id),
+        })),
+      })),
+      toggleForgingLoop: (id) => set((state) => ({
+        forgingLoops: state.forgingLoops.map((loop) => loop.id === id ? { ...loop, visible: !loop.visible } : loop),
+      })),
+      createForgingLoop: (name, color, sourceId, targetId) => set((state) => ({
+        forgingLoops: [
+          ...state.forgingLoops,
+          {
+            id: `forge-loop-${uuidv4()}`,
+            name: name.trim() || 'New Loop',
+            color: color || '#facc15',
+            visible: true,
+            relationships: [{
+              id: `forge-rel-${uuidv4()}`,
+              sourceId,
+              targetId,
+              description: `${name.trim() || 'New loop'} connection`,
+            }],
+          },
+        ],
+      })),
+      addForgingConnection: (loopId, sourceId, targetId) => set((state) => ({
+        forgingLoops: state.forgingLoops.map((loop) => loop.id === loopId ? {
+          ...loop,
+          relationships: [
+            ...loop.relationships,
+            {
+              id: `forge-rel-${uuidv4()}`,
+              sourceId,
+              targetId,
+              description: `${loop.name} connection`,
+            },
+          ],
+        } : loop),
       })),
     }),
     {

@@ -1,6 +1,8 @@
 export type DataCategory = 
   | 'signal' | 'time-series' | 'event' | 'model' | 'document' | 'record' | 'insight' | 'agent';
 
+export type ForgingSector = 'product' | 'machine' | 'process' | 'resources';
+
 export interface DataObject {
   id: string;
   name: string;
@@ -12,6 +14,7 @@ export interface DataObject {
   position?: [number, number, number];
   isUserAdded?: boolean;
   isActive?: boolean;
+  sector?: ForgingSector;
 }
 
 export const LEVEL_CONTEXTS: Record<number, { name: string; purpose: string; examples: string }> = {
@@ -82,6 +85,111 @@ export interface Relationship {
   targetId: string;
   description: string;
 }
+
+export interface ConnectionLoop {
+  id: string;
+  name: string;
+  color: string;
+  visible: boolean;
+  relationships: Relationship[];
+}
+
+export const FORGING_LEVELS = [
+  { id: 1, name: 'Signal / Physical', subtitle: 'Measure the material and machine', color: '#17212d', edgeColor: '#64748b', height: 1.05, base: 5.4, top: 4.35, y: 0.5 },
+  { id: 2, name: 'Operational', subtitle: 'Run and control the press', color: '#122336', edgeColor: '#2dd4bf', height: 1.05, base: 4.35, top: 3.35, y: 1.65 },
+  { id: 3, name: 'Engineering', subtitle: 'Compare process with intent', color: '#172b4d', edgeColor: '#60a5fa', height: 1.05, base: 3.35, top: 2.35, y: 2.8 },
+  { id: 4, name: 'Management', subtitle: 'Balance performance and resources', color: '#24345f', edgeColor: '#a78bfa', height: 1.05, base: 2.35, top: 1.35, y: 3.95 },
+  { id: 5, name: 'Executive', subtitle: 'Decide and act', color: '#0b5364', edgeColor: '#67e8f9', height: 1.05, base: 1.35, top: 0.15, y: 5.1 },
+] as const;
+
+export const FORGING_SECTOR_LABELS: Record<ForgingSector, string> = {
+  product: 'Product / Quality',
+  machine: 'Machine / Maintenance',
+  process: 'Process / Operations',
+  resources: 'Resources / Organisation',
+};
+
+export const FORGING_SECTOR_COLORS: Record<ForgingSector, string> = {
+  product: '#38bdf8',
+  machine: '#f97316',
+  process: '#34d399',
+  resources: '#c084fc',
+};
+
+export const FORGING_SECTOR_OFFSETS: Record<ForgingSector, [number, number]> = {
+  product: [-1.45, -1.45],
+  machine: [1.45, -1.45],
+  process: [-1.45, 1.45],
+  resources: [1.45, 1.45],
+};
+
+export const FORGING_SECTOR_ANCHORS: Record<ForgingSector, [number, number]> = {
+  product: [-0.85, -0.85],
+  machine: [0.85, -0.85],
+  process: [-0.85, 0.85],
+  resources: [0.85, 0.85],
+};
+
+export const FORGING_OBJECTS: DataObject[] = [
+  { id: 'forge-thermocouple', name: 'Thermocouple', type: 'Temperature signal', source: 'Press die sensor', level: 1, category: 'signal', sector: 'process', position: [-1.25, 0, 1.2], description: 'Thermal readings from the forging die and workpiece.' },
+  { id: 'forge-video', name: 'Video', type: 'Visual signal', source: 'Inspection camera', level: 1, category: 'model', sector: 'product', position: [-1.2, 0, -1.15], description: 'Video evidence of the part and forming event.' },
+  { id: 'forge-force', name: 'Force', type: 'Load signal', source: 'Press load cell', level: 1, category: 'signal', sector: 'process', position: [-0.25, 0, 1.35], description: 'Press force profile captured during the forming cycle.' },
+  { id: 'forge-displacement', name: 'Displacement', type: 'Position signal', source: 'Press encoder', level: 1, category: 'signal', sector: 'product', position: [0.15, 0, -1.25], description: 'Ram and die displacement through the stroke.' },
+  { id: 'forge-microstructure-image', name: 'Microstructure Images', type: 'Material image', source: 'Metallography lab', level: 1, category: 'model', sector: 'product', position: [1.1, 0, -1.1], description: 'Images used to assess grain flow and material condition.' },
+  { id: 'forge-product-measurements', name: 'Product Measurements', type: 'Inspection record', source: 'CMM / gauge', level: 1, category: 'record', sector: 'product', position: [1.15, 0, -0.2], description: 'Dimensional measurements of the forged product.' },
+
+  { id: 'forge-events', name: 'Events', type: 'Process events', source: 'PLC / MES', level: 2, category: 'event', sector: 'process', position: [-1.15, 0, 1.0], description: 'Cycle, alarm, start, stop, and state-change events.' },
+  { id: 'forge-press-settings', name: 'Press Settings', type: 'Recipe record', source: 'Press HMI', level: 2, category: 'record', sector: 'process', position: [-0.25, 0, 1.1], description: 'Speed, force, temperature, and recipe settings.' },
+  { id: 'forge-process-control', name: 'Process Control', type: 'Control state', source: 'PLC / SCADA', level: 2, category: 'event', sector: 'process', position: [0.55, 0, 0.9], description: 'Closed-loop control decisions during the cycle.' },
+  { id: 'forge-working-fail', name: 'Working / Fail States', type: 'Machine state', source: 'Press controller', level: 2, category: 'event', sector: 'machine', position: [1.0, 0, -0.85], description: 'Machine availability and failure states.' },
+
+  { id: 'forge-simulation', name: 'Simulation', type: 'FEA result', source: 'CAE model', level: 3, category: 'insight', sector: 'product', position: [-1.0, 0, -0.95], description: 'Predicted stress, temperature, and material flow.' },
+  { id: 'forge-product-geometry', name: 'Product Geometry', type: '3D model', source: 'CAD / PLM', level: 3, category: 'document', sector: 'product', position: [-0.25, 0, -0.65], description: 'Design intent and target geometry for the part.' },
+  { id: 'forge-microstructure', name: 'Microstructure', type: 'Material model', source: 'Materials engineering', level: 3, category: 'model', sector: 'product', position: [0.6, 0, -0.9], description: 'Material behavior and expected grain structure.' },
+  { id: 'forge-quality', name: 'Quality', type: 'Quality result', source: 'LIMS / inspection', level: 3, category: 'record', sector: 'product', position: [1.0, 0, 0.1], description: 'Acceptance and deviation results for the forged part.' },
+
+  { id: 'forge-cost', name: 'Cost', type: 'Cost model', source: 'ERP', level: 4, category: 'record', sector: 'resources', position: [-0.95, 0, 0.65], description: 'Material, energy, labor, and rework cost.' },
+  { id: 'forge-reliability', name: 'Reliability', type: 'Reliability insight', source: 'Analytics / CMMS', level: 4, category: 'insight', sector: 'machine', position: [0.95, 0, -0.85], description: 'Reliability risk and expected equipment health.' },
+  { id: 'forge-sustainability', name: 'Sustainability', type: 'Impact measure', source: 'Operations analytics', level: 4, category: 'insight', sector: 'resources', position: [-0.1, 0, 0.9], description: 'Energy, scrap, and emissions indicators.' },
+  { id: 'forge-resources', name: 'Resources', type: 'Planning record', source: 'Planning / ERP', level: 4, category: 'record', sector: 'resources', position: [0.9, 0, 0.7], description: 'People, material, capacity, and maintenance resources.' },
+
+  { id: 'forge-management', name: 'Management', type: 'Management view', source: 'Operations dashboard', level: 5, category: 'agent', sector: 'resources', position: [-0.55, 0, 0.35], description: 'Management view of production and plant performance.' },
+  { id: 'forge-sales', name: 'Sales', type: 'Commercial record', source: 'CRM / ERP', level: 5, category: 'record', sector: 'resources', position: [0.55, 0, 0.35], description: 'Customer demand and delivery commitments.' },
+  { id: 'forge-profit', name: 'Profit', type: 'Business insight', source: 'Finance / ERP', level: 5, category: 'insight', sector: 'resources', position: [0.0, 0, 0.8], description: 'Margin and profitability outcome of the operation.' },
+  { id: 'forge-decision-making', name: 'Decision-Making', type: 'Executive action', source: 'Executive dashboard', level: 5, category: 'agent', sector: 'resources', position: [0.0, 0, -0.65], description: 'Decisions that change production, maintenance, or investment.' },
+];
+
+export const FORGING_LOOPS: ConnectionLoop[] = [
+  {
+    id: 'forge-process-optimisation',
+    name: 'Process Optimisation Loop',
+    color: '#22d3ee',
+    visible: true,
+    relationships: [
+      { id: 'forge-po-1', sourceId: 'forge-thermocouple', targetId: 'forge-press-settings', description: 'Thermal readings inform the next press recipe.' },
+      { id: 'forge-po-2', sourceId: 'forge-force', targetId: 'forge-process-control', description: 'Force feedback supports closed-loop control.' },
+      { id: 'forge-po-3', sourceId: 'forge-press-settings', targetId: 'forge-simulation', description: 'Operating settings are compared with the process model.' },
+      { id: 'forge-po-4', sourceId: 'forge-simulation', targetId: 'forge-quality', description: 'Predicted behavior is checked against quality results.' },
+      { id: 'forge-po-5', sourceId: 'forge-quality', targetId: 'forge-product-geometry', description: 'Quality deviations inform geometry and process refinement.' },
+      { id: 'forge-po-6', sourceId: 'forge-quality', targetId: 'forge-cost', description: 'Quality performance contributes to cost decisions.' },
+      { id: 'forge-po-7', sourceId: 'forge-cost', targetId: 'forge-management', description: 'Cost and quality trends support management action.' },
+    ],
+  },
+  {
+    id: 'forge-predictive-maintenance',
+    name: 'Predictive Maintenance Loop',
+    color: '#fb7185',
+    visible: true,
+    relationships: [
+      { id: 'forge-pm-1', sourceId: 'forge-force', targetId: 'forge-working-fail', description: 'Load signatures expose changing machine states.' },
+      { id: 'forge-pm-2', sourceId: 'forge-events', targetId: 'forge-working-fail', description: 'Events provide context for failures and downtime.' },
+      { id: 'forge-pm-3', sourceId: 'forge-working-fail', targetId: 'forge-reliability', description: 'Machine states update reliability risk.' },
+      { id: 'forge-pm-4', sourceId: 'forge-reliability', targetId: 'forge-resources', description: 'Reliability risk informs maintenance resources and planning.' },
+      { id: 'forge-pm-5', sourceId: 'forge-reliability', targetId: 'forge-management', description: 'Reliability insight supports operational decisions.' },
+      { id: 'forge-pm-6', sourceId: 'forge-management', targetId: 'forge-decision-making', description: 'Management escalates maintenance decisions when needed.' },
+    ],
+  },
+];
 
 export interface CourseConfig {
   initialObjects: DataObject[];

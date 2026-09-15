@@ -34,7 +34,7 @@ function GlyphMaterial({ color, opacity, isSelected, isJourneyHighlighted, isDat
   );
 }
 
-function DataGlyph({ obj, color, opacity, isSelected, isJourneyHighlighted, isDataScience, isCutaway }: { obj: DataObject; color: string; opacity: any; isSelected: boolean; isJourneyHighlighted: boolean; isDataScience: boolean; isCutaway: boolean }): ReactNode {
+export function DataGlyph({ obj, color, opacity, isSelected, isJourneyHighlighted, isDataScience, isCutaway }: { obj: DataObject; color: string; opacity: any; isSelected: boolean; isJourneyHighlighted: boolean; isDataScience: boolean; isCutaway: boolean }): ReactNode {
   const name = obj.name.toLowerCase();
   const material = <GlyphMaterial color={color} opacity={opacity} isSelected={isSelected} isJourneyHighlighted={isJourneyHighlighted} isDataScience={isDataScience} isCutaway={isCutaway} />;
   const accent = isSelected ? '#ffffff' : color;

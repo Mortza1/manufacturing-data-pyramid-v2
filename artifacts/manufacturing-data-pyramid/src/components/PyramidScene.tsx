@@ -3,6 +3,7 @@ import { Pyramid } from './Pyramid';
 import { PlacedObjects } from './PlacedObjects';
 import { Connections } from './Connections';
 import { DataStreams } from './DataStreams';
+import { ForgingConnections, ForgingObjects, ForgingPyramid } from './ForgingScene';
 import { SceneEnvironment } from './SceneEnvironment';
 import { useStore } from '../store';
 import { COURSES, getJourneyStep, getLevelY } from '../data';
@@ -42,7 +43,19 @@ function WebGLFallback() {
 
 function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => void) | null> }) {
   const { camera } = useThree();
-  const { journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode } = useStore();
+  const {
+    journeyActive,
+    journeyStep,
+    focusLevel,
+    isolateLevel,
+    cutaway,
+    exploded,
+    courseMode,
+    forgingCaseStudy,
+    forgingSeparateSectors,
+    forgingExploded,
+    forgingCutaway,
+  } = useStore();
   const controlsRef = useRef<any>(null);
   const transitionRef = useRef<{
     from: THREE.Vector3;
@@ -54,7 +67,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
     active: boolean;
   } | null>(null);
 
-  const modeKey = `${journeyActive}-${journeyStep}-${focusLevel}-${isolateLevel}-${cutaway}-${exploded}-${courseMode}`;
+  const modeKey = `${journeyActive}-${journeyStep}-${focusLevel}-${isolateLevel}-${cutaway}-${exploded}-${courseMode}-${forgingCaseStudy}-${forgingSeparateSectors}-${forgingExploded}-${forgingCutaway}`;
 
   React.useEffect(() => {
     const controls = controlsRef.current;
@@ -62,7 +75,21 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
     const target = new THREE.Vector3(0, 0, 0);
     const destination = new THREE.Vector3(10, 6.5, 10);
 
-    if (journeyActive) {
+    if (forgingCaseStudy) {
+      if (forgingSeparateSectors) {
+        destination.set(16, 10, 16);
+        target.set(0, 0.25, 0);
+      } else if (forgingExploded) {
+        destination.set(13, 8.5, 15);
+        target.set(0, 0.25, 0);
+      } else if (forgingCutaway) {
+        destination.set(11, 7.5, 13);
+        target.set(0, 0.1, 0);
+      } else {
+        cancelRef.current?.();
+        return;
+      }
+    } else if (journeyActive) {
       const journeyLevel = getJourneyStep(COURSES[courseMode], journeyStep).level;
       const journeyY = getLevelY(journeyLevel) - 2.5;
       destination.set(12.5, 8.5, 13.5);
@@ -100,7 +127,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
       if (cancelRef.current === undefined) return;
       cancelRef.current = null;
     };
-  }, [camera, cancelRef, modeKey, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode]);
+  }, [camera, cancelRef, modeKey, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode, forgingCaseStudy, forgingSeparateSectors, forgingExploded, forgingCutaway]);
 
   useFrame((state, delta) => {
     const controls = state.controls as any;
@@ -230,7 +257,21 @@ function DragGhost() {
 }
 
 export function PyramidScene() {
-  const { focusLevel, isolateLevel, selectedObjectId, reducedMotion, courseMode, cutaway, presentationMode, journeyActive, exploded } = useStore();
+  const {
+    focusLevel,
+    isolateLevel,
+    selectedObjectId,
+    reducedMotion,
+    courseMode,
+    cutaway,
+    presentationMode,
+    journeyActive,
+    exploded,
+    forgingCaseStudy,
+    forgingSeparateSectors,
+    forgingExploded,
+    forgingCutaway,
+  } = useStore();
   const cancelCameraTransitionRef = useRef<(() => void) | null>(null);
   const [userInteracted, setUserInteracted] = React.useState(false);
   
@@ -240,7 +281,7 @@ export function PyramidScene() {
     return <WebGLFallback />;
   }
 
-  const isInteracting = selectedObjectId !== null || focusLevel !== null || isolateLevel !== null || journeyActive || cutaway || exploded;
+  const isInteracting = selectedObjectId !== null || focusLevel !== null || isolateLevel !== null || journeyActive || cutaway || exploded || forgingCaseStudy || forgingSeparateSectors || forgingExploded || forgingCutaway;
   const bg = courseMode === 'data-science' ? '#050508' : (courseMode === 'fundamentals-ai' ? '#020617' : '#0a0a0f');
   const sparkleColor = courseMode === 'agentic-ai' ? '#d946ef' : (courseMode === 'fundamentals-ai' ? '#22d3ee' : '#3b82f6');
   const sparkleCount = courseMode === 'agentic-ai' ? 150 : (courseMode === 'fundamentals-ai' ? 120 : 80);
@@ -275,10 +316,20 @@ export function PyramidScene() {
         <DragGhost />
         <SceneEnvironment />
         <group position={[0, -0.5, 0]}>
-          <Pyramid />
-          <PlacedObjects />
-          <DataStreams />
-          <Connections />
+          {forgingCaseStudy ? (
+            <>
+              <ForgingPyramid />
+              <ForgingObjects />
+              <ForgingConnections />
+            </>
+          ) : (
+            <>
+              <Pyramid />
+              <PlacedObjects />
+              <DataStreams />
+              <Connections />
+            </>
+          )}
         </group>
         
         <Environment preset="city" />

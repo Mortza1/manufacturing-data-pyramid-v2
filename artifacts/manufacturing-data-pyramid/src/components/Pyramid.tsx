@@ -90,9 +90,9 @@ function PyramidLevel({ level, isActive, isJourneyActiveLevel, isVisible, isExpl
   return (
     <a.group position={position as any} scale={scale as any} visible={opacity.to(o => o > 0.01)}>
       
-      {/* Level Label using HTML */}
+      {/* Keep level labels outside the pyramid silhouette so the scene remains readable. */}
       <Html 
-        position={[(level.base + level.top) / 2 * 0.9, 0, (level.base + level.top) / 2 * 0.9]} 
+        position={[level.base + 0.9, 0.05, 0]}
         center 
         style={{ pointerEvents: 'none', transition: 'opacity 0.2s', opacity: isVisible && showLabels ? 1 : 0 }}
         zIndexRange={[40, 0]}

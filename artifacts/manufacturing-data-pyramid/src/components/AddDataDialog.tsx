@@ -47,7 +47,7 @@ export function AddDataDialog() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="absolute top-4 right-4 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md font-semibold text-sm hover:bg-primary/90 transition-colors shadow-lg z-20"
+        className="relative flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md font-semibold text-sm hover:bg-primary/90 transition-colors shadow-lg z-20"
       >
         <Plus size={16} /> <span className="hidden sm:inline">Add Data</span>
       </button>
