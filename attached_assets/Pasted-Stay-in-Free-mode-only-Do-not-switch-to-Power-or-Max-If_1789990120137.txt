@@ -1,0 +1,270 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me rather than escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This is a targeted Stage 4 Loop Visualisation repair based on the latest read-only diagnosis. Do not add the triangular 2D view yet. Do not implement Save/database, Advanced mode, Models, Agents or Decisions.
+
+Preserve Structure, Data, Visualise, Explorer and Forging Case Study.
+
+1. Fix arrowhead placement precisely
+
+The diagnosis confirmed that the cone arrowhead currently overshoots the connection endpoint because the cone is centred on its own origin.
+
+Fix this using the actual final curve endpoint and final curve tangent.
+
+Requirements:
+
+obtain the tangent at the actual end of the curve, preferably the final tangent / tangent at t = 1;
+orient the cone along that final tangent;
+position the cone centre at:
+
+endpoint − tangent × half arrowhead height
+
+so that the cone tip lands exactly at the target attachment point;
+
+use the same final curve endpoint for both line termination and arrowhead placement;
+keep arrowhead narrow and proportionate;
+scale arrowhead sensibly with Arrow Thickness but cap its maximum size;
+source end has no arrowhead;
+line and arrowhead use the loop colour.
+
+The arrow must visually read clearly as:
+
+source object → target object
+
+2. Preserve/fix actual object attachment
+
+Keep the shared world-position helper already introduced.
+
+It must continue to include:
+
+grid position;
+level Y position;
+Explode offset;
+local object height;
+four-sector Y rotation;
+current visual object scale where relevant.
+
+Refine the final source/target attachment offsets if necessary so arrows meet the visible object boundary cleanly rather than floating or penetrating excessively.
+
+Do not revert to raw grid/local coordinates.
+
+3. Make Show Only This Loop override Data Display
+
+This is high priority.
+
+Current problem:
+
+normal Data Display density filtering happens before loop membership, so actual loop nodes can be hidden.
+
+When Show Only This Loop is active:
+
+derive the complete set of participating object IDs directly from that loop's ordered segments;
+force all those participating objects to be visible;
+ignore Data Display 1 / 2 / 3 for those loop objects;
+hide every non-participating data object;
+use exactly that same participating-object set for arrow rendering.
+
+Do not substitute another data object from the same sector or level.
+
+Leaving Show Only This Loop restores the previous Data Display setting.
+
+4. Hide non-participating sector geometry
+
+While Show Only This Loop is active:
+
+determine which sector(s) contain participating loop objects at each level;
+participating sector surfaces remain visible;
+non-participating sector surfaces at each level must have opacity 0;
+non-participating sector edges and labels should also disappear;
+levels with no participating object should have all sector surfaces hidden;
+participating loop data objects remain fully visible;
+loop arrows remain visible.
+
+This is presentation-only.
+
+Leaving Show Only This Loop restores the previous sector visibility and opacity state exactly.
+
+5. Unify loop selection and Show Only state
+
+Prevent selectedLoopId and showOnlyLoopId from describing different loops.
+
+When Show Only This Loop is activated:
+
+that loop must also become the selected/highlighted loop.
+
+Or use one consistent effective loop:
+
+showOnlyLoopId if present, otherwise selectedLoopId
+
+for:
+
+arrow emphasis;
+participating-object highlighting;
+Loop Table selection;
+sector filtering.
+6. Stage 4 starts at 20% surface opacity
+
+When the user enters Connections / Stage 4, set the Stage 4 starting Surface Opacity to:
+
+20%
+
+Do not change the default opacity of Structure/Data/Visualise unnecessarily.
+
+Once Stage 4 has started, the user can adjust the existing slider normally.
+
+Do not keep resetting it to 20% whenever a loop/filter changes.
+
+7. Example Loop button behaviour
+
+Add Example Loops represents exactly:
+
+Predictive Maintenance
+Process Optimisation
+
+Generate these examples from the stored case data, not from the current density-filtered visible subset.
+
+Behaviour:
+
+if neither exists → attempt to add both;
+if one exists → add only the missing example;
+if both exist → completely hide Add Example Loops;
+never duplicate either example;
+preserve deterministic/local matching;
+no external AI/API;
+do not overwrite manual loops.
+
+Ordinary Data Display filtering must not prevent a valid example loop from being found.
+
+8. Explicit and reliable pan controls
+
+Make OrbitControls mouse mapping explicit:
+
+Left mouse = Rotate
+Middle mouse = Dolly/Zoom
+Right mouse = Pan
+
+Suppress the browser context menu on right-drag over the 3D canvas where necessary.
+
+The Connections panel remains interactive; pan begins on exposed canvas space, not over panel controls.
+
+Keep the hint:
+
+Drag to rotate · Right-drag to pan · Scroll to zoom
+
+9. IMPORTANT — panning must change the orbit centre
+
+This is a required behaviour.
+
+When the user pans the pyramid/view to a new location:
+
+the OrbitControls target/orbit centre must move with the pan;
+that new target must persist after the pan gesture finishes;
+subsequent left-drag rotation must orbit around this new panned target, not around the pyramid's original centre or the centre of the screen;
+zoom should also operate relative to the current panned/orbit target.
+
+In other words:
+
+Pan → new view centre → rotate around that new centre.
+
+Diagnose whether any existing CameraRig, focus logic, frame update or camera transition is continuously writing the old pyramid-centre target back into OrbitControls.
+
+Do not overwrite the OrbitControls target after a user pan unless the user explicitly invokes:
+
+Reset View;
+Focus Camera;
+another deliberate camera preset.
+
+If there is a camera animation/rig, once the user manually interacts:
+
+cancel the animation cleanly;
+retain the user's current camera position;
+retain the user's current OrbitControls target.
+
+Reset View should intentionally restore both:
+
+original/default camera position;
+original/default pyramid target.
+
+This must be camera/view state only. Never move the actual pyramid geometry or data coordinates to implement pan.
+
+10. Keep optional Pan View only if needed
+
+If explicit right-drag pan works reliably after the OrbitControls/target repair, a separate Pan View toggle is not required.
+
+If right-drag remains unreliable in the real browser, then add a Pan View toggle where:
+
+Pan View ON → left-drag pans;
+Pan View OFF → left-drag rotates.
+
+But prefer fixing normal OrbitControls behaviour first rather than introducing unnecessary UI.
+
+11. Preserve complete Loop Table
+
+Loop Table always shows the complete stored loop, even when:
+
+Show Only This Loop is active;
+Data Display hides objects;
+sectors/levels are hidden.
+
+Expanded loop rows continue to show:
+
+ordered elements;
+ordered segments;
+level;
+sector;
+(grid_x, grid_y).
+
+Presentation state must never modify stored loop structure.
+
+12. Preserve everything else
+
+Do not regress:
+
+first-class Loop entities;
+continuous A → B → C builder;
+Undo Last Segment;
+Finish Loop;
+loop IDs/sequence;
+loop colour palette;
+Loop Table;
+Predictive Maintenance;
+Process Optimisation;
+Explode/Assemble;
+Data Display;
+Object Size;
+Label Size;
+sector controls;
+metadata editing;
+Move on Data Board;
+Structure;
+Data;
+Visualise;
+Explorer;
+Forging Case Study;
+Advanced placeholder.
+13. Acceptance checks
+
+Verify:
+
+Arrowhead tip lands on the final curve endpoint.
+Arrowhead faces the target along the final curve tangent.
+Show Only Predictive Maintenance force-shows every actual Predictive Maintenance node.
+No unrelated data objects remain visible.
+Non-participating sector surfaces/edges/labels disappear.
+All selected-loop arrows connect the exact displayed participating objects.
+Selected-loop and show-only state cannot diverge.
+Stage 4 initially enters at ~20% opacity.
+Add Example Loops disappears once both predefined examples exist.
+Example generation is not blocked by Data Display density.
+Right-drag on exposed canvas pans.
+After panning, left-drag rotation orbits around the new panned target rather than the original pyramid centre.
+Several consecutive pan → rotate → pan → rotate actions remain stable.
+Reset View restores both original camera position and original orbit target.
+Focus Camera intentionally establishes a new target when invoked.
+Canonical data and loop state are unchanged by camera operations.
+Explorer and Forging remain unchanged.
+
+Because Replit's automated preview may not provide WebGL, clearly identify pan/rotation/arrow behaviours requiring final real-browser verification.
+
+Do not add any other scope.
