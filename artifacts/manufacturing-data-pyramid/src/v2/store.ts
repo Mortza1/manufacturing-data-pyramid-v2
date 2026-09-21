@@ -109,15 +109,19 @@ interface V2State {
 
   activeCase: V2Case | null;
   isEditingStructure: boolean;
-  walkthroughStage: 'structure' | 'data';
+  walkthroughStage: 'structure' | 'data' | 'visualise';
   dataLevelIndex: number;
   skippedLevelIds: string[];
   dataAutoFillNotice: string | null;
   showV2Labels: boolean;
+  selectedVisualiseObjectId: string | null;
+  viewResetNonce: number;
   setIsEditingStructure: (isEditing: boolean) => void;
-  setWalkthroughStage: (stage: 'structure' | 'data') => void;
+  setWalkthroughStage: (stage: 'structure' | 'data' | 'visualise') => void;
   setDataLevelIndex: (index: number) => void;
   setShowV2Labels: (show: boolean) => void;
+  setSelectedVisualiseObjectId: (id: string | null) => void;
+  requestViewReset: () => void;
 
   draft: V2Draft;
   autoFillLevelNames: boolean;
@@ -149,10 +153,14 @@ export const useV2Store = create<V2State>()(
       skippedLevelIds: [],
       dataAutoFillNotice: null,
       showV2Labels: true,
+      selectedVisualiseObjectId: null,
+      viewResetNonce: 0,
       setIsEditingStructure: (isEditing) => set({ isEditingStructure: isEditing }),
       setWalkthroughStage: (walkthroughStage) => set({ walkthroughStage }),
       setDataLevelIndex: (dataLevelIndex) => set({ dataLevelIndex: Math.max(0, dataLevelIndex), dataAutoFillNotice: null }),
       setShowV2Labels: (showV2Labels) => set({ showV2Labels }),
+      setSelectedVisualiseObjectId: (selectedVisualiseObjectId) => set({ selectedVisualiseObjectId }),
+      requestViewReset: () => set((state) => ({ viewResetNonce: state.viewResetNonce + 1 })),
 
       draft: {
         levels: Array.from({ length: 5 }).map((_, i) => ({ name: getWalkthroughLevelName(i, 5) })),
@@ -429,11 +437,12 @@ export const useV2Store = create<V2State>()(
         return {
           ...persistedState,
           isEditingStructure,
-          walkthroughStage: activeCase && !isEditingStructure && persistedState?.walkthroughStage === 'data'
-            ? 'data'
+           walkthroughStage: activeCase && !isEditingStructure && ['data', 'visualise'].includes(persistedState?.walkthroughStage)
+             ? persistedState.walkthroughStage
             : 'structure',
           autoFillLevelNames: persistedState?.autoFillLevelNames ?? true,
           showV2Labels: persistedState?.showV2Labels ?? true,
+           selectedVisualiseObjectId: null,
           activeCase: activeCase ? {
             ...activeCase,
               id: activeCase.id || `case_${uuidv4()}`,

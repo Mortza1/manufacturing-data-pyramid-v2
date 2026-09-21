@@ -59,6 +59,8 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
     forgingCutaway,
   } = useStore();
   const v2Mode = useV2Store(state => state.mode);
+  const walkthroughStage = useV2Store(state => state.walkthroughStage);
+  const viewResetNonce = useV2Store(state => state.viewResetNonce);
   const controlsRef = useRef<any>(null);
   const transitionRef = useRef<{
     from: THREE.Vector3;
@@ -70,7 +72,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
     active: boolean;
   } | null>(null);
 
-  const modeKey = `${v2Mode}-${journeyActive}-${journeyStep}-${focusLevel}-${isolateLevel}-${cutaway}-${exploded}-${courseMode}-${forgingCaseStudy}-${forgingSeparateSectors}-${forgingExploded}-${forgingCutaway}`;
+  const modeKey = `${v2Mode}-${walkthroughStage}-${viewResetNonce}-${journeyActive}-${journeyStep}-${focusLevel}-${isolateLevel}-${cutaway}-${exploded}-${courseMode}-${forgingCaseStudy}-${forgingSeparateSectors}-${forgingExploded}-${forgingCutaway}`;
 
   React.useEffect(() => {
     const controls = controlsRef.current;
@@ -133,7 +135,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
       if (cancelRef.current === undefined) return;
       cancelRef.current = null;
     };
-  }, [camera, cancelRef, modeKey, v2Mode, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode, forgingCaseStudy, forgingSeparateSectors, forgingExploded, forgingCutaway]);
+  }, [camera, cancelRef, modeKey, v2Mode, walkthroughStage, viewResetNonce, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode, forgingCaseStudy, forgingSeparateSectors, forgingExploded, forgingCutaway]);
 
   useFrame((state, delta) => {
     const controls = state.controls as any;
@@ -282,6 +284,7 @@ export function PyramidScene() {
   const [userInteracted, setUserInteracted] = React.useState(false);
   
   const v2Mode = useV2Store(state => state.mode);
+  const walkthroughStage = useV2Store(state => state.walkthroughStage);
   
   const hasWebGL = useMemo(() => isWebGLAvailable(), []);
 
@@ -355,7 +358,7 @@ export function PyramidScene() {
           />
         )}
         
-        <Grid 
+        {(v2Mode === 'explorer' || walkthroughStage !== 'visualise') && <Grid
           renderOrder={-1} 
           position={[0, -3.0, 0]} 
           infiniteGrid 
@@ -365,7 +368,7 @@ export function PyramidScene() {
           sectionColor="#0c1620" 
           cellThickness={0.55}
           sectionThickness={1.2}
-        />
+        />}
         
         <ContactShadows 
           position={[0, -2.99, 0]} 
