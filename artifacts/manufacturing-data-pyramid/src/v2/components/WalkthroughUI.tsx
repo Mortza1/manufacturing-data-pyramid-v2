@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Check, ChevronLeft, ChevronRight, Edit2, Lock, Wand2, GraduationCap, Grid3X3, Plus, SkipForward, Trash2, Move } from 'lucide-react';
-import { useV2Store, EMPTY_DATA_DRAFT, type V2DataDraft } from '../store';
+import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, type V2DataDraft } from '../store';
 import { getSectorIdForGridCell } from '../geometry';
 
 const STAGES = ['Structure', 'Data', 'Visualise', 'Connections', 'Save'];
@@ -28,9 +28,10 @@ function Progress({ currentStage }: { currentStage: number }) {
 function StructureStage() {
   const {
     draft, setDraftLevels, setDraftSectors, confirmStructure, activeCase,
-    reopenStructure, autoFillLevelNames, setAutoFillLevelNames,
+    reopenStructure, autoFillLevelNames, setAutoFillLevelNames, isEditingStructure,
+    setWalkthroughStage,
   } = useV2Store();
-  const confirmed = activeCase !== null;
+  const confirmed = activeCase !== null && !isEditingStructure;
 
   const autoFillSectors = () => setDraftSectors(
     draft.sectors.length === 4
@@ -40,8 +41,10 @@ function StructureStage() {
 
   const updateLevelCount = (nextCount: number) => {
     if (nextCount < 1 || nextCount > 8) return;
-    const next = Array.from({ length: nextCount }, (_, index) => draft.levels[index] || { name: `Level ${index + 1}` });
-    setDraftLevels(autoFillLevelNames ? next.map((level, index) => ({ ...level, name: `Level ${index + 1}` })) : next);
+    const next = Array.from({ length: nextCount }, (_, index) => draft.levels[index] || { name: getWalkthroughLevelName(index, nextCount) });
+    setDraftLevels(autoFillLevelNames
+      ? next.map((level, index) => ({ ...level, name: getWalkthroughLevelName(index, nextCount) }))
+      : next);
   };
 
   const updateSectorCount = (nextCount: number) => {
@@ -80,6 +83,7 @@ function StructureStage() {
         <div className="rounded-xl border border-indigo-400/15 bg-indigo-400/5 p-4">
           <p className="text-xs leading-relaxed text-indigo-100/70">Data is the active next stage. Use the level board to add items to the 8×8 sector-aware snap grid.</p>
         </div>
+        <button onClick={() => setWalkthroughStage('data')} className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-400 py-3 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-300">Continue to Data <ChevronRight size={17} /></button>
       </div>
     );
   }

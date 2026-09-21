@@ -37,6 +37,20 @@ export const EMPTY_DATA_DRAFT: V2DataDraft = {
   intended_use: '',
 };
 
+export const WALKTHROUGH_LEVEL_PRESET = [
+  'Signal / Physical',
+  'Operational',
+  'Engineering',
+  'Management',
+  'Executive',
+] as const;
+
+export function getWalkthroughLevelName(index: number, count: number) {
+  return count === WALKTHROUGH_LEVEL_PRESET.length
+    ? WALKTHROUGH_LEVEL_PRESET[index] || `Level ${index + 1}`
+    : `Level ${index + 1}`;
+}
+
 interface V2State {
   mode: 'explorer' | 'walkthrough' | 'advanced';
   setMode: (mode: 'explorer' | 'walkthrough' | 'advanced') => void;
@@ -82,7 +96,7 @@ export const useV2Store = create<V2State>()(
       setDataLevelIndex: (dataLevelIndex) => set({ dataLevelIndex: Math.max(0, dataLevelIndex) }),
 
       draft: {
-        levels: Array.from({ length: 5 }).map((_, i) => ({ name: `Level ${i + 1}` })),
+        levels: Array.from({ length: 5 }).map((_, i) => ({ name: getWalkthroughLevelName(i, 5) })),
         sectors: Array.from({ length: 4 }).map((_, i) => ({ name: `Sector ${i + 1}` })),
       },
       autoFillLevelNames: true,
@@ -91,7 +105,13 @@ export const useV2Store = create<V2State>()(
       setAutoFillLevelNames: (enabled) => set((state) => ({
         autoFillLevelNames: enabled,
         draft: enabled
-          ? { ...state.draft, levels: state.draft.levels.map((level, index) => ({ ...level, name: `Level ${index + 1}` })) }
+          ? {
+            ...state.draft,
+            levels: state.draft.levels.map((level, index) => ({
+              ...level,
+              name: getWalkthroughLevelName(index, state.draft.levels.length),
+            })),
+          }
           : state.draft,
       })),
 
@@ -259,24 +279,29 @@ export const useV2Store = create<V2State>()(
     }),
     {
       name: 'manufacturing-v2-case-storage',
-      version: 2,
+      version: 3,
       migrate: (persistedState: any) => {
         const activeCase = persistedState?.activeCase;
-        if (!activeCase) return persistedState;
+        const isEditingStructure = activeCase
+          ? persistedState?.isEditingStructure === true
+          : persistedState?.isEditingStructure ?? true;
         return {
           ...persistedState,
-          activeCase: {
+          isEditingStructure,
+          walkthroughStage: activeCase && !isEditingStructure ? 'data' : 'structure',
+          autoFillLevelNames: persistedState?.autoFillLevelNames ?? true,
+          activeCase: activeCase ? {
             ...activeCase,
-            id: activeCase.id || `case_${uuidv4()}`,
-            name: activeCase.name || 'Untitled Pyramid Case',
-            overlays: activeCase.overlays || {
-              data: activeCase.objects || [],
-              models: [],
-              agents: [],
-              decisions: [],
-              connectivity: [],
-            },
-          },
+              id: activeCase.id || `case_${uuidv4()}`,
+              name: activeCase.name || 'Untitled Pyramid Case',
+              overlays: activeCase.overlays || {
+                data: activeCase.objects || [],
+                models: [],
+                agents: [],
+                decisions: [],
+                connectivity: [],
+              },
+          } : null,
         };
       },
       partialize: (state) => ({

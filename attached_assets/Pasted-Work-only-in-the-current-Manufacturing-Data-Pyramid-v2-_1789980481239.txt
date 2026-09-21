@@ -1,0 +1,32 @@
+Work only in the current Manufacturing_Data_Pyramid_v2 fork and remain in Free mode. Do not switch to Power or Max. This is a targeted bug fix only; do not redesign or refactor unrelated functionality.
+
+The Walkthrough Stage 2 implementation already exists. Do NOT rebuild it.
+
+Fix the current Structure-to-Data navigation/state bug:
+
+Clicking Revise on the confirmed Structure screen must reopen the editable Structure form. The current active-case/confirmed rendering logic must respect the Structure editing state.
+Add a clear Continue to Data button on the confirmed Structure summary. Clicking it must make Data the active walkthrough stage and open the existing Stage 2 Data workflow.
+Fix persisted/hydrated walkthrough state so an already-confirmed active case that is not currently revising Structure cannot remain trapped with Structure active and Data locked. Existing affected browser state should recover automatically without requiring the user to clear storage or recreate the case.
+Once Structure is confirmed, the progress indicator must show:
+Structure ✓ → Data active → Visualise locked → Connections locked → Save locked.
+Change Auto-fill level names for the normal 5-level manufacturing walkthrough. When Auto-fill is ON and there are exactly five levels, use:
+Signal / Physical
+Operational
+Engineering
+Management
+Executive
+
+If the level count is not five, fall back to Level 1 … Level N until other presets are defined.
+
+Auto-fill OFF must preserve manually entered level names. Turning Auto-fill ON deliberately may regenerate the preset names.
+
+Do not change the existing sector preset Product / Resources / Machines / People in this repair.
+
+Do not change the Forging Case Study.
+
+Do not change the existing Stage 2 board, data metadata fields, grid placement, Explorer, 3D controls, course modes, Advanced placeholder, styling, or any other working feature.
+
+After fixing, test this exact route:
+open Walkthrough → Structure confirmed → Revise → edit → Confirm → Continue to Data → Stage 2 board opens → return/reload → Data remains accessible.
+
+Fix only blocking errors found during that test.
