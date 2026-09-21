@@ -51,6 +51,58 @@ export function getWalkthroughLevelName(index: number, count: number) {
     : `Level ${index + 1}`;
 }
 
+const AUTO_FILL_DATA_CATALOGUE: Record<string, Record<string, string[]>> = {
+  'Signal / Physical': {
+    Product: ['Product Dimensions', 'Surface Image', 'Product Geometry Snapshot', 'Surface Defect Signal'],
+    Resources: ['Material Batch ID', 'Material Temperature', 'Material Composition', 'Material Lot Trace'],
+    Machines: ['Spindle Vibration', 'Motor Current', 'Tool Wear Signal', 'Machine Acoustic Signature'],
+    People: ['Operator Presence', 'Manual Inspection Input', 'Operator Skill Confirmation', 'Safety Observation'],
+  },
+  Operational: {
+    Product: ['Inspection Result', 'Part Traceability Record', 'Production Quantity', 'Cycle Completion Status'],
+    Resources: ['Material Consumption', 'Tool Availability', 'Energy Consumption', 'Consumable Replenishment'],
+    Machines: ['Machine State', 'Alarm Event', 'Cycle Time', 'Machine Utilisation'],
+    People: ['Operator Assignment', 'Shift Activity', 'Operator Handover', 'Workstation Attendance'],
+  },
+  Engineering: {
+    Product: ['CAD Geometry', 'Simulation Result', 'Tolerance Definition', 'Design Revision Record'],
+    Resources: ['Material Specification', 'Process Resource Requirement', 'Material Compatibility', 'Resource Constraint'],
+    Machines: ['Machine Capability Model', 'Maintenance Condition Assessment', 'Tooling Capability', 'Equipment Performance Model'],
+    People: ['Work Instruction', 'Engineering Approval', 'Design Review Input', 'Process Engineering Change'],
+  },
+  Management: {
+    Product: ['Quality KPI', 'Scrap Rate', 'First Pass Yield', 'Product Conformance Trend'],
+    Resources: ['Production Cost', 'Resource Utilisation', 'Material Cost Variance', 'Capacity Constraint'],
+    Machines: ['Reliability KPI', 'Maintenance Performance', 'Overall Equipment Effectiveness', 'Downtime Trend'],
+    People: ['Workforce Capacity', 'Training Status', 'Staffing Coverage', 'Competency Risk'],
+  },
+  Executive: {
+    Product: ['Product Portfolio Performance', 'Customer Quality Metric', 'Market Quality Position', 'Portfolio Margin'],
+    Resources: ['Profitability', 'Investment Requirement', 'Capital Allocation', 'Resource Return'],
+    Machines: ['Asset Performance', 'Capital Equipment Risk', 'Asset Investment Outlook', 'Technology Renewal Need'],
+    People: ['Workforce Strategy', 'Skills Risk', 'Leadership Capacity', 'Strategic Capability Gap'],
+  },
+};
+
+function normaliseDataName(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function getAutoFillNameCandidates(levelName: string, sectorName: string) {
+  const levelCatalogue = Object.entries(AUTO_FILL_DATA_CATALOGUE)
+    .find(([name]) => normaliseDataName(name) === normaliseDataName(levelName))?.[1];
+  const sectorCatalogue = levelCatalogue
+    ? Object.entries(levelCatalogue)
+      .find(([name]) => normaliseDataName(name) === normaliseDataName(sectorName))?.[1]
+    : undefined;
+  return sectorCatalogue || [
+    `${sectorName} ${levelName} signal`,
+    `${sectorName} ${levelName} status`,
+    `${sectorName} ${levelName} event`,
+    `${sectorName} ${levelName} record`,
+  ];
+}
+
 interface V2State {
   mode: 'explorer' | 'walkthrough' | 'advanced';
   setMode: (mode: 'explorer' | 'walkthrough' | 'advanced') => void;
@@ -60,6 +112,7 @@ interface V2State {
   walkthroughStage: 'structure' | 'data';
   dataLevelIndex: number;
   skippedLevelIds: string[];
+  dataAutoFillNotice: string | null;
   setIsEditingStructure: (isEditing: boolean) => void;
   setWalkthroughStage: (stage: 'structure' | 'data') => void;
   setDataLevelIndex: (index: number) => void;
@@ -91,6 +144,7 @@ export const useV2Store = create<V2State>()(
       walkthroughStage: 'structure',
       dataLevelIndex: 0,
       skippedLevelIds: [],
+      dataAutoFillNotice: null,
       setIsEditingStructure: (isEditing) => set({ isEditingStructure: isEditing }),
       setWalkthroughStage: (walkthroughStage) => set({ walkthroughStage }),
       setDataLevelIndex: (dataLevelIndex) => set({ dataLevelIndex: Math.max(0, dataLevelIndex) }),
@@ -221,25 +275,70 @@ export const useV2Store = create<V2State>()(
       autoFillDataLevel: (levelId) => {
         const { activeCase } = get();
         if (!activeCase) return 0;
-        const names = ['Telemetry Signal', 'Production Event', 'Quality Reading', 'Maintenance State', 'Run Context', 'Sensor Snapshot'];
+        const level = activeCase.levels.find((item) => item.id === levelId);
+        if (!level) return 0;
+        const sectorIds = activeCase.sectors.map((sector) => sector.id);
+        const cells = Array.from({ length: activeCase.grid.width * activeCase.grid.height }, (_, index) => ({
+          x: index % activeCase.grid.width,
+          y: Math.floor(index / activeCase.grid.width),
+        }));
+        const occupiedKeys = new Set(
+          activeCase.overlays.data
+            .filter((object) => object.level_id === levelId)
+            .map((object) => `${object.grid_x}:${object.grid_y}`),
+        );
+        const usedNames = new Set(
+          activeCase.overlays.data
+            .filter((object) => object.level_id === levelId)
+            .map((object) => normaliseDataName(object.name)),
+        );
         const additions: V2Object[] = [];
-        for (let y = 0; y < activeCase.grid.height && additions.length < names.length; y += 1) {
-          for (let x = 0; x < activeCase.grid.width && additions.length < names.length; x += 1) {
-            const occupied = activeCase.overlays.data.some((object) =>
-              object.level_id === levelId && object.grid_x === x && object.grid_y === y
-            );
-            if (occupied) continue;
-            const sectorId = getSectorIdForGridCell(x, y, activeCase.grid.width, activeCase.grid.height, activeCase.sectors.map((sector) => sector.id));
-            if (!sectorId) continue;
+        const fullSectors: string[] = [];
+        const targetPerSector = 2;
+
+        for (const sector of activeCase.sectors) {
+          const availableCells = cells
+            .filter((cell) =>
+              !occupiedKeys.has(`${cell.x}:${cell.y}`) &&
+              getSectorIdForGridCell(cell.x, cell.y, activeCase.grid.width, activeCase.grid.height, sectorIds) === sector.id
+            )
+            .sort((a, b) => {
+              const aEdge = Math.min(a.x, a.y, activeCase.grid.width - 1 - a.x, activeCase.grid.height - 1 - a.y);
+              const bEdge = Math.min(b.x, b.y, activeCase.grid.width - 1 - b.x, activeCase.grid.height - 1 - b.y);
+              if (aEdge !== bEdge) return aEdge - bEdge;
+              const aRadius = Math.hypot(a.x + 0.5 - activeCase.grid.width / 2, a.y + 0.5 - activeCase.grid.height / 2);
+              const bRadius = Math.hypot(b.x + 0.5 - activeCase.grid.width / 2, b.y + 0.5 - activeCase.grid.height / 2);
+              if (aRadius !== bRadius) return bRadius - aRadius;
+              return a.y - b.y || a.x - b.x;
+            });
+
+          if (availableCells.length < targetPerSector) fullSectors.push(sector.name);
+          const names = getAutoFillNameCandidates(level.name, sector.name);
+          const selectedCells = availableCells.slice(0, targetPerSector);
+
+          for (const cell of selectedCells) {
+            let name = names.find((candidate) => !usedNames.has(normaliseDataName(candidate)));
+            if (!name) {
+              const baseName = `${sector.name} ${level.name} data`;
+              name = baseName;
+              let suffix = 2;
+              while (usedNames.has(normaliseDataName(name))) {
+                name = `${baseName} ${suffix}`;
+                suffix += 1;
+              }
+            }
+            usedNames.add(normaliseDataName(name));
+            occupiedKeys.add(`${cell.x}:${cell.y}`);
+            const sectorId = sector.id;
             additions.push({
               id: `data_${uuidv4()}`,
               overlay: 'data',
               level_id: levelId,
               sector_id: sectorId,
-              grid_x: x,
-              grid_y: y,
-              name: names[additions.length],
-              description: 'Representative data element for the walkthrough.',
+              grid_x: cell.x,
+              grid_y: cell.y,
+              name,
+              description: `Representative ${sector.name} data for ${level.name}.`,
               availability: 'Available',
               source: 'Representative source',
               protocol: 'OPC UA',
@@ -252,11 +351,20 @@ export const useV2Store = create<V2State>()(
             });
           }
         }
+
+        const sectorCount = activeCase.sectors.length;
+        const expected = targetPerSector * sectorCount;
+        const notice = fullSectors.length > 0
+          ? `Added ${additions.length} representative data element${additions.length === 1 ? '' : 's'} (${targetPerSector} per sector where available). Full sectors: ${fullSectors.join(', ')}.`
+          : `Added ${additions.length} representative data elements (${targetPerSector} per sector across ${sectorCount} sectors).`;
         set({
           activeCase: {
             ...activeCase,
             overlays: { ...activeCase.overlays, data: [...activeCase.overlays.data, ...additions] },
           },
+          dataAutoFillNotice: additions.length === expected
+            ? notice
+            : `${notice} No manual data was overwritten.`,
         });
         return additions.length;
       },

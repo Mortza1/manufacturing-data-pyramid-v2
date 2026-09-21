@@ -1,0 +1,119 @@
+Work only in the current Manufacturing_Data_Pyramid_v2 fork and remain in Free mode. Do not switch to Power or Max. This is a targeted refinement to Walkthrough Structure and Data only. Do not redesign or modify unrelated functionality.
+
+1. Structure stage — show confirmed labels on the pyramid
+
+After the user confirms Structure, show the configured level names and sector names directly on/around the 3D pyramid preview.
+
+Requirements:
+
+Show all level names clearly.
+Show all sector names clearly.
+Position labels so they do not obstruct the pyramid geometry or each other.
+Prefer labels slightly outside the pyramid with subtle connector/association if necessary rather than placing text over objects.
+Add a simple Show/Hide Labels control.
+This must reflect the user's actual configured names, including manually edited names.
+Do not change the structure itself when labels are hidden.
+2. Data stage — improve Auto-fill distribution
+
+Current Auto-fill is too sparse and sometimes concentrates objects in only one or two sectors. Change it so every Auto-fill click distributes representative data evenly across every sector of the currently selected level.
+
+Default behaviour:
+
+Add 2 data elements per sector per Auto-fill click.
+Therefore:
+4 sectors = 8 new data elements
+3 sectors = 6 new data elements
+5 sectors = 10 new data elements
+Use only valid free cells.
+Never overwrite or delete manually added elements.
+If a sector does not have enough free cells, add as many as possible there and clearly report that the sector is full.
+3. Placement order
+
+Auto-fill should prefer placement cells from the outer edge/perimeter of the level inward toward the centre.
+
+Within each sector:
+
+choose suitable free cells nearest the outer pyramid edge first;
+then progressively use more inward cells on later Auto-fill actions;
+maintain good spacing and avoid unnecessary clustering;
+preserve the existing one-object-per-cell rule.
+
+Manual placement behaviour must remain unchanged.
+
+4. Meaningful representative data names
+
+Do not repeatedly reuse the same generic data names across unrelated sectors.
+
+Auto-filled objects must have names that make sense for both the active organisational level and the active sector.
+
+For the current default 5-level / 4-sector manufacturing walkthrough, use a deterministic representative data catalogue along these lines:
+
+Level: Signal / Physical
+
+Product: Product Dimensions, Surface Image
+Resources: Material Batch ID, Material Temperature
+Machines: Spindle Vibration, Motor Current
+People: Operator Presence, Manual Inspection Input
+
+Level: Operational
+
+Product: Inspection Result, Part Traceability Record
+Resources: Material Consumption, Tool Availability
+Machines: Machine State, Alarm Event
+People: Operator Assignment, Shift Activity
+
+Level: Engineering
+
+Product: CAD Geometry, Simulation Result
+Resources: Material Specification, Process Resource Requirement
+Machines: Machine Capability Model, Maintenance Condition Assessment
+People: Work Instruction, Engineering Approval
+
+Level: Management
+
+Product: Quality KPI, Scrap Rate
+Resources: Production Cost, Resource Utilisation
+Machines: Reliability KPI, Maintenance Performance
+People: Workforce Capacity, Training Status
+
+Level: Executive
+
+Product: Product Portfolio Performance, Customer Quality Metric
+Resources: Profitability, Investment Requirement
+Machines: Asset Performance, Capital Equipment Risk
+People: Workforce Strategy, Skills Risk
+
+These are representative examples, not hard-coded restrictions. Use them as the default manufacturing Auto-fill catalogue.
+
+Requirements:
+
+avoid duplicate names on the same level;
+if Auto-fill is clicked again, use additional meaningful alternatives rather than repeating the same two names;
+if the user has renamed levels or sectors, continue to distribute evenly and generate sensible fallback names based on the current level and sector rather than failing;
+do not call external AI services or paid APIs to generate names.
+5. Preserve everything else
+
+Do not change:
+
+manual data creation;
+existing metadata fields;
+8×8 snap grid;
+canonical level_id + sector_id + grid_x + grid_y;
+sector-change confirmation;
+occupied-cell handling;
+Previous/Next/Skip/Finish Data;
+Explorer;
+Forging Case Study;
+3D controls;
+Advanced placeholder;
+later locked stages;
+styling outside these requested refinements.
+
+Test:
+
+Confirm Structure and verify level/sector labels appear and can be hidden/shown.
+Enter Data on each level.
+Click Auto-fill once with four sectors and verify exactly 8 objects are added, 2 in each sector.
+Verify objects occupy outer cells before inner cells.
+Click Auto-fill again and verify new meaningful names and new free cells are used without duplicates or overwrites.
+Verify manual objects remain untouched.
