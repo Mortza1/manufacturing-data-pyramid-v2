@@ -65,6 +65,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
   const visualiseFocusedLevelId = useV2Store(state => state.visualiseFocusedLevelId);
   const visualiseOnlyLevelId = useV2Store(state => state.visualiseOnlyLevelId);
   const viewResetNonce = useV2Store(state => state.viewResetNonce);
+  const v2LevelKey = v2ActiveCase?.levels.map((level) => level.id).join('|') ?? '';
   const controlsRef = useRef<any>(null);
   const transitionRef = useRef<{
     from: THREE.Vector3;
@@ -157,7 +158,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
       if (cancelRef.current === undefined) return;
       cancelRef.current = null;
     };
-  }, [camera, cancelRef, modeKey, v2Mode, walkthroughStage, v2ActiveCase, visualiseFocusedLevelId, visualiseOnlyLevelId, viewResetNonce, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode, forgingCaseStudy, forgingSeparateSectors, forgingExploded, forgingCutaway]);
+  }, [camera, cancelRef, modeKey, v2Mode, walkthroughStage, v2LevelKey, visualiseFocusedLevelId, visualiseOnlyLevelId, viewResetNonce, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode, forgingCaseStudy, forgingSeparateSectors, forgingExploded, forgingCutaway]);
 
   useFrame((state, delta) => {
     const controls = state.controls as any;
@@ -286,6 +287,18 @@ function DragGhost() {
   );
 }
 
+function CanvasContextMenuGuard() {
+  const { gl } = useThree();
+
+  React.useEffect(() => {
+    const handleContextMenu = (event: MouseEvent) => event.preventDefault();
+    gl.domElement.addEventListener('contextmenu', handleContextMenu);
+    return () => gl.domElement.removeEventListener('contextmenu', handleContextMenu);
+  }, [gl]);
+
+  return null;
+}
+
 export function PyramidScene() {
   const {
     focusLevel,
@@ -402,6 +415,7 @@ export function PyramidScene() {
         />
         
         <CameraRig cancelRef={cancelCameraTransitionRef} />
+        <CanvasContextMenuGuard />
       </Suspense>
 
       <OrbitControls
@@ -414,6 +428,11 @@ export function PyramidScene() {
         autoRotateSpeed={0.3}
         enablePan
         enableZoom
+        mouseButtons={{
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: THREE.MOUSE.PAN,
+        }}
         minPolarAngle={0.01}
         maxPolarAngle={Math.PI - 0.01}
         minDistance={3}

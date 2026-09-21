@@ -258,7 +258,7 @@ interface V2State {
   updateLoop: (loopId: string, patch: Partial<V2LoopDraft>) => boolean;
   deleteLoop: (loopId: string) => boolean;
   setConnectionArrowThickness: (thickness: number) => void;
-  addExampleLoops: (visibleObjectIds: string[]) => number;
+  addExampleLoops: () => number;
   finishConnections: () => void;
   requestViewReset: () => void;
 
@@ -532,10 +532,11 @@ export const useV2Store = create<V2State>()(
           selectedConnectionId: null,
         };
       }),
-      selectLoop: (selectedLoopId) => set({
+      selectLoop: (selectedLoopId) => set((state) => ({
         selectedLoopId,
         selectedConnectionId: null,
-      }),
+        showOnlyLoopId: state.showOnlyLoopId ? selectedLoopId : state.showOnlyLoopId,
+      })),
       setShowOnlyLoop: (showOnlyLoopId) => set({
         showOnlyLoopId,
         selectedLoopId: showOnlyLoopId,
@@ -634,10 +635,10 @@ export const useV2Store = create<V2State>()(
       setConnectionArrowThickness: (connectionArrowThickness) => set({
         connectionArrowThickness: Math.min(1.8, Math.max(0.7, connectionArrowThickness)),
       }),
-      addExampleLoops: (visibleObjectIds) => {
+      addExampleLoops: () => {
         const { activeCase } = get();
         if (!activeCase) return 0;
-        const visible = activeCase.overlays.data.filter((object) => visibleObjectIds.includes(object.id));
+        const visible = activeCase.overlays.data;
         const levelIndex = new Map(activeCase.levels.map((level, index) => [level.id, index]));
         const sectorIndex = new Map(activeCase.sectors.map((sector, index) => [sector.id, index]));
         const existingLoopNames = new Set(activeCase.overlays.loops.map((loop) => normaliseDataName(loop.name)));

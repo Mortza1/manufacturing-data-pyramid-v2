@@ -623,9 +623,12 @@ function ConnectionsStage() {
     setNotice('Segment details updated.');
   };
   const generateExamples = () => {
-    const count = addExampleLoops(Array.from(visibleObjectIds));
+    const count = addExampleLoops();
     setNotice(count > 0 ? `Added ${count} example loop${count === 1 ? '' : 's'}.` : 'No complete example loops were available from the currently visible objects.');
   };
+  const hasBothExampleLoops = ['Predictive Maintenance', 'Process Optimisation'].every((name) =>
+    loops.some((loop) => loop.name.trim().toLowerCase() === name.toLowerCase()),
+  );
 
   return (
     <div className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6">
@@ -689,7 +692,7 @@ function ConnectionsStage() {
           <section className="rounded-xl border border-white/10 bg-black/20 p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Connection display</p>
-              <button onClick={generateExamples} className="rounded border border-indigo-300/25 bg-indigo-300/10 px-2.5 py-1.5 text-[10px] font-semibold text-indigo-100 hover:bg-indigo-300/20"><Wand2 size={12} className="mr-1 inline" /> Add Example Loops</button>
+              {!hasBothExampleLoops && <button onClick={generateExamples} className="rounded border border-indigo-300/25 bg-indigo-300/10 px-2.5 py-1.5 text-[10px] font-semibold text-indigo-100 hover:bg-indigo-300/20"><Wand2 size={12} className="mr-1 inline" /> Add Example Loops</button>}
             </div>
             <div className="flex items-center gap-2">
               <span className="w-28 shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">Arrow thickness</span>
