@@ -1,0 +1,356 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me rather than escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+Implement Walkthrough Stage 5 — Review & Save, Pass 1 only.
+
+Do not implement the full Open Project/version-selection workflow yet. We will add that in Pass 2 after proving that one complete case can be saved and retrieved correctly.
+
+Use the existing Replit-managed PostgreSQL + Drizzle infrastructure already present in the project. Do not add Supabase, Firebase, Neon, Railway or another external database service.
+
+Preserve Structure, Data, Visualise, Connections, 2D Cross-Section, Restart Walkthrough, Explorer, Forging Case Study and Advanced placeholder.
+
+1. Activate Stage 5
+
+After the user clicks Finish Connections, move the Walkthrough to:
+
+Stage 5 — Review & Save
+
+Progress should show:
+
+Structure ✓ → Data ✓ → Visualise ✓ → Connections ✓ → Save active
+
+Connections remain optional. A pyramid with zero loops/connections must still be saveable.
+
+Provide:
+
+Back to Connections
+
+without losing any case data.
+
+2. Build a useful Review screen
+
+Before saving, show a clear summary of the complete current Data Pyramid.
+
+Include at least:
+
+number of levels;
+actual level names;
+number of sectors;
+actual sector names;
+grid size;
+number of data elements;
+data count by level;
+data count by sector;
+number of loops;
+number of connection segments;
+loop names;
+levels/sectors spanned by each loop.
+
+Example summary:
+
+5 levels · 4 sectors · 38 data elements · 2 loops · 8 connection segments
+
+Allow the user to inspect the existing 3D/2D pyramid visualisations from Review where practical, but do not create another editing system.
+
+3. Add Project Identity fields
+
+Add:
+
+User Name
+
+Project Name
+
+Project Description — optional
+
+Version Note — optional
+
+For this first implementation, User Name is a named project participant/owner, not authenticated security identity.
+
+Allow either:
+
+selecting an existing User Name if users already exist;
+or + New User to create a new named user.
+
+Do not implement passwords, login or authentication in this pass.
+
+4. Database schema
+
+Use the existing Drizzle/PostgreSQL setup.
+
+Create the minimum database-backed project/version model.
+
+Users
+
+For this non-authenticated course/demo stage, use:
+
+stable UUID ID;
+display/name field;
+created timestamp;
+updated timestamp.
+
+Design it so authentication identifiers can be added later without breaking projects.
+
+Do not treat a browser-supplied name as production-grade authentication.
+
+Projects
+
+Store:
+
+stable UUID project ID;
+owner/user ID;
+project name;
+project description;
+current version ID if practical;
+created timestamp;
+updated timestamp.
+Project Versions
+
+Store:
+
+stable UUID version ID;
+project ID;
+integer version number;
+complete JSONB project snapshot;
+snapshot schema version;
+optional version note;
+created timestamp;
+user/creator ID.
+
+Add a uniqueness constraint equivalent to:
+
+project + version number must be unique
+
+Historical version rows are immutable.
+
+5. Snapshot format
+
+Save the complete project content as one atomic JSON snapshot.
+
+Use a structure conceptually equivalent to:
+
+format: manufacturing-data-pyramid-v2
+
+schemaVersion: 1
+
+case: activeCase
+
+The saved case must include all existing:
+
+stable case ID;
+levels;
+level IDs/order/names;
+sectors;
+sector IDs/order/names;
+grid configuration;
+every data object;
+complete data metadata;
+level_id;
+sector_id;
+grid_x;
+grid_y;
+models array if present;
+agents array if present;
+decisions array if present;
+loops;
+loop IDs;
+loop names;
+loop description;
+loop colour;
+ordered connection segments;
+connection IDs;
+source object IDs;
+target object IDs;
+sequence;
+direction;
+labels/descriptions.
+
+Do not store derived/rendered XYZ coordinates as canonical project location.
+
+Do not make transient mouse/camera/hover state part of the core project snapshot.
+
+6. Runtime snapshot validation
+
+Do not rely only on TypeScript interfaces.
+
+Add runtime validation, preferably with the project's existing/appropriate Zod setup.
+
+Validate the snapshot server-side before inserting it into PostgreSQL.
+
+Reject invalid/incomplete snapshots cleanly rather than creating partial saved versions.
+
+7. First-save behaviour
+
+If the user selects/creates:
+
+User: Abhilash
+
+Project: Manufacturing Data Strategy
+
+and this project does not yet exist for that user:
+
+create:
+
+Manufacturing Data Strategy — Version 1
+
+Save one complete immutable project snapshot.
+
+Do not overwrite v1 later.
+
+After success show clearly:
+
+Saved successfully
+
+Abhilash / Manufacturing Data Strategy / v1
+
+plus the save date/time if readily available.
+
+8. Project/version transaction safety
+
+Saving a project/version should be atomic.
+
+For first save:
+
+create/find user;
+create project;
+determine version number;
+insert complete version snapshot;
+update project current-version pointer if used;
+commit.
+
+Avoid states where the project exists but its version snapshot failed halfway.
+
+9. Minimal API
+
+Add only the API surface necessary for Pass 1.
+
+At minimum support:
+
+list/create named users as required by the save UI;
+create project;
+create project version;
+retrieve the just-saved version so we can verify exact persistence.
+
+It is acceptable to structure routes now in a way that naturally supports Pass 2:
+
+projects listing;
+version listing;
+exact version retrieval.
+
+But do not build the complete Open Project UI yet.
+
+10. Keep local Zustand persistence
+
+Do not remove the existing browser/Zustand persistence.
+
+It remains the working draft/autosave mechanism.
+
+PostgreSQL Stage 5 Save is the durable named/versioned project archive.
+
+Therefore:
+
+working draft → local persistence
+
+explicit Save Project → PostgreSQL immutable version
+
+Do not silently pretend a database save succeeded if the API/database operation fails.
+
+Show a clear error and preserve the local working draft.
+
+11. Version/schema metadata
+
+Every saved project snapshot must include:
+
+snapshot schema version = 1
+
+Keep this separate from:
+
+project version number;
+Zustand storage migration version.
+
+These represent different concepts.
+
+12. Add Save As New Project
+
+On Stage 5, support:
+
+Save as New Project
+
+so the current pyramid can be given a new project identity.
+
+In Pass 1 it is acceptable for this to be the primary save operation.
+
+We will add the complete Save New Version of Existing Project UX in Pass 2.
+
+13. Exact retrieval verification
+
+After saving v1, immediately support a technical/read-only verification that retrieves that exact saved version from PostgreSQL and compares/reconstructs the core case.
+
+Confirm that the retrieved snapshot contains exactly the saved:
+
+levels;
+sectors;
+grid;
+data object IDs;
+data metadata;
+canonical placements;
+loops;
+ordered connection segments.
+
+Do not replace the user's current working draft just for this test unless explicitly requested.
+
+14. Preserve everything else
+
+Do not regress:
+
+Structure;
+Data;
+Auto-fill;
+Clear Current Level;
+Visualise;
+3D Connections;
+2D Cross-Section;
+loops;
+Loop Table;
+panel collapse;
+Restart Walkthrough;
+Explorer;
+Forging Case Study;
+Advanced placeholder.
+
+Do not implement authenticated login in this pass.
+
+Do not implement Advanced mode.
+
+15. Acceptance tests
+
+Verify:
+
+Finish Connections enters Stage 5.
+Review accurately summarises the current pyramid.
+User Name can be entered/created.
+Project Name can be entered.
+Project Description is optional.
+Version Note is optional.
+Saving a new project creates v1.
+Database contains User → Project → Project Version.
+v1 contains one complete JSONB case snapshot.
+Snapshot has schemaVersion = 1.
+Data object IDs and canonical grid coordinates are preserved.
+Loops and ordered segment IDs/source/target references are preserved.
+Server-side snapshot validation executes.
+Failed save does not destroy the local working draft.
+Saved version can be retrieved from the database.
+Retrieved core case content matches the saved case.
+Existing browser/local draft persistence continues to work.
+Explorer remains unchanged.
+Forging Case Study remains unchanged.
+
+Run:
+
+database schema/migration checks;
+TypeScript/typecheck;
+production build;
+git diff --check.
+
+Do not add any other scope.
