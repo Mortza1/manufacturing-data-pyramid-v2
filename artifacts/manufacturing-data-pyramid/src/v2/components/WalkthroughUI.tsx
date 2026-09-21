@@ -518,6 +518,7 @@ function ConnectionsStage() {
     selectedLoopId,
     showOnlyLoopId,
     loopSectorContext,
+    connectionsView,
     expandedLoopIds,
     loopBuilder,
     selectedConnectionId,
@@ -531,6 +532,7 @@ function ConnectionsStage() {
     selectLoop,
     setShowOnlyLoop,
     setLoopSectorContext,
+    setConnectionsView,
     toggleLoopExpanded,
     updateConnection,
     updateLoop,
@@ -657,6 +659,23 @@ function ConnectionsStage() {
           <Link2 size={22} className="mt-1 shrink-0 text-indigo-200/70" />
         </div>
       </header>
+      <div className="shrink-0 border-b border-indigo-400/15 bg-black/20 px-5 py-3">
+        <div className="flex items-center gap-2">
+          <span className="mr-auto text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-200/75">Connections view</span>
+          {([
+            ['3d', '3D Loop View'],
+            ['2d', '2D Cross-Section'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setConnectionsView(value)}
+              className={`rounded border px-2.5 py-1.5 text-[10px] font-semibold ${connectionsView === value ? 'border-indigo-300/60 bg-indigo-300/20 text-indigo-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
       <Progress currentStage={3} completedStages={connectionsFinished ? [0, 1, 2, 3] : [0, 1, 2]} />
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
         <div className="space-y-4">
