@@ -1,0 +1,551 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me rather than escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This is a targeted Walkthrough Stage 4 UI/visualisation refinement.
+
+Implement only:
+
+collapsible Walkthrough panel;
+proper non-overlapping 2D layout;
+2D pan + zoom;
+exactly one loop at a time in the 2D Cross-Section;
+reliable persistence of the 3D/2D view choice;
+Restart Walkthrough;
+replace 3D arrowheads with Light → Dark directional gradient connection lines.
+
+Do not implement Save/database, Advanced functionality, Models, Agents or Decisions.
+
+Preserve Structure, Data, Visualise, loop data/model, Loop Table, example loops, Explorer and Forging Case Study.
+
+A. WALKTHROUGH PANEL / LAYOUT
+1. Make the Stage 4 Walkthrough panel collapsible
+
+Add an ephemeral UI state such as:
+
+isConnectionsPanelCollapsed
+
+This is presentation state only and should not be persisted as case data.
+
+Add a clear:
+
+Collapse Panel
+
+action.
+
+When collapsed:
+
+reduce the panel to a narrow right-side tab/rail of approximately 36–48 px;
+show a clear expand chevron/icon;
+preserve every Stage 4 setting and selection;
+allow the visualisation to expand into the freed space.
+
+Clicking the tab restores the complete Walkthrough panel.
+
+Provide this collapse/expand ability for both:
+
+3D Loop View
+2D Cross-Section
+
+Do not make the panel draggable or floating.
+
+2. Automatically collapse the panel when entering 2D
+
+When the user switches:
+
+3D Loop View → 2D Cross-Section
+
+automatically collapse the Stage 4 panel once so the diagram receives maximum screen area.
+
+The user can immediately expand it again.
+
+Do not continuously force it closed after the user deliberately expands it during the same 2D session.
+
+3. Fix the 2D panel-overlap problem structurally
+
+The current 2D SVG and Walkthrough panel are separate absolute layers, causing the panel to cover the diagram.
+
+For the 2D Cross-Section, implement a real responsive shared layout.
+
+Desktop:
+
+[ 2D visualisation ][ Walkthrough panel ]
+
+Panel collapsed:
+
+[ enlarged 2D visualisation ][tab]
+
+Narrow screen:
+
+[ 2D visualisation ]
+[ Walkthrough panel ]
+
+Requirements:
+
+expanded panel must be in-flow rather than an opaque absolute overlay;
+SVG must not sit behind the panel;
+do not rely on guessed 48vw padding;
+do not solve this with z-index alone;
+visualisation should resize according to the actual available area.
+
+Leave the existing 3D scene architecture largely unchanged. Panel collapse is sufficient to free 3D space in this task.
+
+B. 2D CROSS-SECTION VIEW
+4. Persist the 3D / 2D view choice correctly
+
+connectionsView currently exists in live state but is missing from persisted partialize.
+
+Add it to persisted v2 state.
+
+Migration must normalize:
+
+'2d' → '2d'
+missing/invalid → '3d'
+
+Rehydration must not unexpectedly revert an active 2D Cross-Section back to 3D.
+
+Switching back to 3D must work normally.
+
+5. Keep the 2D renderer independent of WebGL
+
+When:
+
+connectionsView === '2d'
+
+the main visualisation must render V2CrossSection without requiring PyramidScene.
+
+WebGL fallback must not cover or replace the SVG.
+
+The 2D view should remain usable even in Replit's non-WebGL automated preview.
+
+6. Add real pan and zoom to the 2D SVG
+
+Keep the existing:
+
+triangular pyramid;
+level bands;
+level names;
+sector-coloured nodes;
+SVG loop arrows;
+legends;
+routing.
+
+Add local presentation state in V2CrossSection:
+
+zoom
+panX
+panY
+
+Wrap the existing diagram content in a transformed SVG group equivalent to:
+
+translate(panX, panY) scale(zoom)
+
+Support:
+
+drag empty/background area to pan;
+mouse wheel / trackpad to zoom;
+pinch/touch where reasonably supported;
+pointer capture while panning;
+touch-action: none or equivalent;
+zoom limits approximately 0.5×–4×.
+
+Prefer zooming around the mouse/pointer location rather than only around the SVG origin.
+
+7. Preserve clicks while supporting pan
+
+Do not break node or connection selection.
+
+Use a movement threshold so:
+
+short press/click = select;
+actual pointer movement = pan.
+
+2D panning and zooming must never modify canonical data:
+
+level_id
+sector_id
+grid_x
+grid_y
+loop IDs
+connection records.
+8. Make Fit View a genuine viewport reset
+
+The existing Fit View should reset:
+
+zoom;
+pan X;
+pan Y.
+
+It should calculate/use a sensible default transform that comfortably fits the complete triangular diagram inside the currently available visualisation area.
+
+Fit View must work with:
+
+panel expanded;
+panel collapsed;
+resized browser window.
+C. ONE LOOP ONLY IN 2D
+9. 2D Cross-Section must display exactly one loop
+
+The 2D visualisation becomes too cluttered with multiple loops.
+
+Therefore, when in 2D Cross-Section:
+
+hide/disable All Loops;
+hide/disable Show All Loops;
+allow selection only among individual named loops;
+exactly one loop must be active/displayed.
+
+This is display behaviour only.
+
+Never delete or modify any stored loops.
+
+10. Select a sensible loop when entering 2D
+
+On 3D → 2D transition:
+
+if a specific loop is currently selected, keep it;
+otherwise restore the most recently specifically selected loop if available;
+otherwise select the first available loop.
+
+If no loops exist, show a clean empty state such as:
+
+No loops available. Create a loop in the Connections stage first.
+
+Do not fail or show all loops automatically.
+
+11. Preserve 3D loop filtering separately
+
+In 3D Loop View:
+
+retain All Loops;
+retain individual loop selection;
+retain Show Only This Loop.
+
+If practical, switching from 2D back to 3D may restore the user's prior 3D filter state.
+
+Do not let the one-loop-only rule permanently alter 3D filtering.
+
+12. Preserve the existing clean 2D arrow system
+
+Do not modify the new SVG arrow construction.
+
+The 2D Cross-Section should retain:
+
+crisp conventional arrowheads;
+source-node boundary attachment;
+target-node boundary attachment;
+shaft ending at the arrowhead base;
+arrowhead tip pointing to target;
+loop colour;
+deterministic routing.
+
+The 3D gradient changes below apply only to 3D.
+
+D. 3D CONNECTIONS — REPLACE ARROWS WITH DIRECTIONAL GRADIENT
+13. Remove all 3D arrowheads
+
+In 3D Loop View only, remove the cone/triangle arrowhead meshes completely.
+
+There should be:
+
+no 3D arrowhead geometry.
+
+Do not change the underlying connection direction, source/target IDs or loop records.
+
+Preserve the current corrected:
+
+connection routes;
+source/target attachment logic;
+positive-Y/sector rotation transform;
+explode handling;
+selection;
+loop filtering;
+Show Only This Loop.
+14. Encode 3D connection direction using colour gradient
+
+Replace every single-colour 3D connection line with a directional gradient:
+
+LIGHT at SOURCE → DARK at TARGET
+
+Direction should therefore be understood as:
+
+Light → Dark
+
+Example for a blue loop:
+
+light blue → medium blue → deep blue
+
+For a purple loop:
+
+light purple → normal purple → deep purple
+
+Derive the shades from each loop's stored colour.
+
+Do not replace the loop identity colour with an unrelated palette.
+
+15. Gradient must follow the complete curved route
+
+For route parameter t:
+
+t = 0 = lighter source shade;
+t ≈ 0.5 = normal loop colour;
+t = 1 = darker/stronger target shade.
+
+Prefer proper per-vertex colour interpolation along the current curved route using Three.js geometry/vertex colours.
+
+If the current line implementation does not reliably support continuous gradients:
+
+divide the route into a reasonable number of contiguous short segments;
+interpolate colour for each segment;
+keep the result visually smooth;
+avoid excessive geometry/performance cost.
+
+Do not alter the path merely to implement colour.
+
+16. Preserve the corrected connection attachment
+
+Gradient lines must still visibly:
+
+begin at the actual rendered source data object;
+terminate at the actual rendered target data object;
+follow the existing corrected Three.js world-position transformation;
+follow Explode/Assemble;
+follow Show Only This Loop;
+respond correctly to hidden endpoints.
+
+Removing arrowheads must not reintroduce the earlier endpoint-position bug.
+
+17. Rename the thickness control
+
+Rename:
+
+Arrow Thickness
+
+to:
+
+Connection Thickness
+
+It controls the 3D gradient line thickness.
+
+Add a small unobtrusive visual hint:
+
+Direction: Light → Dark
+
+Selected/highlighted loops may become slightly thicker/brighter, but the source-to-target gradient must remain obvious.
+
+18. Do not apply gradient styling to 2D
+
+Keep 2D arrows exactly as crisp normal SVG arrows.
+
+So:
+
+3D
+
+gradient connection lines;
+no arrowheads.
+
+2D
+
+conventional arrows with crisp triangular arrowheads.
+E. RESTART WALKTHROUGH
+19. Add Restart Walkthrough
+
+Add a non-prominent but easily accessible:
+
+Restart Walkthrough
+
+action in the Walkthrough header/menu.
+
+It should be available throughout all Walkthrough stages.
+
+Clicking it must show confirmation:
+
+Restart Walkthrough?
+
+This will clear the current Walkthrough structure, data, loops and progress and return to Stage 1. Explorer and other app modes will not be affected.
+
+Buttons:
+
+Cancel
+Restart
+
+No reset without explicit confirmation.
+
+20. Restart scope
+
+When Restart is confirmed:
+
+reset the current v2 Walkthrough state only.
+
+Clear/reset:
+
+activeCase
+Structure confirmation/edit state;
+configured Walkthrough levels/sectors;
+Walkthrough data objects;
+object metadata;
+skipped Data levels;
+Data Auto-fill notices/state;
+selected Visualise object;
+explode state;
+focus/isolate state;
+hidden sectors;
+Surface opacity;
+Data Display density;
+Object Size;
+Label Size;
+loops;
+connection segments;
+selected loop;
+Show Only Loop;
+expanded loops;
+loop builder;
+selected connection;
+loop sector context;
+connection thickness;
+Connections completion;
+connectionsView;
+Walkthrough progress.
+
+Return to:
+
+Walkthrough → Stage 1 Structure
+
+with a fresh default structure draft.
+
+Use the application's existing default helpers/constants where possible rather than duplicating defaults.
+
+21. Fresh Walkthrough state
+
+After Restart:
+
+Structure editing is active;
+default 5 levels;
+default 4 sectors;
+level-name Auto-fill enabled;
+no data;
+no loops;
+no connections;
+no stage completion flags;
+no presentation filtering;
+Visualise defaults restored;
+connectionsView = '3d';
+panel expanded so Stage 1 controls are immediately visible.
+
+Persist this fresh state so browser reload does not restore the previous Walkthrough.
+
+22. Restart must not affect other app modes
+
+Do not modify/reset:
+
+legacy Explorer;
+Forging Case Study;
+Forging camera/data state;
+Advanced placeholder/future state;
+API/database state;
+global styling;
+unrelated local storage.
+
+The current architecture shares one v2 activeCase; it is acceptable for Restart Walkthrough to reset that current walkthrough v2 case because Explorer/Forging currently use separate legacy rendering/state.
+
+Do not introduce a major Explorer/Walkthrough architecture refactor.
+
+F. PRESERVE EXISTING WORK
+23. Do not regress
+
+Preserve:
+
+Stage 1 Structure;
+Stage 2 Data board;
+Auto-fill;
+Clear Current Level;
+Stage 3 Visualise;
+corrected pyramid geometry;
+sector controls;
+volumetric loop-sector presentation;
+Loop entities;
+continuous loop builder;
+Undo Last Segment;
+Finish Loop;
+Predictive Maintenance;
+Process Optimisation;
+Loop Table;
+Show Only This Loop;
+2D triangle geometry;
+2D level mapping;
+sector-coloured 2D nodes;
+SVG arrows;
+metadata editing;
+Explorer;
+Forging Case Study;
+Advanced placeholder.
+
+Do not implement Save/database yet.
+
+G. ACCEPTANCE TESTS
+24. Layout / panel
+
+Verify:
+
+Expanded panel no longer hides the 2D diagram.
+Entering 2D collapses the panel initially.
+Panel can be expanded manually.
+Panel can be collapsed again.
+Collapsed panel leaves only a slim tab.
+Visualisation expands into the freed area.
+3D Stage 4 also supports panel collapse.
+25. 2D navigation
+
+Verify:
+
+Dragging the empty 2D background pans.
+Wheel/trackpad zoom works.
+Zoom limits behave sensibly.
+Fit View resets pan and zoom.
+Node clicks still work after pan/zoom.
+Connection clicks still work after pan/zoom.
+2D SVG works without WebGL.
+26. 2D loop filtering
+
+Verify:
+
+All Loops is unavailable in 2D.
+Show All Loops is unavailable in 2D.
+Exactly one named loop is displayed.
+Switching between loops updates the 2D diagram correctly.
+Switching back to 3D preserves all stored loops.
+27. 3D gradient connections
+
+Verify:
+
+No 3D cone/arrowhead meshes remain.
+Every 3D connection begins with a lighter shade at its source.
+It transitions through the loop colour.
+It ends with a clearly darker shade at its target.
+Gradient follows the whole curved route.
+Different loops retain distinct colour identities.
+Connection Thickness works.
+Show Only This Loop still works.
+Explode/Assemble preserves connection attachment.
+2D SVG arrows remain unchanged.
+28. Restart Walkthrough
+
+Verify:
+
+Restart Walkthrough asks for confirmation.
+Cancel changes nothing.
+Restart clears current Walkthrough case/data/loops.
+User returns to fresh Structure Stage 1.
+Reload does not restore the old Walkthrough.
+Explorer remains unchanged.
+Forging Case Study remains unchanged.
+
+Run:
+
+TypeScript/typecheck;
+production build;
+git diff --check.
+
+Clearly identify any final visual behaviours that require real-browser testing.
+
+Do not add any other scope.

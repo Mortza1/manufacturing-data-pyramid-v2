@@ -1,0 +1,317 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me rather than escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+Apply only the following Walkthrough Stage 4 UI/navigation refinements.
+
+Do not modify the loop model, connection records, 3D connection geometry, Structure, Data, Visualise, Explorer, Forging Case Study, Advanced mode, or Save/database.
+
+1. Make the Stage 4 Walkthrough panel collapsible
+
+Add a local/ephemeral UI state such as:
+
+isConnectionsPanelCollapsed
+
+This is presentation state only and should not be persisted as part of the case.
+
+Add:
+
+Collapse Panel
+
+When collapsed:
+
+reduce the Walkthrough panel to a narrow right-side rail/tab, approximately 36–48 px;
+show a clear expand chevron/icon;
+preserve all current Stage 4 state;
+visualisation should expand into the newly available space.
+
+Clicking the rail/tab restores the complete panel.
+
+Make this collapse/expand ability available in both 3D Loop View and 2D Cross-Section.
+
+Do not make the panel draggable/floating.
+
+2. Default the panel to collapsed when entering 2D
+
+When the user switches:
+
+3D Loop View → 2D Cross-Section
+
+automatically collapse the Stage 4 panel so the 2D diagram receives maximum usable screen area.
+
+Do this as a UI convenience only.
+
+The user can immediately expand the panel again.
+
+Do not continually force-collapse it after the user has manually expanded it during that 2D session.
+
+3. Fix the 2D layout properly
+
+The current problem is caused by absolute overlapping layers:
+
+SVG visualisation;
+opaque Walkthrough overlay.
+
+For 2D Cross-Section, replace this with an actual shared responsive layout:
+
+Desktop
+
+[ 2D visualisation ][ Walkthrough panel ]
+
+Panel collapsed
+
+[ enlarged 2D visualisation ][tab]
+
+Narrow screen
+
+[ 2D visualisation ]
+[ Walkthrough panel ]
+
+The expanded panel must be in-flow, not an opaque absolute surface sitting over the SVG.
+
+Do not rely on md:pr-[48vw], z-index tricks, or guessed padding to reserve space.
+
+The visualisation and panel should have explicit layout regions.
+
+Leave the existing 3D renderer architecture intact; the collapsible panel is sufficient for freeing 3D screen space in this task.
+
+4. Persist the 3D / 2D view choice correctly
+
+connectionsView currently exists in live state but is missing from persisted partialize.
+
+Add it to persisted v2 state.
+
+Migration must normalize:
+
+'2d' → '2d'
+everything missing/invalid → '3d'
+
+Rehydration must not unexpectedly revert a chosen 2D view to 3D.
+
+5. Add genuine pan and zoom to the 2D SVG
+
+Keep the existing triangular geometry, nodes and SVG arrows unchanged.
+
+Add local presentation state inside V2CrossSection:
+
+zoom
+panX
+panY
+
+Wrap the existing graphical content in a transformed SVG group:
+
+translate(panX, panY) scale(zoom)
+
+Support:
+
+drag empty/background area to pan;
+mouse-wheel/trackpad zoom;
+touch/pinch where reasonably supported;
+pointer capture during drag;
+touch-action: none or equivalent;
+sensible zoom bounds, approximately 0.5×–4×.
+
+Prefer zooming around the current pointer location rather than simply zooming from the SVG origin.
+
+6. Preserve clicking while adding pan
+
+Do not make ordinary node/connection selection impossible.
+
+Use a small movement threshold so:
+
+short click = select node/connection;
+actual drag = pan.
+
+Panning is visualisation-only and must never alter:
+
+level_id
+sector_id
+grid_x
+grid_y
+loop/connection data.
+7. Make Fit View real
+
+The current Fit View effectively remounts the SVG but does not manage a viewport.
+
+Change Fit View so it resets:
+
+zoom;
+pan X;
+pan Y;
+
+to a calculated/default state that comfortably fits the full triangular pyramid inside the available visualisation area.
+
+It should work correctly whether the Walkthrough panel is expanded or collapsed.
+
+8. 2D Cross-Section must show exactly ONE loop
+
+The 2D view becomes too cluttered when multiple loops are displayed.
+
+Therefore in 2D Cross-Section:
+
+hide/disable the All Loops filter;
+hide/disable Show All Loops;
+allow selection only among individual named loops;
+exactly one loop must be active at any given time.
+
+Do not delete or alter any other loops — this is only a display restriction.
+
+9. Choosing the loop on entry to 2D
+
+When switching from 3D to 2D:
+
+if a specific loop is already selected, use it;
+otherwise use the most recently specifically selected loop if available;
+otherwise select the first available loop.
+
+The 2D view should then display only that selected loop.
+
+If there are no loops, show an appropriate empty-state message rather than failing.
+
+When returning to 3D, it is acceptable to restore the user's previous 3D loop-filter state, including All Loops, if that can be done cleanly.
+
+10. Preserve the clean 2D loop representation
+
+Continue using:
+
+triangular pyramid cross-section;
+configured level names;
+sector-coloured nodes;
+crisp SVG directional arrows;
+selected loop colour;
+sector legend;
+loop path ordering.
+
+Do not render unrelated loops in the background.
+
+RESTART WALKTHROUGH
+11. Add Restart Walkthrough
+
+Add a non-prominent but accessible:
+
+Restart Walkthrough
+
+control in the Walkthrough header/menu.
+
+It should be available throughout Walkthrough, not just Stage 4.
+
+Clicking it must first open a confirmation:
+
+Restart Walkthrough?
+
+This will clear the current Walkthrough structure, data, loops and progress and return to Stage 1. Explorer and other app modes will not be affected.
+
+Buttons:
+
+Cancel
+
+Restart
+
+No reset occurs without confirmation.
+
+12. Restart scope
+
+On confirmed restart, reset only the current v2 Walkthrough state.
+
+Clear/reset:
+
+activeCase
+Walkthrough Structure confirmation/edit state;
+configured Walkthrough levels/sectors;
+all Walkthrough data objects and metadata;
+all loops and segments;
+loop builder;
+selected connections;
+selected/show-only loops;
+expanded loop rows;
+skipped Data levels;
+Auto-fill notices/state;
+Visualise object selection;
+exploded/focus/isolate state;
+hidden sectors;
+Visualise density;
+Object Size;
+Label Size;
+Surface opacity;
+Connections completion;
+connectionsView;
+Stage progress.
+
+Return to:
+
+Walkthrough → Stage 1 Structure
+
+with:
+
+fresh default five-level/four-sector draft;
+level Auto-fill enabled;
+panel expanded so Stage 1 controls are immediately visible.
+
+The restarted state must be written through Zustand/persistence so reloading the browser does not restore the previous Walkthrough case.
+
+13. Suggested fresh defaults
+
+Use the existing fresh Structure defaults already established by the app.
+
+Reset presentation values to their normal pre-Walkthrough defaults, including approximately:
+
+visualiseExploded: false
+no focused/isolated level
+no hidden sectors
+normal Visualise surface opacity
+visualiseDataDensity: 'all'
+object scale 1
+label scale 1
+no selected loop
+no Show Only loop
+sector context default
+connectionsView: '3d'
+connection thickness default
+connectionsFinished: false
+
+Reuse the application's existing default constants/helpers rather than duplicating hard-coded defaults where possible.
+
+14. Restart must NOT affect other modes
+
+Do not touch:
+
+legacy Explorer state;
+Forging Case Study;
+Forging camera/data state;
+Advanced-mode state/placeholder;
+API/database state;
+global application styling;
+unrelated local storage.
+
+The current architecture shares one v2 activeCase; it is acceptable in this implementation to reset that Walkthrough v2 case because current Explorer/Forging rendering uses separate legacy state.
+
+Do not introduce a major Explorer-vs-Walkthrough case architecture refactor in this task.
+
+15. Acceptance checks
+
+Verify:
+
+2D and panel no longer overlap.
+Entering 2D initially collapses the panel.
+User can expand/collapse panel freely.
+Collapsing increases visible 2D area.
+3D also allows panel collapse to free screen space.
+2D drag pans.
+Wheel/trackpad zoom works.
+Fit View resets 2D pan/zoom correctly.
+Node/connection clicks still work.
+2D has no All Loops option.
+2D has no Show All Loops action.
+Exactly one named loop is displayed in 2D.
+Switching back to 3D preserves stored loops.
+connectionsView survives persistence/hydration correctly.
+Restart Walkthrough shows confirmation.
+Cancel changes nothing.
+Restart returns to fresh Stage 1 Structure.
+Previous Walkthrough data/loops do not return after reload.
+Explorer remains unchanged.
+Forging Case Study remains unchanged.
+
+Run TypeScript/typecheck, production build and git diff --check.
+
+Do not add any other scope.
