@@ -6,6 +6,8 @@ import { DataStreams } from './DataStreams';
 import { ForgingConnections, ForgingObjects, ForgingPyramid } from './ForgingScene';
 import { SceneEnvironment } from './SceneEnvironment';
 import { useStore } from '../store';
+import { useV2Store } from '../v2/store';
+import { V2PreviewPyramid } from '../v2/components/V2PreviewPyramid';
 import { COURSES, getJourneyStep, getLevelY } from '../data';
 import * as THREE from 'three';
 import React, { Suspense, useRef, useMemo } from 'react';
@@ -56,6 +58,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
     forgingExploded,
     forgingCutaway,
   } = useStore();
+  const v2Mode = useV2Store(state => state.mode);
   const controlsRef = useRef<any>(null);
   const transitionRef = useRef<{
     from: THREE.Vector3;
@@ -67,7 +70,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
     active: boolean;
   } | null>(null);
 
-  const modeKey = `${journeyActive}-${journeyStep}-${focusLevel}-${isolateLevel}-${cutaway}-${exploded}-${courseMode}-${forgingCaseStudy}-${forgingSeparateSectors}-${forgingExploded}-${forgingCutaway}`;
+  const modeKey = `${v2Mode}-${journeyActive}-${journeyStep}-${focusLevel}-${isolateLevel}-${cutaway}-${exploded}-${courseMode}-${forgingCaseStudy}-${forgingSeparateSectors}-${forgingExploded}-${forgingCutaway}`;
 
   React.useEffect(() => {
     const controls = controlsRef.current;
@@ -75,7 +78,10 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
     const target = new THREE.Vector3(0, 0, 0);
     const destination = new THREE.Vector3(10, 6.5, 10);
 
-    if (forgingCaseStudy) {
+    if (v2Mode !== 'explorer') {
+      destination.set(12, 8, 14);
+      target.set(0, 2, 0);
+    } else if (forgingCaseStudy) {
       if (forgingSeparateSectors) {
         destination.set(16, 10, 16);
         target.set(0, 0.25, 0);
@@ -127,7 +133,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
       if (cancelRef.current === undefined) return;
       cancelRef.current = null;
     };
-  }, [camera, cancelRef, modeKey, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode, forgingCaseStudy, forgingSeparateSectors, forgingExploded, forgingCutaway]);
+  }, [camera, cancelRef, modeKey, v2Mode, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode, forgingCaseStudy, forgingSeparateSectors, forgingExploded, forgingCutaway]);
 
   useFrame((state, delta) => {
     const controls = state.controls as any;
@@ -275,13 +281,15 @@ export function PyramidScene() {
   const cancelCameraTransitionRef = useRef<(() => void) | null>(null);
   const [userInteracted, setUserInteracted] = React.useState(false);
   
+  const v2Mode = useV2Store(state => state.mode);
+  
   const hasWebGL = useMemo(() => isWebGLAvailable(), []);
 
   if (!hasWebGL) {
     return <WebGLFallback />;
   }
 
-  const isInteracting = selectedObjectId !== null || focusLevel !== null || isolateLevel !== null || journeyActive || cutaway || exploded || forgingCaseStudy || forgingSeparateSectors || forgingExploded || forgingCutaway;
+  const isInteracting = selectedObjectId !== null || focusLevel !== null || isolateLevel !== null || journeyActive || cutaway || exploded || forgingCaseStudy || forgingSeparateSectors || forgingExploded || forgingCutaway || v2Mode !== 'explorer';
   const bg = courseMode === 'data-science' ? '#050508' : (courseMode === 'fundamentals-ai' ? '#020617' : '#0a0a0f');
   const sparkleColor = courseMode === 'agentic-ai' ? '#d946ef' : (courseMode === 'fundamentals-ai' ? '#22d3ee' : '#3b82f6');
   const sparkleCount = courseMode === 'agentic-ai' ? 150 : (courseMode === 'fundamentals-ai' ? 120 : 80);
@@ -316,7 +324,9 @@ export function PyramidScene() {
         <DragGhost />
         <SceneEnvironment />
         <group position={[0, -0.5, 0]}>
-          {forgingCaseStudy ? (
+          {v2Mode !== 'explorer' ? (
+            <V2PreviewPyramid />
+          ) : forgingCaseStudy ? (
             <>
               <ForgingPyramid />
               <ForgingObjects />
