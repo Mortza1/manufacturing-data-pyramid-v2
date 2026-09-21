@@ -1,0 +1,62 @@
+Continue only in the current Manufacturing_Data_Pyramid_v2 fork. Stay in Free mode only. Do not switch to Power or Max automatically. If any requested task cannot be completed in Free mode, stop and tell me rather than escalating.
+
+Preserve all existing working functionality and do not redesign unrelated parts.
+
+First make two small corrections to Walkthrough Stage 1:
+
+After Structure is confirmed, show the actual configured level names and sector names clearly in the confirmation summary, not only “5 levels and 4 sectors”.
+Add an Auto-fill level names ON/OFF control. When ON, generate Level 1, Level 2, etc. for the selected number of levels. When OFF, preserve and allow manually entered names. Do not overwrite custom names unless the user deliberately turns Auto-fill back on or requests it.
+
+Then implement Walkthrough Stage 2 — Add Data using the v2.2 snap-grid model already established.
+
+The user must work on one pyramid level at a time. Selecting a level should temporarily replace the full 3D view with a clean top-down 2D cross-sectional square placement board for that level.
+
+The board must show:
+
+the sector boundaries;
+the existing default 8×8 snap grid;
+sector names;
+clearly distinguishable free and occupied cells.
+
+Allow the user to:
+
+add a data element manually;
+use Auto-fill for representative data;
+Skip Level;
+move to Previous Level / Next Level;
+Finish Data when ready.
+
+For a manually created data element, support these fields:
+
+name;
+description;
+availability/status;
+source/system/device;
+protocol;
+format;
+data type/signal type;
+frequency/sample rate;
+sensing/settings metadata;
+preprocessing or feature extraction;
+intended use.
+
+Placement rules:
+
+the canonical saved location must be only level_id + sector_id + integer grid_x + grid_y;
+z comes from the selected level;
+do not save arbitrary decimal x/y/z coordinates as the source of truth;
+clicking or dragging an item to the board must snap it to the centre of the nearest valid free cell;
+if the destination is in another sector, clearly confirm before updating sector_id;
+if a cell is occupied, do not overlap objects; visibly mark the cell as occupied and offer Cancel or Nearest Free Cell;
+Auto-fill must use only free cells and must never delete or overwrite manually created data.
+
+Keep the currently selected object clearly visible while editing and do not let the pyramid geometry hide it.
+
+The walkthrough progress bar should now show:
+Structure ✓ → Data active → Visualise locked → Connections locked → Save locked
+
+Do not implement Visualise, Connections, database persistence, profiles, case library, Models, Agents, Decisions or Advanced mode functionality yet. Keep the Advanced button as the existing placeholder only.
+
+Preserve the existing main pyramid, Forging Case Study and all stable 3D functionality.
+
+Test Stage 1 revision plus Stage 2 manual add, snapping, occupied-cell handling, Auto-fill, Skip, previous/next level and level switching. Fix any compile/runtime errors before finishing.

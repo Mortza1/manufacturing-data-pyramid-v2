@@ -23,6 +23,16 @@ export interface V2Object {
   grid_x: number;
   grid_y: number;
   name: string;
+  description: string;
+  availability: string;
+  source: string;
+  protocol: string;
+  format: string;
+  data_type: string;
+  frequency: string;
+  sensing_settings: string;
+  preprocessing: string;
+  intended_use: string;
 }
 
 export interface V2Connection {
