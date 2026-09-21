@@ -215,7 +215,7 @@ interface V2State {
 
   activeCase: V2Case | null;
   isEditingStructure: boolean;
-  walkthroughStage: 'structure' | 'data' | 'visualise' | 'connections';
+  walkthroughStage: 'structure' | 'data' | 'visualise' | 'connections' | 'save';
   dataLevelIndex: number;
   skippedLevelIds: string[];
   dataAutoFillNotice: string | null;
@@ -243,7 +243,7 @@ interface V2State {
   connectionsFinished: boolean;
   viewResetNonce: number;
   setIsEditingStructure: (isEditing: boolean) => void;
-  setWalkthroughStage: (stage: 'structure' | 'data' | 'visualise' | 'connections') => void;
+  setWalkthroughStage: (stage: 'structure' | 'data' | 'visualise' | 'connections' | 'save') => void;
   setDataLevelIndex: (index: number) => void;
   setShowV2Labels: (show: boolean) => void;
   setSelectedVisualiseObjectId: (id: string | null) => void;
@@ -777,7 +777,7 @@ export const useV2Store = create<V2State>()(
         });
         return loops.length;
       },
-      finishConnections: () => set({ connectionsFinished: true }),
+      finishConnections: () => set({ connectionsFinished: true, walkthroughStage: 'save' }),
       restartWalkthrough: () => set({
         activeCase: null,
         isEditingStructure: true,
@@ -1147,7 +1147,7 @@ export const useV2Store = create<V2State>()(
         return {
           ...persistedState,
           isEditingStructure,
-           walkthroughStage: activeCase && !isEditingStructure && ['data', 'visualise', 'connections'].includes(persistedState?.walkthroughStage)
+           walkthroughStage: activeCase && !isEditingStructure && ['data', 'visualise', 'connections', 'save'].includes(persistedState?.walkthroughStage)
              ? persistedState.walkthroughStage
             : 'structure',
            visualiseSurfaceOpacity: activeCase && !isEditingStructure && persistedState?.walkthroughStage === 'connections'

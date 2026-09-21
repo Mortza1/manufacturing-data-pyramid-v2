@@ -1,2 +1,3 @@
 - [Stage 4 loop model](stage-4-loop-model.md) — connections are ordered segments of first-class loops; legacy flat relationships must migrate without data loss.
 - [Stage 4 view isolation](stage-4-view-isolation.md) — 2D loop choice and panel presentation must not mutate 3D filters or case data.
+- [Stage 5 persistence](stage-5-persistence.md) — durable saves use immutable JSONB snapshots with separate database, snapshot-schema, and local-storage migration versions.

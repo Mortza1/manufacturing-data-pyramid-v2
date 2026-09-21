@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: walkthrough-save
+    description: Stage 5 project and version persistence
 paths:
   /healthz:
     get:
@@ -24,7 +26,137 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /users:
+    get:
+      operationId: listV2Users
+      tags: [walkthrough-save]
+      summary: List named walkthrough users
+      responses:
+        "200":
+          description: Named users
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [users]
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/V2User"
+    post:
+      operationId: createV2User
+      tags: [walkthrough-save]
+      summary: Create a named walkthrough user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateV2UserRequest"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/V2User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /projects:
+    post:
+      operationId: createV2Project
+      tags: [walkthrough-save]
+      summary: Create a project and its first immutable version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateV2ProjectRequest"
+      responses:
+        "201":
+          description: Created project and version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/V2SaveResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: A project with this name already exists for the user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /projects/{projectId}/versions:
+    post:
+      operationId: createV2ProjectVersion
+      tags: [walkthrough-save]
+      summary: Append an immutable project version
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateV2ProjectVersionRequest"
+      responses:
+        "201":
+          description: Created project version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/V2SaveResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /projects/{projectId}/versions/{versionId}:
+    get:
+      operationId: getV2ProjectVersion
+      tags: [walkthrough-save]
+      summary: Retrieve an exact saved project version
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Exact saved version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/V2SaveResult"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Invalid request or snapshot
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +165,302 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    V2User:
+      type: object
+      required: [id, displayName, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateV2UserRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+    V2Level:
+      type: object
+      required: [id, index, name]
+      properties:
+        id:
+          type: string
+        index:
+          type: integer
+        name:
+          type: string
+    V2Sector:
+      type: object
+      required: [id, index, name]
+      properties:
+        id:
+          type: string
+        index:
+          type: integer
+        name:
+          type: string
+    V2Grid:
+      type: object
+      required: [width, height]
+      properties:
+        width:
+          type: integer
+        height:
+          type: integer
+    V2DataObject:
+      type: object
+      required:
+        - id
+        - overlay
+        - level_id
+        - sector_id
+        - grid_x
+        - grid_y
+        - name
+        - description
+        - availability
+        - source
+        - protocol
+        - format
+        - data_type
+        - frequency
+        - sensing_settings
+        - preprocessing
+        - intended_use
+      properties:
+        id:
+          type: string
+        overlay:
+          type: string
+          enum: [data, models, agents, decisions]
+        level_id:
+          type: string
+        sector_id:
+          type: string
+        grid_x:
+          type: integer
+        grid_y:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        availability:
+          type: string
+        source:
+          type: string
+        protocol:
+          type: string
+        format:
+          type: string
+        data_type:
+          type: string
+        frequency:
+          type: string
+        sensing_settings:
+          type: string
+        preprocessing:
+          type: string
+        intended_use:
+          type: string
+    V2Loop:
+      type: object
+      required: [id, name, description, color, closed]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+        closed:
+          type: boolean
+    V2Connection:
+      type: object
+      required:
+        - id
+        - loop_id
+        - sequence
+        - source_object_id
+        - target_object_id
+        - direction
+      properties:
+        id:
+          type: string
+        loop_id:
+          type: string
+        sequence:
+          type: integer
+        source_object_id:
+          type: string
+        target_object_id:
+          type: string
+        direction:
+          type: string
+          enum: [source_to_target]
+        label:
+          type: string
+        description:
+          type: string
+    V2Overlays:
+      type: object
+      required: [data, models, agents, decisions, loops, connectivity]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/V2DataObject"
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/V2DataObject"
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/V2DataObject"
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/V2DataObject"
+        loops:
+          type: array
+          items:
+            $ref: "#/components/schemas/V2Loop"
+        connectivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/V2Connection"
+    V2Case:
+      type: object
+      required: [id, name, levels, sectors, grid, overlays]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        levels:
+          type: array
+          items:
+            $ref: "#/components/schemas/V2Level"
+        sectors:
+          type: array
+          items:
+            $ref: "#/components/schemas/V2Sector"
+        grid:
+          $ref: "#/components/schemas/V2Grid"
+        overlays:
+          $ref: "#/components/schemas/V2Overlays"
+    V2Snapshot:
+      type: object
+      required: [format, schemaVersion, case]
+      properties:
+        format:
+          type: string
+          enum: [manufacturing-data-pyramid-v2]
+        schemaVersion:
+          type: integer
+          enum: [1]
+        case:
+          $ref: "#/components/schemas/V2Case"
+    CreateV2ProjectRequest:
+      type: object
+      required: [projectName, snapshot]
+      properties:
+        ownerUserId:
+          type: string
+          format: uuid
+        userName:
+          type: string
+          minLength: 1
+        projectName:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        versionNote:
+          type: string
+        snapshot:
+          $ref: "#/components/schemas/V2Snapshot"
+    CreateV2ProjectVersionRequest:
+      type: object
+      required: [creatorUserId, snapshot]
+      properties:
+        creatorUserId:
+          type: string
+          format: uuid
+        versionNote:
+          type: string
+        snapshot:
+          $ref: "#/components/schemas/V2Snapshot"
+    V2Project:
+      type: object
+      required: [id, ownerUserId, name, description, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ownerUserId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        currentVersionId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    V2ProjectVersion:
+      type: object
+      required: [id, projectId, versionNumber, snapshotSchemaVersion, versionNote, createdAt, creatorUserId, snapshot]
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        versionNumber:
+          type: integer
+        snapshotSchemaVersion:
+          type: integer
+        versionNote:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        creatorUserId:
+          type: string
+          format: uuid
+        snapshot:
+          $ref: "#/components/schemas/V2Snapshot"
+    V2SaveResult:
+      type: object
+      required: [project, version]
+      properties:
+        project:
+          $ref: "#/components/schemas/V2Project"
+        version:
+          $ref: "#/components/schemas/V2ProjectVersion"
 
