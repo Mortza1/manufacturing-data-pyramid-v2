@@ -3,12 +3,25 @@ import { Html } from '@react-three/drei';
 import { a, useSpring } from '@react-spring/three';
 import * as THREE from 'three';
 import { useStore } from '../../store';
-import { useV2Store } from '../store';
+import { useV2Store, type V2DataDensity } from '../store';
 import { gridCellToRenderPosition, getLevelBaseTop } from '../geometry';
 import type { V2Level, V2Object, V2Sector } from '../types';
 
 const SECTOR_COLORS = ['#38bdf8', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#facc15', '#2dd4bf', '#818cf8'];
 const EXPLODED_LEVEL_SPACING = 0.72;
+
+function filterObjectsByDensity(objects: V2Object[], density: V2DataDensity) {
+  if (density === 'all') return objects;
+  const counts = new Map<string, number>();
+  return [...objects]
+    .sort((a, b) => a.grid_y - b.grid_y || a.grid_x - b.grid_x || a.id.localeCompare(b.id))
+    .filter((object) => {
+      const count = counts.get(object.sector_id) ?? 0;
+      if (count >= density) return false;
+      counts.set(object.sector_id, count + 1);
+      return true;
+    });
+}
 
 function V2DataObject({
   object,
@@ -18,6 +31,8 @@ function V2DataObject({
   subdued,
   selected,
   showLabel,
+  objectScale,
+  labelScale,
   onSelect,
 }: {
   object: V2Object;
@@ -27,12 +42,16 @@ function V2DataObject({
   subdued: boolean;
   selected: boolean;
   showLabel: boolean;
+  objectScale: number;
+  labelScale: number;
   onSelect: () => void;
 }) {
   const reducedMotion = useStore((state) => state.reducedMotion);
   const [hovered, setHovered] = useState(false);
   const { scale, opacity } = useSpring({
-    scale: selected ? [1.35, 1.35, 1.35] : [1, 1, 1],
+    scale: selected
+      ? [1.35 * objectScale, 1.35 * objectScale, 1.35 * objectScale]
+      : [objectScale, objectScale, objectScale],
     opacity: visible ? (subdued ? 0.35 : 1) : 0,
     config: { mass: 0.8, tension: 220, friction: 24 },
     immediate: reducedMotion,
@@ -50,7 +69,6 @@ function V2DataObject({
   return (
     <a.group
       position={position}
-      scale={scale as any}
       visible={opacity.to((value) => value > 0.01)}
       onClick={(event) => {
         event.stopPropagation();
@@ -62,27 +80,29 @@ function V2DataObject({
       }}
       onPointerOut={() => setHovered(false)}
     >
-      <mesh castShadow>
-        {shape}
-        <a.meshStandardMaterial
-          color={selected ? '#ffffff' : color}
-          emissive={color}
-          emissiveIntensity={selected ? 1.2 : 0.55}
-          transparent
-          opacity={opacity}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      </mesh>
-      {visible && (selected || hovered) && (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[selected ? 0.42 : 0.31, 0.018, 8, 24]} />
-          <meshBasicMaterial color={selected ? '#ffffff' : color} transparent opacity={subdued ? 0.35 : 0.8} toneMapped={false} />
+      <a.group scale={scale as any}>
+        <mesh castShadow>
+          {shape}
+          <a.meshStandardMaterial
+            color={selected ? '#ffffff' : color}
+            emissive={color}
+            emissiveIntensity={selected ? 1.2 : 0.55}
+            transparent
+            opacity={opacity}
+            depthWrite={false}
+            toneMapped={false}
+          />
         </mesh>
-      )}
+        {visible && (selected || hovered) && (
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[selected ? 0.42 * objectScale : 0.31 * objectScale, 0.018 * objectScale, 8, 24]} />
+            <meshBasicMaterial color={selected ? '#ffffff' : color} transparent opacity={subdued ? 0.35 : 0.8} toneMapped={false} />
+          </mesh>
+        )}
+      </a.group>
       {visible && (showLabel || selected) && (
         <Html position={[0, 0.52, 0]} center distanceFactor={8} style={{ pointerEvents: 'none' }} zIndexRange={[55, 0]}>
-          <div className={`max-w-[150px] rounded border bg-[#06131c]/90 px-2 py-1 text-center text-[9px] font-semibold leading-tight shadow-lg ${selected ? 'border-white text-white shadow-cyan-300/40' : subdued ? 'border-white/10 text-cyan-50/45' : 'border-white/20 text-cyan-50/85'}`}>
+          <div style={{ transform: `scale(${labelScale})`, transformOrigin: 'center' }} className={`max-w-[150px] rounded border bg-[#06131c]/90 px-2 py-1 text-center text-[9px] font-semibold leading-tight shadow-lg ${selected ? 'border-white text-white shadow-cyan-300/40' : subdued ? 'border-white/10 text-cyan-50/45' : 'border-white/20 text-cyan-50/85'}`}>
             {object.name}
           </div>
         </Html>
@@ -105,6 +125,9 @@ function V2Level({
   visualiseOnlyLevelId,
   visualiseHiddenSectorIds,
   visualiseSurfaceOpacity,
+  visualiseDataDensity,
+  visualiseObjectScale,
+  visualiseLabelScale,
   setSelectedVisualiseObjectId,
 }: {
   level: V2Level;
@@ -120,6 +143,9 @@ function V2Level({
   visualiseOnlyLevelId: string | null;
   visualiseHiddenSectorIds: string[];
   visualiseSurfaceOpacity: number;
+  visualiseDataDensity: V2DataDensity;
+  visualiseObjectScale: number;
+  visualiseLabelScale: number;
   setSelectedVisualiseObjectId: (id: string | null) => void;
 }) {
   const { base, top, height, y } = getLevelBaseTop(index, totalLevels);
@@ -131,6 +157,7 @@ function V2Level({
     : 0;
   const rotY = sectors.length === 4 ? Math.PI / 4 : 0;
   const sectorAngle = (Math.PI * 2) / Math.max(3, sectors.length);
+  const visibleObjects = filterObjectsByDensity(objects, visualiseDataDensity);
 
   return (
     <group position={[0, levelOffset, 0]} rotation={[0, rotY, 0]}>
@@ -159,12 +186,12 @@ function V2Level({
       })}
       {activeCase && showV2Labels && levelVisible && (
         <Html position={[base + 1.1, 0.05, 0]} center distanceFactor={8} style={{ pointerEvents: 'none', opacity: levelFocused ? 1 : 0.45 }}>
-          <div className="max-w-[155px] rounded border border-cyan-300/35 bg-[#06131c]/90 px-2 py-1 text-center text-[10px] font-semibold leading-tight text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,0.22)]">
+          <div style={{ transform: `scale(${visualiseLabelScale})`, transformOrigin: 'center' }} className="max-w-[155px] rounded border border-cyan-300/35 bg-[#06131c]/90 px-2 py-1 text-center text-[10px] font-semibold leading-tight text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,0.22)]">
             L{levelNumber} · {level.name}
           </div>
         </Html>
       )}
-      {levelVisible && objects.map((object) => {
+      {levelVisible && visibleObjects.map((object) => {
         const sectorIndex = sectors.findIndex((sector) => sector.id === object.sector_id);
         const sectorHidden = visualiseHiddenSectorIds.includes(object.sector_id);
         if (sectorIndex < 0 || sectorHidden) return null;
@@ -186,7 +213,9 @@ function V2Level({
             visible
             subdued={!levelFocused}
             selected={selected}
-            showLabel={objects.length <= 16}
+            showLabel={visibleObjects.length <= 16}
+            objectScale={visualiseObjectScale}
+            labelScale={visualiseLabelScale}
             onSelect={() => setSelectedVisualiseObjectId(selected ? null : object.id)}
           />
         );
@@ -206,6 +235,9 @@ export function V2PreviewPyramid() {
   const visualiseOnlyLevelId = useV2Store((state) => state.visualiseOnlyLevelId);
   const visualiseHiddenSectorIds = useV2Store((state) => state.visualiseHiddenSectorIds);
   const visualiseSurfaceOpacity = useV2Store((state) => state.visualiseSurfaceOpacity);
+  const visualiseDataDensity = useV2Store((state) => state.visualiseDataDensity);
+  const visualiseObjectScale = useV2Store((state) => state.visualiseObjectScale);
+  const visualiseLabelScale = useV2Store((state) => state.visualiseLabelScale);
   const levels = activeCase && !isEditingStructure ? activeCase.levels : [];
   const sectors = activeCase && !isEditingStructure ? activeCase.sectors : [];
   const objects = activeCase && !isEditingStructure ? activeCase.overlays.data : [];
@@ -233,6 +265,9 @@ export function V2PreviewPyramid() {
           visualiseOnlyLevelId={visualiseOnlyLevelId}
           visualiseHiddenSectorIds={visualiseHiddenSectorIds}
           visualiseSurfaceOpacity={visualiseSurfaceOpacity}
+          visualiseDataDensity={visualiseDataDensity}
+          visualiseObjectScale={visualiseObjectScale}
+          visualiseLabelScale={visualiseLabelScale}
           setSelectedVisualiseObjectId={setSelectedVisualiseObjectId}
         />
       ))}
@@ -243,7 +278,7 @@ export function V2PreviewPyramid() {
         const radius = 6.2;
         return (
           <Html key={`sector-label-${sector.id}`} position={[Math.cos(angle) * radius, 0.05, Math.sin(angle) * radius]} center distanceFactor={8} style={{ pointerEvents: 'none' }}>
-            <div className="max-w-[145px] rounded-full border px-2.5 py-1 text-center text-[10px] font-semibold shadow-[0_0_16px_rgba(99,102,241,0.2)]" style={{ borderColor: `${SECTOR_COLORS[index % SECTOR_COLORS.length]}88`, color: SECTOR_COLORS[index % SECTOR_COLORS.length], background: '#0a1020e8' }}>
+            <div className="max-w-[145px] rounded-full border px-2.5 py-1 text-center text-[10px] font-semibold shadow-[0_0_16px_rgba(99,102,241,0.2)]" style={{ borderColor: `${SECTOR_COLORS[index % SECTOR_COLORS.length]}88`, color: SECTOR_COLORS[index % SECTOR_COLORS.length], background: '#0a1020e8', transform: `scale(${visualiseLabelScale})`, transformOrigin: 'center' }}>
               {sector.name}
             </div>
           </Html>

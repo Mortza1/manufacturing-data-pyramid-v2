@@ -84,17 +84,24 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
     const target = new THREE.Vector3(0, 0, 0);
     const destination = new THREE.Vector3(10, 6.5, 10);
 
-    if (v2Mode === 'walkthrough' && walkthroughStage === 'visualise' && v2ActiveCase && (visualiseFocusedLevelId || visualiseOnlyLevelId)) {
+    if (v2Mode === 'walkthrough' && walkthroughStage === 'visualise' && v2ActiveCase) {
+      const centerGeometry = getLevelBaseTop((v2ActiveCase.levels.length - 1) / 2, v2ActiveCase.levels.length);
+      const centerY = centerGeometry.y - 0.5;
       const targetLevelId = visualiseOnlyLevelId ?? visualiseFocusedLevelId;
-      const targetIndex = v2ActiveCase.levels.findIndex((level) => level.id === targetLevelId);
-      if (targetIndex < 0) {
-        cancelRef.current?.();
-        return;
+      if (targetLevelId) {
+        const targetIndex = v2ActiveCase.levels.findIndex((level) => level.id === targetLevelId);
+        if (targetIndex < 0) {
+          cancelRef.current?.();
+          return;
+        }
+        const levelGeometry = getLevelBaseTop(targetIndex, v2ActiveCase.levels.length);
+        const levelY = levelGeometry.y - 0.5;
+        destination.set(10.8, levelY + 5.2, 13.2);
+        target.set(0, levelY, 0);
+      } else {
+        destination.set(11, centerY + 7, 13);
+        target.set(0, centerY, 0);
       }
-      const levelGeometry = getLevelBaseTop(targetIndex, v2ActiveCase.levels.length);
-      const levelY = levelGeometry.y - 0.5;
-      destination.set(10.8, levelY + 5.2, 13.2);
-      target.set(0, levelY, 0);
     } else if (v2Mode !== 'explorer') {
       destination.set(12, 8, 14);
       target.set(0, 2, 0);

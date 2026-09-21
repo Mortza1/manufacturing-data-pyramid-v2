@@ -50,7 +50,7 @@ export function getLevelBaseTop(
   levelIndex: number,
   totalLevels: number
 ): { base: number; top: number; height: number; y: number } {
-  const totalHeight = 5.0;
+  const totalHeight = 8.0;
   const baseWidth = 5.4;
   const topWidth = 0.15;
 

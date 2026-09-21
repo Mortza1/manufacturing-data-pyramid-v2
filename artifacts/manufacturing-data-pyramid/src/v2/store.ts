@@ -285,6 +285,7 @@ export const useV2Store = create<V2State>()(
           visualiseFocusedLevelId: null,
           visualiseOnlyLevelId: null,
           visualiseHiddenSectorIds: [],
+          visualiseSurfaceOpacity: 0.72,
           visualiseDataDensity: 'all',
           visualiseObjectScale: 1,
           visualiseLabelScale: 1,

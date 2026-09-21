@@ -1,6 +1,6 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Check, ChevronLeft, ChevronRight, Edit2, Eye, EyeOff, Lock, Wand2, GraduationCap, Grid3X3, Plus, SkipForward, Trash2, Move, Maximize2, Minimize2, RotateCcw, X } from 'lucide-react';
-import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, type V2DataDraft, type V2MetadataPatch } from '../store';
+import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, type V2DataDensity, type V2DataDraft, type V2MetadataPatch } from '../store';
 import { getSectorIdForGridCell } from '../geometry';
 
 const STAGES = ['Structure', 'Data', 'Visualise', 'Connections', 'Save'];
@@ -319,6 +319,12 @@ function VisualiseStage() {
     showAllVisualiseSectors,
     visualiseSurfaceOpacity,
     setVisualiseSurfaceOpacity,
+    visualiseDataDensity,
+    setVisualiseDataDensity,
+    visualiseObjectScale,
+    setVisualiseObjectScale,
+    visualiseLabelScale,
+    setVisualiseLabelScale,
     requestViewReset,
     setDataLevelIndex,
     updateDataObjectMetadata,
@@ -359,6 +365,9 @@ function VisualiseStage() {
     setVisualiseOnlyLevelId(null);
     setVisualiseExploded(false);
     setVisualiseSurfaceOpacity(0.72);
+    setVisualiseDataDensity('all');
+    setVisualiseObjectScale(1);
+    setVisualiseLabelScale(1);
     showAllVisualiseSectors();
     requestViewReset();
     setSelectedVisualiseObjectId(null);
@@ -413,6 +422,28 @@ function VisualiseStage() {
               <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">Surface opacity</span>
               <input aria-label="Surface opacity" type="range" min="0.18" max="1" step="0.01" value={visualiseSurfaceOpacity} onChange={(event) => setVisualiseSurfaceOpacity(Number(event.target.value))} className="w-full accent-cyan-300" />
               <span className="w-8 text-right font-mono text-[10px] text-muted-foreground">{Math.round(visualiseSurfaceOpacity * 100)}%</span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Data display</span>
+              <div className="flex gap-1">
+                {([1, 2, 3, 'all'] as V2DataDensity[]).map((density) => (
+                  <button key={density} onClick={() => setVisualiseDataDensity(density)} className={`min-w-8 rounded border px-2 py-1 text-[10px] font-semibold ${visualiseDataDensity === density ? 'border-cyan-300/50 bg-cyan-300/15 text-cyan-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}>
+                    {density === 'all' ? 'All' : density}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-24 shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">Object size</span>
+                <input aria-label="Object size" type="range" min="0.7" max="1.35" step="0.01" value={visualiseObjectScale} onChange={(event) => setVisualiseObjectScale(Number(event.target.value))} className="w-full accent-cyan-300" />
+                <span className="w-10 text-right font-mono text-[10px] text-muted-foreground">{Math.round(visualiseObjectScale * 100)}%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-24 shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">Label size</span>
+                <input aria-label="Label size" type="range" min="0.75" max="1.35" step="0.01" value={visualiseLabelScale} onChange={(event) => setVisualiseLabelScale(Number(event.target.value))} className="w-full accent-cyan-300" />
+                <span className="w-10 text-right font-mono text-[10px] text-muted-foreground">{Math.round(visualiseLabelScale * 100)}%</span>
+              </div>
             </div>
           </div>
           <div className="rounded-xl border border-white/10 bg-black/20 p-4">
