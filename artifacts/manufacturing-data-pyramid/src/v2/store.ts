@@ -247,7 +247,7 @@ interface V2State {
   loopSectorContext: 'active' | 'all';
   connectionsView: '3d' | '2d';
   connections2DLoopId: string | null;
-  isConnectionsPanelCollapsed: boolean;
+  isWalkthroughPanelCollapsed: boolean;
   lastSpecificLoopId: string | null;
   expandedLoopIds: string[];
   loopBuilder: V2LoopBuilder | null;
@@ -282,7 +282,7 @@ interface V2State {
   setLoopSectorContext: (context: 'active' | 'all') => void;
   setConnectionsView: (view: '3d' | '2d') => void;
   setConnections2DLoop: (loopId: string | null) => void;
-  setConnectionsPanelCollapsed: (collapsed: boolean) => void;
+  setWalkthroughPanelCollapsed: (collapsed: boolean) => void;
   toggleLoopExpanded: (loopId: string) => void;
   selectConnection: (connectionId: string) => void;
   updateConnection: (connectionId: string, patch: Partial<Pick<V2Connection, 'label' | 'description'>>) => boolean;
@@ -294,6 +294,7 @@ interface V2State {
   finishConnections: () => void;
   restartWalkthrough: () => void;
   requestViewReset: () => void;
+  fitWalkthroughView: () => void;
 
   draft: V2Draft;
   autoFillLevelNames: boolean;
@@ -316,7 +317,7 @@ interface V2State {
 export const useV2Store = create<V2State>()(
   persist(
     (set, get) => ({
-      mode: 'explorer',
+      mode: 'walkthrough',
       setMode: (mode) => set({ mode }),
 
       activeCase: null,
@@ -333,7 +334,7 @@ export const useV2Store = create<V2State>()(
       visualiseFocusedLevelId: null,
       visualiseOnlyLevelId: null,
       visualiseHiddenSectorIds: [],
-      visualiseSurfaceOpacity: 0.72,
+      visualiseSurfaceOpacity: 0.2,
       visualiseDataDensity: 'all',
       visualiseObjectScale: 1,
       visualiseLabelScale: 1,
@@ -342,7 +343,7 @@ export const useV2Store = create<V2State>()(
       loopSectorContext: 'active',
       connectionsView: '3d',
       connections2DLoopId: null,
-      isConnectionsPanelCollapsed: false,
+      isWalkthroughPanelCollapsed: false,
       lastSpecificLoopId: null,
       expandedLoopIds: [],
       loopBuilder: null,
@@ -357,7 +358,7 @@ export const useV2Store = create<V2State>()(
         activeCase: savedCase,
         loadedProjectContext,
         isEditingStructure: false,
-        walkthroughStage: 'save',
+        walkthroughStage: 'visualise',
         dataLevelIndex: 0,
         skippedLevelIds: [],
         dataAutoFillNotice: null,
@@ -366,7 +367,7 @@ export const useV2Store = create<V2State>()(
         visualiseFocusedLevelId: null,
         visualiseOnlyLevelId: null,
         visualiseHiddenSectorIds: [],
-        visualiseSurfaceOpacity: 0.72,
+        visualiseSurfaceOpacity: 0.2,
         visualiseDataDensity: 'all',
         visualiseObjectScale: 1,
         visualiseLabelScale: 1,
@@ -375,7 +376,7 @@ export const useV2Store = create<V2State>()(
         loopSectorContext: 'active',
         connectionsView: '3d',
         connections2DLoopId: null,
-        isConnectionsPanelCollapsed: false,
+        isWalkthroughPanelCollapsed: true,
         lastSpecificLoopId: null,
         expandedLoopIds: [],
         loopBuilder: null,
@@ -390,7 +391,7 @@ export const useV2Store = create<V2State>()(
       setLoadedProjectContext: (loadedProjectContext) => set({ loadedProjectContext }),
       setWalkthroughStage: (walkthroughStage) => set((state) => ({
         walkthroughStage,
-        visualiseSurfaceOpacity: walkthroughStage === 'connections' && state.walkthroughStage !== 'connections'
+        visualiseSurfaceOpacity: walkthroughStage !== state.walkthroughStage
           ? 0.2
           : state.visualiseSurfaceOpacity,
       })),
@@ -635,8 +636,8 @@ export const useV2Store = create<V2State>()(
         return {
           connectionsView,
           connections2DLoopId,
-          isConnectionsPanelCollapsed: state.connectionsView === '2d'
-            ? state.isConnectionsPanelCollapsed
+          isWalkthroughPanelCollapsed: state.connectionsView === '2d'
+            ? state.isWalkthroughPanelCollapsed
             : true,
         };
       }),
@@ -645,7 +646,7 @@ export const useV2Store = create<V2State>()(
           ? connections2DLoopId
           : null,
       })),
-      setConnectionsPanelCollapsed: (isConnectionsPanelCollapsed) => set({ isConnectionsPanelCollapsed }),
+      setWalkthroughPanelCollapsed: (isWalkthroughPanelCollapsed) => set({ isWalkthroughPanelCollapsed }),
       toggleLoopExpanded: (loopId) => set((state) => ({
         expandedLoopIds: state.expandedLoopIds.includes(loopId)
           ? state.expandedLoopIds.filter((id) => id !== loopId)
@@ -832,8 +833,9 @@ export const useV2Store = create<V2State>()(
         });
         return loops.length;
       },
-      finishConnections: () => set({ connectionsFinished: true, walkthroughStage: 'save' }),
+      finishConnections: () => set({ connectionsFinished: true, walkthroughStage: 'save', visualiseSurfaceOpacity: 0.2 }),
       restartWalkthrough: () => set({
+        mode: 'walkthrough',
         activeCase: null,
         loadedProjectContext: null,
         isProjectBrowserOpen: false,
@@ -848,7 +850,7 @@ export const useV2Store = create<V2State>()(
         visualiseFocusedLevelId: null,
         visualiseOnlyLevelId: null,
         visualiseHiddenSectorIds: [],
-        visualiseSurfaceOpacity: 0.72,
+        visualiseSurfaceOpacity: 0.2,
         visualiseDataDensity: 'all',
         visualiseObjectScale: 1,
         visualiseLabelScale: 1,
@@ -857,7 +859,7 @@ export const useV2Store = create<V2State>()(
         loopSectorContext: 'active',
         connectionsView: '3d',
         connections2DLoopId: null,
-        isConnectionsPanelCollapsed: false,
+        isWalkthroughPanelCollapsed: false,
         lastSpecificLoopId: null,
         expandedLoopIds: [],
         loopBuilder: null,
@@ -869,6 +871,12 @@ export const useV2Store = create<V2State>()(
         autoFillLevelNames: true,
       }),
       requestViewReset: () => set((state) => ({ viewResetNonce: state.viewResetNonce + 1 })),
+      fitWalkthroughView: () => set((state) => ({
+        selectedVisualiseObjectId: null,
+        visualiseFocusedLevelId: null,
+        visualiseOnlyLevelId: null,
+        viewResetNonce: state.viewResetNonce + 1,
+      })),
 
       draft: getDefaultWalkthroughDraft(),
       autoFillLevelNames: true,
@@ -945,7 +953,7 @@ export const useV2Store = create<V2State>()(
           visualiseFocusedLevelId: null,
           visualiseOnlyLevelId: null,
           visualiseHiddenSectorIds: [],
-          visualiseSurfaceOpacity: 0.72,
+          visualiseSurfaceOpacity: 0.2,
           visualiseDataDensity: 'all',
           visualiseObjectScale: 1,
           visualiseLabelScale: 1,
@@ -967,6 +975,7 @@ export const useV2Store = create<V2State>()(
           set({
             isEditingStructure: true,
             walkthroughStage: 'structure',
+              visualiseSurfaceOpacity: 0.2,
             draft: {
               levels: activeCase.levels,
               sectors: activeCase.sectors,
@@ -1195,7 +1204,7 @@ export const useV2Store = create<V2State>()(
     }),
     {
        name: 'manufacturing-v2-case-storage',
-       version: 8,
+        version: 9,
       migrate: (persistedState: any) => {
         const activeCase = persistedState?.activeCase;
         const isEditingStructure = activeCase
@@ -1203,13 +1212,14 @@ export const useV2Store = create<V2State>()(
           : persistedState?.isEditingStructure ?? true;
         return {
           ...persistedState,
+          mode: ['explorer', 'walkthrough', 'advanced'].includes(persistedState?.mode)
+            ? persistedState.mode
+            : 'walkthrough',
           isEditingStructure,
            walkthroughStage: activeCase && !isEditingStructure && ['data', 'visualise', 'connections', 'save'].includes(persistedState?.walkthroughStage)
              ? persistedState.walkthroughStage
             : 'structure',
-           visualiseSurfaceOpacity: activeCase && !isEditingStructure && persistedState?.walkthroughStage === 'connections'
-             ? 0.2
-             : 0.72,
+            visualiseSurfaceOpacity: 0.2,
            connectionsFinished: persistedState?.connectionsFinished ?? false,
            connectionsView: persistedState?.connectionsView === '2d' ? '2d' : '3d',
            connections2DLoopId: persistedState?.connections2DLoopId ?? null,
@@ -1235,6 +1245,7 @@ export const useV2Store = create<V2State>()(
         };
       },
       partialize: (state) => ({
+        mode: state.mode,
         activeCase: state.activeCase,
          loadedProjectContext: state.loadedProjectContext,
         isEditingStructure: state.isEditingStructure,

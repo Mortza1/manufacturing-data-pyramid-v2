@@ -67,6 +67,42 @@ function OpenProjectButton({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function FitWalkthroughViewButton({ compact = false }: { compact?: boolean }) {
+  const fitWalkthroughView = useV2Store((state) => state.fitWalkthroughView);
+  return (
+    <button
+      onClick={fitWalkthroughView}
+      title="Fit 3D View"
+      aria-label="Fit 3D View"
+      className={compact
+        ? 'flex h-9 w-9 items-center justify-center rounded border border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/20'
+        : 'flex items-center gap-1.5 rounded border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-100 hover:bg-cyan-300/20'}
+    >
+      <Maximize2 size={compact ? 14 : 12} />
+      {!compact && 'Fit 3D View'}
+    </button>
+  );
+}
+
+function CollapsedWalkthroughRail({ embedded = false, showFit = true }: { embedded?: boolean; showFit?: boolean }) {
+  return (
+    <aside className={`pointer-events-auto flex min-h-0 w-11 flex-col items-center gap-2 rounded-xl border border-indigo-400/20 bg-[#070b14]/95 py-3 shadow-2xl backdrop-blur-xl ${embedded ? 'relative h-full' : 'absolute inset-y-4 right-4 z-20 md:inset-y-6 md:right-6'}`}>
+      <button
+        onClick={() => useV2Store.getState().setWalkthroughPanelCollapsed(false)}
+        title="Expand Walkthrough panel"
+        aria-label="Expand Walkthrough panel"
+        className="flex h-9 w-9 items-center justify-center rounded border border-indigo-300/25 bg-indigo-300/10 text-indigo-100 hover:bg-indigo-300/20"
+      >
+        <PanelRightOpen size={15} />
+      </button>
+      {showFit && <FitWalkthroughViewButton compact />}
+      <OpenProjectButton compact />
+      <RestartWalkthroughButton compact />
+      <span className="[writing-mode:vertical-rl] rotate-180 text-[9px] font-semibold uppercase tracking-[0.16em] text-indigo-200/70">Walkthrough</span>
+    </aside>
+  );
+}
+
 function StructureStage() {
   const {
     draft, setDraftLevels, setDraftSectors, confirmStructure, activeCase,
@@ -222,7 +258,7 @@ function DataEditor({ levelId, sectorId, gridX, gridY, onClose }: { levelId: str
 }
 
 function DataBoard() {
-  const { activeCase, dataLevelIndex, setDataLevelIndex, skippedLevelIds, skipDataLevel, autoFillDataLevel, dataAutoFillNotice, clearDataLevel, moveDataObject, removeDataObject, setWalkthroughStage, reopenStructure, selectedVisualiseObjectId } = useV2Store();
+  const { activeCase, dataLevelIndex, setDataLevelIndex, skippedLevelIds, skipDataLevel, autoFillDataLevel, dataAutoFillNotice, clearDataLevel, moveDataObject, removeDataObject, setWalkthroughStage, reopenStructure, selectedVisualiseObjectId, isWalkthroughPanelCollapsed, setWalkthroughPanelCollapsed } = useV2Store();
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(selectedVisualiseObjectId);
   const [editorCell, setEditorCell] = useState<{ x: number; y: number; sectorId: string } | null>(null);
   const [placementMode, setPlacementMode] = useState<'add' | 'move' | null>(null);
@@ -231,6 +267,7 @@ function DataBoard() {
     if (selectedVisualiseObjectId) setSelectedObjectId(selectedVisualiseObjectId);
   }, [selectedVisualiseObjectId]);
   if (!activeCase) return null;
+  if (isWalkthroughPanelCollapsed) return <CollapsedWalkthroughRail />;
   const level = activeCase.levels[dataLevelIndex] || activeCase.levels[0];
   const objects = activeCase.overlays.data.filter((object) => object.level_id === level.id);
   const selectedObject = objects.find((object) => object.id === selectedObjectId);
@@ -267,13 +304,15 @@ function DataBoard() {
   const goPrevious = () => setDataLevelIndex(Math.max(0, dataLevelIndex - 1));
 
   return (
-    <div className="pointer-events-auto absolute inset-0 z-20 flex flex-col overflow-hidden bg-[#050912]/98 text-foreground">
+    <div className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex h-[calc(100dvh-2rem)] w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-cyan-300/20 bg-[#050912]/98 text-foreground shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6 md:h-[calc(100dvh-3rem)]">
       {editorCell && <DataEditor levelId={level.id} sectorId={editorCell.sectorId} gridX={editorCell.x} gridY={editorCell.y} onClose={() => setEditorCell(null)} />}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-cyan-300/15 bg-[#07131f] px-5 py-4">
         <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-300/70">Walkthrough / Data</p><h2 className="mt-1 text-xl font-bold text-cyan-50">Add data to {level.name}</h2><p className="mt-1 text-xs text-muted-foreground">One level at a time · {activeCase.grid.width}×{activeCase.grid.height} sector-aware snap grid</p></div>
-        <div className="flex flex-wrap gap-2">
+         <div className="flex flex-wrap gap-2">
            <OpenProjectButton />
            <RestartWalkthroughButton />
+            <FitWalkthroughViewButton />
+            <button onClick={() => setWalkthroughPanelCollapsed(true)} title="Collapse Panel" aria-label="Collapse Panel" className="flex h-9 w-9 items-center justify-center rounded border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"><PanelRightClose size={15} /></button>
           <button onClick={reopenStructure} className="rounded border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground"><Edit2 size={13} className="mr-1.5 inline" /> Revise structure</button>
           <button onClick={() => setWalkthroughStage('data')} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100">Data stage</button>
         </div>
@@ -370,8 +409,11 @@ function VisualiseStage() {
     visualiseLabelScale,
     setVisualiseLabelScale,
     requestViewReset,
+    fitWalkthroughView,
     setDataLevelIndex,
     updateDataObjectMetadata,
+    isWalkthroughPanelCollapsed,
+    setWalkthroughPanelCollapsed,
   } = useV2Store();
   const [editing, setEditing] = useState(false);
   const [metadataDraft, setMetadataDraft] = useState<V2MetadataPatch>({});
@@ -408,7 +450,7 @@ function VisualiseStage() {
     setVisualiseFocusedLevelId(null);
     setVisualiseOnlyLevelId(null);
     setVisualiseExploded(false);
-    setVisualiseSurfaceOpacity(0.72);
+    setVisualiseSurfaceOpacity(0.2);
     setVisualiseDataDensity('all');
     setVisualiseObjectScale(1);
     setVisualiseLabelScale(1);
@@ -441,10 +483,12 @@ function VisualiseStage() {
     ['Intended use', selectedObject.intended_use],
   ].filter(([, value]) => value?.trim()) : [];
 
+  if (isWalkthroughPanelCollapsed) return <CollapsedWalkthroughRail />;
+
   return (
     <div className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex w-[min(460px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6">
-      <div className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5">
-        <div className="flex items-start justify-between gap-3">
+       <div className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5">
+         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-indigo-300/75">Walkthrough / Visualise</p>
             <h2 className="mt-1 text-xl font-bold text-indigo-100">Review your pyramid</h2>
@@ -453,6 +497,8 @@ function VisualiseStage() {
           <div className="flex shrink-0 flex-wrap gap-2">
             <OpenProjectButton />
             <RestartWalkthroughButton />
+            <button onClick={fitWalkthroughView} className="flex items-center gap-1.5 rounded border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-300/20"><Maximize2 size={13} /> Fit 3D View</button>
+            <button onClick={() => setWalkthroughPanelCollapsed(true)} title="Collapse Panel" aria-label="Collapse Panel" className="flex h-8 w-8 items-center justify-center rounded border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"><PanelRightClose size={15} /></button>
             <button onClick={() => setWalkthroughStage('data')} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-300/20">Back to Data</button>
           </div>
         </div>
@@ -567,7 +613,7 @@ function ConnectionsStage({ embedded = false }: { embedded?: boolean }) {
     loopSectorContext,
     connectionsView,
     connections2DLoopId,
-    isConnectionsPanelCollapsed,
+    isWalkthroughPanelCollapsed,
     expandedLoopIds,
     loopBuilder,
     selectedConnectionId,
@@ -583,7 +629,7 @@ function ConnectionsStage({ embedded = false }: { embedded?: boolean }) {
     setLoopSectorContext,
     setConnectionsView,
     setConnections2DLoop,
-    setConnectionsPanelCollapsed,
+    setWalkthroughPanelCollapsed,
     toggleLoopExpanded,
     updateConnection,
     updateLoop,
@@ -611,19 +657,6 @@ function ConnectionsStage({ embedded = false }: { embedded?: boolean }) {
   });
   const [segmentDraft, setSegmentDraft] = useState({ label: '', description: '' });
   const [notice, setNotice] = useState<string | null>(null);
-  const [hydrationComplete, setHydrationComplete] = useState(() => useV2Store.persist.hasHydrated());
-
-  useEffect(() => {
-    if (useV2Store.persist.hasHydrated()) {
-      setHydrationComplete(true);
-      return;
-    }
-    return useV2Store.persist.onFinishHydration(() => setHydrationComplete(true));
-  }, []);
-
-  useEffect(() => {
-    if (hydrationComplete) setVisualiseSurfaceOpacity(0.2);
-  }, [hydrationComplete, setVisualiseSurfaceOpacity]);
 
   const selectedConnection = activeCase?.overlays.connectivity.find((connection) => connection.id === selectedConnectionId);
   const loops = activeCase?.overlays.loops || [];
@@ -705,37 +738,22 @@ function ConnectionsStage({ embedded = false }: { embedded?: boolean }) {
       selectLoop(loopId);
     }
   };
-  if (isConnectionsPanelCollapsed) {
-    return (
-      <aside className={`pointer-events-auto flex min-h-0 w-11 flex-col items-center gap-2 rounded-xl border border-indigo-400/20 bg-[#070b14]/95 py-3 shadow-2xl backdrop-blur-xl ${embedded ? 'relative h-full' : 'absolute inset-y-4 right-4 z-20 md:inset-y-6 md:right-6'}`}>
-        <button
-          onClick={() => setConnectionsPanelCollapsed(false)}
-          title="Expand Walkthrough panel"
-          aria-label="Expand Walkthrough panel"
-          className="flex h-9 w-9 items-center justify-center rounded border border-indigo-300/25 bg-indigo-300/10 text-indigo-100 hover:bg-indigo-300/20"
-        >
-          <PanelRightOpen size={15} />
-        </button>
-        <OpenProjectButton compact />
-        <RestartWalkthroughButton compact />
-        <span className="[writing-mode:vertical-rl] rotate-180 text-[9px] font-semibold uppercase tracking-[0.16em] text-indigo-200/70">Walkthrough</span>
-      </aside>
-    );
-  }
+  if (isWalkthroughPanelCollapsed) return <CollapsedWalkthroughRail embedded={embedded} showFit={connectionsView === '3d'} />;
 
   return (
     <div className={`pointer-events-auto flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl ${embedded ? 'relative h-full w-full' : 'absolute inset-y-4 right-4 z-20 w-[min(760px,calc(100vw-2rem))] md:inset-y-6 md:right-6'}`}>
-      <header className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5">
-        <div className="flex items-start justify-between gap-3">
+       <header className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5">
+         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-indigo-300/75">Walkthrough / Connections</p>
             <h2 className="mt-1 text-xl font-bold text-indigo-100">Map the data flow</h2>
             <p className="mt-1 text-xs leading-relaxed text-indigo-100/65">Build ordered loops by selecting visible data objects directly in the pyramid. Drag to rotate · Right-drag to pan · Scroll to zoom.</p>
           </div>
-           <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
              <OpenProjectButton />
              <RestartWalkthroughButton />
-             <button onClick={() => setConnectionsPanelCollapsed(true)} title="Collapse Panel" aria-label="Collapse Panel" className="flex h-8 w-8 items-center justify-center rounded border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"><PanelRightClose size={15} /></button>
+              {connectionsView === '3d' && <FitWalkthroughViewButton />}
+              <button onClick={() => setWalkthroughPanelCollapsed(true)} title="Collapse Panel" aria-label="Collapse Panel" className="flex h-8 w-8 items-center justify-center rounded border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"><PanelRightClose size={15} /></button>
              <Link2 size={22} className="mt-1 text-indigo-200/70" />
            </div>
         </div>
@@ -946,6 +964,9 @@ function ReviewSaveStage() {
   const setLoadedProjectContext = useV2Store((state) => state.setLoadedProjectContext);
   const setWalkthroughStage = useV2Store((state) => state.setWalkthroughStage);
   const setConnectionsView = useV2Store((state) => state.setConnectionsView);
+  const isWalkthroughPanelCollapsed = useV2Store((state) => state.isWalkthroughPanelCollapsed);
+  const setWalkthroughPanelCollapsed = useV2Store((state) => state.setWalkthroughPanelCollapsed);
+  const fitWalkthroughView = useV2Store((state) => state.fitWalkthroughView);
   const [users, setUsers] = useState<ReviewUser[]>([]);
   const [ownerUserId, setOwnerUserId] = useState('');
   const [isCreatingUser, setIsCreatingUser] = useState(!loadedProjectContext);
@@ -1023,6 +1044,7 @@ function ReviewSaveStage() {
   }, [activeCase]);
 
   if (!activeCase || !summary) return null;
+  if (isWalkthroughPanelCollapsed) return <CollapsedWalkthroughRail />;
 
   const selectedUser = users.find((user) => user.id === ownerUserId);
   const activeUserName = isCreatingUser ? newUserName.trim() : selectedUser?.displayName || loadedProjectContext?.userName || '';
@@ -1099,15 +1121,19 @@ function ReviewSaveStage() {
 
   return (
     <div className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-emerald-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6">
-      <header className="shrink-0 border-b border-emerald-400/20 bg-emerald-400/10 p-5">
-        <div className="flex items-start justify-between gap-3">
+       <header className="shrink-0 border-b border-emerald-400/20 bg-emerald-400/10 p-5">
+         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-emerald-300/75">Walkthrough / Review &amp; Save</p>
             <h2 className="mt-1 text-xl font-bold text-emerald-100">Review your complete pyramid</h2>
             <p className="mt-1 text-xs leading-relaxed text-emerald-100/65">Confirm the project summary, then save an immutable version to PostgreSQL.</p>
           </div>
-           <OpenProjectButton />
-           <RestartWalkthroughButton />
+           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+             <OpenProjectButton />
+             <RestartWalkthroughButton />
+             <button onClick={fitWalkthroughView} className="flex items-center gap-1.5 rounded border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-300/20"><Maximize2 size={13} /> Fit 3D View</button>
+             <button onClick={() => setWalkthroughPanelCollapsed(true)} title="Collapse Panel" aria-label="Collapse Panel" className="flex h-8 w-8 items-center justify-center rounded border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"><PanelRightClose size={15} /></button>
+           </div>
         </div>
       </header>
       <Progress currentStage={4} completedStages={[0, 1, 2, 3]} />
@@ -1213,15 +1239,15 @@ export function WalkthroughUI() {
   const isEditingStructure = useV2Store((state) => state.isEditingStructure);
   const walkthroughStage = useV2Store((state) => state.walkthroughStage);
   const connectionsView = useV2Store((state) => state.connectionsView);
-  const isConnectionsPanelCollapsed = useV2Store((state) => state.isConnectionsPanelCollapsed);
-  const setConnectionsPanelCollapsed = useV2Store((state) => state.setConnectionsPanelCollapsed);
+  const isWalkthroughPanelCollapsed = useV2Store((state) => state.isWalkthroughPanelCollapsed);
+  const setWalkthroughPanelCollapsed = useV2Store((state) => state.setWalkthroughPanelCollapsed);
   const previousConnectionsView = useRef<'3d' | '2d' | null>(null);
   useEffect(() => {
     if (walkthroughStage === 'connections' && connectionsView === '2d' && previousConnectionsView.current !== '2d') {
-      setConnectionsPanelCollapsed(true);
+      setWalkthroughPanelCollapsed(true);
     }
     previousConnectionsView.current = connectionsView;
-  }, [connectionsView, setConnectionsPanelCollapsed, walkthroughStage]);
+  }, [connectionsView, setWalkthroughPanelCollapsed, walkthroughStage]);
   const currentStage = activeCase && !isEditingStructure
     ? walkthroughStage === 'save' ? 4 : walkthroughStage === 'connections' ? 3 : walkthroughStage === 'visualise' ? 2 : 1
     : 0;
@@ -1235,11 +1261,13 @@ export function WalkthroughUI() {
           ? <VisualiseStage />
           : walkthroughStage === 'connections' && activeCase && !isEditingStructure
             ? isTwoDConnections
-              ? <div className={`pointer-events-auto grid h-full min-h-0 w-full gap-3 ${isConnectionsPanelCollapsed ? 'grid-rows-[minmax(0,1fr)_44px] md:grid-cols-[minmax(0,1fr)_44px] md:grid-rows-1' : 'grid-rows-[minmax(280px,1fr)_minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_minmax(360px,760px)] md:grid-rows-1'}`}><V2CrossSection /><ConnectionsStage embedded /></div>
+              ? <div className={`pointer-events-auto grid h-full min-h-0 w-full gap-3 ${isWalkthroughPanelCollapsed ? 'grid-rows-[minmax(0,1fr)_44px] md:grid-cols-[minmax(0,1fr)_44px] md:grid-rows-1' : 'grid-rows-[minmax(280px,1fr)_minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_minmax(360px,760px)] md:grid-rows-1'}`}><V2CrossSection /><ConnectionsStage embedded /></div>
               : <ConnectionsStage />
           : walkthroughStage === 'save' && activeCase && !isEditingStructure
             ? <ReviewSaveStage />
-            : <div className="pointer-events-auto flex h-[calc(100dvh-7rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl"><div className="flex shrink-0 items-start justify-between gap-3 border-b border-indigo-400/20 bg-indigo-400/10 p-5"><div><h2 className="flex items-center gap-2 text-xl font-bold text-indigo-100"><GraduationCap className="text-indigo-300" /> Walkthrough</h2><p className="mt-1 text-sm text-indigo-100/65">Define your manufacturing data strategy step by step.</p></div><div className="flex items-center gap-2"><OpenProjectButton /><RestartWalkthroughButton compact={false} /></div></div><Progress currentStage={currentStage} /><div className="min-h-0 flex-1 overflow-y-auto p-5"><StructureStage /></div></div>}
+             : isWalkthroughPanelCollapsed
+               ? <CollapsedWalkthroughRail />
+               : <div className="pointer-events-auto flex h-[calc(100dvh-7rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl"><div className="flex flex-wrap shrink-0 items-start justify-between gap-3 border-b border-indigo-400/20 bg-indigo-400/10 p-5"><div><h2 className="flex items-center gap-2 text-xl font-bold text-indigo-100"><GraduationCap className="text-indigo-300" /> Walkthrough</h2><p className="mt-1 text-sm text-indigo-100/65">Define your manufacturing data strategy step by step.</p></div><div className="flex flex-wrap items-center justify-end gap-2"><OpenProjectButton /><RestartWalkthroughButton compact={false} /><FitWalkthroughViewButton compact /><button onClick={() => setWalkthroughPanelCollapsed(true)} title="Collapse Panel" aria-label="Collapse Panel" className="flex h-9 w-9 items-center justify-center rounded border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"><PanelRightClose size={15} /></button></div></div><Progress currentStage={currentStage} /><div className="min-h-0 flex-1 overflow-y-auto p-5"><StructureStage /></div></div>}
     </div>
   );
 }
