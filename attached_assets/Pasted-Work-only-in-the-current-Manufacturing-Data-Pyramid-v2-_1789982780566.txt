@@ -1,0 +1,75 @@
+Work only in the current Manufacturing_Data_Pyramid_v2 fork and remain in Free mode. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me rather than escalating.
+
+This is a targeted Walkthrough Stage 1/2 refinement only. Do not redesign or change anything unrelated.
+
+1. Add “Clear Current Level Data”
+
+In Walkthrough → Data, add a clearly visible control:
+
+Clear Current Level
+
+Behaviour:
+
+it applies only to the currently selected pyramid level;
+ask for confirmation before clearing;
+remove all data objects currently placed on that level, whether manually added or Auto-filled;
+free all of that level's occupied snap-grid cells;
+do not alter the level itself, sector definitions, grid geometry, other levels, or Structure configuration;
+after clearing, the selected level should show a completely empty placement board ready for testing Auto-fill from scratch;
+if connections referencing deleted objects exist later, remove those dependent connections safely rather than leaving dangling references.
+
+Do not add a global destructive reset unless one already exists. The requested control is specifically for clearing the current level.
+
+2. Level and sector names must remain visible on the completed 3D pyramid
+
+The previous requirement is still not working correctly.
+
+Once Structure has been confirmed, and whenever the app is showing the full 3D pyramid, display the user's configured:
+
+level names
+sector names
+
+This must continue to work after Data entry / Finish Data as well, not only inside the Structure summary.
+
+Requirements:
+
+level labels should sit outside/beside the corresponding pyramid levels rather than covering the geometry;
+sector labels should clearly indicate the four sector directions/areas without blocking data objects;
+labels must always use the actual configured names, including manually edited names;
+add/preserve a simple Show Labels / Hide Labels control;
+hiding labels must not change any pyramid state or data;
+labels should remain readable while the user rotates and zooms the pyramid.
+3. Preserve the new Auto-fill strategy
+
+Do not replace or redesign the new Auto-fill logic that was just implemented.
+
+It should remain:
+
+sector-balanced;
+default 2 new objects per sector per Auto-fill action;
+with 4 sectors, one click should therefore add 8 objects;
+free cells only;
+outer/perimeter cells first, then progressively inward;
+meaningful names based on both current level + sector;
+no unnecessary repeated data names;
+never overwrite manually created data.
+
+The new Clear Current Level control must make it possible to test this behaviour repeatedly from an empty level.
+
+4. Test specifically
+
+Test this sequence:
+
+Open Walkthrough.
+Confirm Structure.
+Verify level and sector names are visible on the 3D pyramid.
+Enter Data.
+Select one level.
+Click Clear Current Level and verify the 8×8 board becomes completely empty.
+Click Auto-fill once.
+With four sectors, verify exactly 8 objects are added: 2 per sector.
+Verify outer/perimeter free cells are used before inner cells.
+Verify representative object names make sense for that particular level and sector and are not simply repeated across sectors.
+Finish Data / return to the 3D pyramid and verify the configured level and sector names are still visible and can be hidden/shown.
+
+Do not change Explorer, Forging Case Study, manual data creation, metadata fields, canonical snap-grid placement, Advanced placeholder, course modes, visual styling, or other working behaviour.

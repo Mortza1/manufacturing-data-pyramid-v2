@@ -130,6 +130,7 @@ interface V2State {
   addDataObject: (draft: V2DataDraft, levelId: string, sectorId: string, gridX: number, gridY: number) => string | null;
   moveDataObject: (objectId: string, levelId: string, sectorId: string, gridX: number, gridY: number) => boolean;
   autoFillDataLevel: (levelId: string) => number;
+  clearDataLevel: (levelId: string) => void;
   skipDataLevel: () => void;
   resetDataLevel: () => void;
   removeDataObject: (objectId: string) => void;
@@ -150,7 +151,7 @@ export const useV2Store = create<V2State>()(
       showV2Labels: true,
       setIsEditingStructure: (isEditing) => set({ isEditingStructure: isEditing }),
       setWalkthroughStage: (walkthroughStage) => set({ walkthroughStage }),
-      setDataLevelIndex: (dataLevelIndex) => set({ dataLevelIndex: Math.max(0, dataLevelIndex) }),
+      setDataLevelIndex: (dataLevelIndex) => set({ dataLevelIndex: Math.max(0, dataLevelIndex), dataAutoFillNotice: null }),
       setShowV2Labels: (showV2Labels) => set({ showV2Labels }),
 
       draft: {
@@ -372,6 +373,31 @@ export const useV2Store = create<V2State>()(
         });
         return additions.length;
       },
+      clearDataLevel: (levelId) => set((state) => {
+        if (!state.activeCase) return state;
+        const removedIds = new Set(
+          state.activeCase.overlays.data
+            .filter((object) => object.level_id === levelId)
+            .map((object) => object.id),
+        );
+        if (removedIds.size === 0) {
+          return { ...state, dataAutoFillNotice: null };
+        }
+        return {
+          ...state,
+          dataAutoFillNotice: null,
+          activeCase: {
+            ...state.activeCase,
+            overlays: {
+              ...state.activeCase.overlays,
+              data: state.activeCase.overlays.data.filter((object) => object.level_id !== levelId),
+              connectivity: state.activeCase.overlays.connectivity.filter((connection) =>
+                !removedIds.has(connection.source_object_id) && !removedIds.has(connection.target_object_id)
+              ),
+            },
+          },
+        };
+      }),
       skipDataLevel: () => set((state) => {
         const level = state.activeCase?.levels[state.dataLevelIndex];
         return level
@@ -385,6 +411,9 @@ export const useV2Store = create<V2State>()(
           overlays: {
             ...state.activeCase.overlays,
             data: state.activeCase.overlays.data.filter((object) => object.id !== objectId),
+            connectivity: state.activeCase.overlays.connectivity.filter((connection) =>
+              connection.source_object_id !== objectId && connection.target_object_id !== objectId
+            ),
           },
         },
       }) : state),
