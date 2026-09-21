@@ -160,7 +160,7 @@ function V2Level({
   const visibleObjects = filterObjectsByDensity(objects, visualiseDataDensity);
 
   return (
-    <group position={[0, levelOffset, 0]} rotation={[0, rotY, 0]}>
+    <group position={[0, y + levelOffset, 0]} rotation={[0, rotY, 0]}>
       {levelVisible && sectors.map((sector, sectorIndex) => {
         if (visualiseHiddenSectorIds.includes(sector.id)) return null;
         const surfaceOpacity = visualiseSurfaceOpacity * (levelFocused ? 1 : 0.28);
@@ -208,7 +208,7 @@ function V2Level({
           <V2DataObject
             key={object.id}
             object={object}
-            position={[renderPosition[0], renderPosition[1] - y + 0.24, renderPosition[2]]}
+            position={[renderPosition[0], 0.24, renderPosition[2]]}
             color={SECTOR_COLORS[sectorIndex % SECTOR_COLORS.length]}
             visible
             subdued={!levelFocused}

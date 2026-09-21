@@ -1,0 +1,62 @@
+Stay in Free mode only. Do not switch to Power or Max.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This is a single targeted geometry bug fix for Walkthrough Stage 3 Visualise. Do not change anything else.
+
+The latest read-only inspection has identified the exact root cause of the flat assembled pyramid:
+
+the shared geometry helper correctly calculates a different vertical centre for every pyramid level;
+however, the Stage 3 level renderer does not apply that calculated level-centre Y position to the level group;
+therefore, in assembled mode, all five level surfaces are rendered at essentially the same vertical position;
+increasing total pyramid height only made those overlapping frusta thicker;
+data objects are also currently compensating/cancelling the level Y calculation, so they remain compressed near the same height;
+the camera is already targeting the intended stacked geometry, which is why it can appear to aim above the actually rendered shell.
+
+Fix only this.
+
+Required behaviour
+In normal Assembled mode, position every level group at its own calculated vertical centre from the existing shared v2 geometry helper.
+Keep the existing centered Explode offset, but apply it in addition to the correct normal level position.
+
+Therefore:
+
+assembled = each level at its intended vertical centre;
+exploded = intended vertical centre + centered explode offset.
+Because data objects are children of their level group, simplify their local vertical placement so they sit slightly above/on their own level surface. Do not cancel the level group's vertical position.
+Level labels should remain children of the correct level group so they automatically move with the corrected level position and with Explode.
+Preserve:
+existing taper radii;
+current total height;
+sector slicing;
+sector colours;
+snap-grid mapping;
+level_id;
+sector_id;
+grid_x;
+grid_y;
+Data Display 1/2/3/All;
+Object Size;
+Label Size;
+sector visibility;
+metadata editing;
+Focus Camera;
+Show Only;
+Explorer;
+Forging Case Study.
+Do not redesign the geometry into nested full-height pyramids. The existing truncated level slices are correct; they simply need to be translated to their proper vertical positions.
+Acceptance test
+
+Before finishing, verify by code/state inspection:
+
+five-level assembled pyramid has five distinct ascending level centres;
+bottom level is lowest and largest;
+top level is highest and smallest;
+data objects move upward with their own level;
+level labels move with their level;
+Explode adds extra centered separation to the already-correct stack;
+Assemble restores the same correct stacked pyramid;
+canonical snap-grid addresses remain unchanged;
+Explorer and Forging remain unchanged.
+
+Do not add any other functionality in this task.
