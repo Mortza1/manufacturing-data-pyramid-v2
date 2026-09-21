@@ -1,0 +1,349 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me rather than escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This task adds the next Stage 4 visualisation:
+
+2D CROSS-SECTION LOOP VIEW
+
+It must exist alongside the current 3D Loop View.
+
+Do not replace or redesign the existing 3D view in this task. In particular, do not spend more time modifying the current 3D arrowhead or pan behaviour.
+
+Do not implement Save/database, Advanced mode, Models, Agents or Decisions.
+
+Preserve Structure, Data, Visualise, Loop model, Loop Table, example loops, Explorer and Forging Case Study.
+
+1. Add a 3D / 2D view switch
+
+In Walkthrough Stage 4 Connections add a clear toggle:
+
+3D Loop View | 2D Cross-Section
+
+Default can remain 3D Loop View.
+
+Switching views must:
+
+preserve the selected loop;
+preserve Show Only This Loop;
+preserve loop visibility;
+preserve data/loop state;
+not create a duplicate case or duplicate connection model.
+
+The 2D view is simply another renderer of the same loop/data state.
+
+2. Use a true triangular pyramid cross-section
+
+The 2D view should resemble a side cross-section through the pyramid:
+
+outer boundary is a large upright triangle;
+horizontal boundaries divide it into the configured number of pyramid levels;
+bottom band is the widest;
+upper bands progressively narrow;
+the top level terminates near the apex.
+
+Do not hard-code five levels.
+
+Generate the cross-section dynamically from the actual configured number of levels.
+
+Display the actual configured level names clearly beside the corresponding horizontal bands.
+
+The result should visually resemble:
+
+                /\
+               /  \
+       L5     /    \
+             /------\
+       L4   /        \
+           /----------\
+       L3 /            \
+         /--------------\
+      L2/                \
+       /------------------\
+    L1/____________________\
+
+Use a clean professional diagram style consistent with the application.
+
+3. Build this as crisp 2D SVG, not Three.js
+
+Implement the cross-sectional view using SVG or an equivalent true 2D vector renderer.
+
+Do not reuse:
+
+Three.js connection lines;
+3D cone arrowheads;
+WebGL geometry.
+
+This should produce clean, crisp 2D lines, labels, nodes and arrows at different screen sizes.
+
+Ideally the 2D Loop View should be able to render even when WebGL hardware acceleration is unavailable.
+
+Do not allow the existing WebGL fallback to unnecessarily prevent the SVG cross-section from being displayed.
+
+4. Map existing data objects into the 2D section
+
+Do not invent new positions.
+
+Derive every 2D node from its existing canonical placement:
+
+level_id
+sector_id
+grid_x
+grid_y
+Vertical position
+
+Primarily determined by the data object's level.
+
+Each object must sit inside its correct horizontal level band.
+
+Use grid_y only as a small deterministic within-band offset if useful for separating multiple nodes.
+
+Horizontal position
+
+Primarily determined by:
+
+sector;
+grid_x;
+available width of that triangular band.
+
+Divide each level band conceptually into the configured sector regions.
+
+Position an object's X coordinate within its own sector region using its existing grid information.
+
+Do not change the saved grid cell to improve the 2D layout.
+
+If minor visual collision avoidance is necessary, use presentation-only offsets.
+
+5. Sector encoding
+
+In the 2D cross-section:
+
+data-node colour represents SECTOR.
+
+Use the same existing sector colours already used elsewhere in the v2 app.
+
+Add a compact sector legend using the actual configured sector names.
+
+Example concept:
+
+Product = one colour
+Resources = another
+Machines = another
+People = another
+
+Do not assume exactly four sectors; use the configured case.
+
+6. Data nodes
+
+Render each participating data element as a clean 2D node.
+
+Prefer:
+
+small icon/symbol appropriate to its data type where the current semantic mapping is available;
+compact labelled rounded rectangle/chip where a specialised icon is not available.
+
+Keep node size small enough that the loop remains readable.
+
+Display the data-element name clearly.
+
+Where useful, clicking/hovering/tapping a node may show:
+
+data name;
+level;
+sector;
+cell (grid_x, grid_y);
+existing metadata.
+
+Use the same underlying object ID as the 3D view.
+
+7. Loop encoding
+
+In the 2D view:
+
+arrow colour represents LOOP.
+
+Use each loop's stored colour.
+
+Therefore the visual language is:
+
+node colour = sector
+
+arrow colour = loop
+
+This distinction must be clear in the legends.
+
+8. Use proper crisp 2D arrows
+
+This is important.
+
+Do not reuse the current 3D cone arrowhead.
+
+Render every segment using a clean SVG/vector directional arrow.
+
+The desired appearance is:
+
+Data A ─────────────▶ Data B
+
+Requirements:
+
+shaft begins at the visible boundary of the source node;
+shaft does not begin from the centre if that means drawing through the source icon;
+arrow tip reaches the visible boundary of the target node;
+arrow shaft terminates at the centre of the arrowhead base;
+arrowhead extends forward from its base to the target;
+line must not continue underneath/through the arrowhead;
+arrowhead must be a small crisp triangle;
+no oversized wedge/cone appearance;
+direction must be immediately obvious.
+
+Prefer a simple SVG triangular polygon/marker or equivalent precise 2D geometry.
+
+If using an SVG marker, configure its reference point and path termination so the shaft visually meets the base of the triangle rather than passing to its tip.
+
+9. Route arrows clearly
+
+Use clean straight or gently curved 2D paths.
+
+Where two nodes are on different levels:
+
+arrows should naturally travel upward/downward between their bands.
+
+Where nodes are on the same level:
+
+use an appropriate horizontal or shallow curved route.
+
+Avoid:
+
+arrows travelling directly through unrelated data nodes;
+unnecessary crossings;
+arrow labels covering nodes.
+
+For sequential loop segments, preserve the ordered path.
+
+Use deterministic routing so arrows do not jump around between renders.
+
+10. Respect the selected loop
+
+The 2D view should use the existing Stage 4 loop/filter state.
+
+If a particular loop is selected:
+
+emphasize that loop;
+display its nodes and arrows prominently.
+
+If Show Only This Loop is active:
+
+show all participating nodes from that loop;
+show all of its segments;
+hide unrelated data nodes;
+do not apply Data Display 1 / 2 / 3 in a way that removes required loop nodes.
+
+The complete loop must remain visible.
+
+11. All Loops mode
+
+If the user selects All Loops, allow multiple loops to appear in the 2D view.
+
+Requirements:
+
+each loop keeps its own arrow colour;
+data nodes still use sector colour;
+include a compact loop-colour legend;
+avoid excessive clutter where possible.
+
+If All Loops becomes too crowded, allow the user to select one loop from the existing loop filter rather than altering underlying data.
+
+12. Synchronise with the Loop Table
+
+Keep the existing Loop Table.
+
+Synchronise the 2D view with it:
+
+clicking a loop table row highlights that loop in 2D;
+clicking a 2D arrow highlights/selects the corresponding connection segment in the expanded Loop Table;
+clicking a 2D data node may highlight the corresponding data element/segments;
+expanding a loop in the table should not destroy the 2D layout.
+
+The table remains the detailed logical/coordinate representation.
+
+The triangular view is the graphical representation.
+
+13. Preserve logical coordinates in the table
+
+Continue showing meaningful canonical coordinates:
+
+Level
+Sector
+Cell (grid_x, grid_y)
+
+Do not expose derived rendering XYZ by default.
+
+The 2D visual position is also derived and must not become canonical stored data.
+
+14. 2D presentation controls
+
+Keep the first version simple.
+
+Provide:
+
+Fit View
+Show/Hide node labels
+
+Reuse the existing Label Size / Object Size concepts where practical, or provide modest 2D-specific equivalents if sharing them would complicate the 3D renderer.
+
+Do not build a complex 2D editor.
+
+This stage is primarily for visualising loops clearly.
+
+15. This is not a new editing model
+
+The 2D cross-section should not create a second set of data/connection records.
+
+Do not allow arbitrary free dragging that changes canonical object location.
+
+If a node is visually repositioned for collision avoidance, that is temporary presentation state only.
+
+Actual placement remains defined by:
+
+level_id + sector_id + grid_x + grid_y
+
+Actual relationships remain defined by:
+
+loop_id + sequence + source_object_id + target_object_id
+
+16. Preserve 3D view unchanged
+
+Do not attempt to fix or redesign the existing 3D arrowhead or pan behaviour during this task.
+
+Switching back to 3D Loop View must restore the existing 3D Stage 4 view exactly as it currently works.
+
+17. Acceptance test
+
+Before reporting completion verify:
+
+Stage 4 has 3D Loop View | 2D Cross-Section.
+Switching views does not change stored data or loops.
+The 2D view is a genuine triangular side cross-section.
+Horizontal bands match the configured number of levels.
+Actual configured level names are shown.
+Every loop node appears in its correct level.
+Node colour corresponds to its sector.
+Sector legend uses actual configured names.
+Arrow colour corresponds to its loop.
+Predictive Maintenance displays as one ordered path.
+Process Optimisation displays as one ordered path.
+Each arrow shaft starts at the source-node boundary.
+Each arrow shaft terminates at the base of a crisp 2D arrowhead.
+Arrowhead tip points to the target-node boundary.
+No 3D cone arrowheads are used in the 2D renderer.
+Clicking a loop/table row synchronises with the 2D view.
+Show Only This Loop shows the full selected loop regardless of Data Display density.
+All Loops retains individual loop colours.
+Returning to 3D preserves the selected loop and case state.
+Explorer and Forging Case Study remain unchanged.
+
+Run typecheck, production build and diff checks.
+
+Because this view is SVG/2D, it should be possible to verify substantially more of it even in Replit's non-WebGL automated preview.
+
+Do not add any other scope.
