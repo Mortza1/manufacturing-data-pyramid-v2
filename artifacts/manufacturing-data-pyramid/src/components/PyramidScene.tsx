@@ -204,7 +204,7 @@ function CameraRig({
         if ((walkthroughStage === 'visualise' || walkthroughStage === 'connections') && targetLevelId) {
           const targetIndex = v2ActiveCase.levels.findIndex((level) => level.id === targetLevelId);
           if (targetIndex < 0) {
-            cancelRef.current?.();
+            transitionRef.current = null;
             return;
           }
           const levelGeometry = getLevelBaseTop(targetIndex, v2ActiveCase.levels.length);
@@ -247,7 +247,7 @@ function CameraRig({
           destination.set(11, 7.5, 13);
           target.set(0, 0.1, 0);
         } else {
-          cancelRef.current?.();
+          transitionRef.current = null;
           return;
         }
       } else if (journeyActive) {
@@ -267,7 +267,7 @@ function CameraRig({
         destination.set(13, 8.5, 15);
         target.set(0, 0.25, 0);
       } else {
-        cancelRef.current?.();
+        transitionRef.current = null;
         return;
       }
 
