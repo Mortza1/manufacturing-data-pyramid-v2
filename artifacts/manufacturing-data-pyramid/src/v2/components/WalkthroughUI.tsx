@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
-import { Check, ChevronLeft, ChevronRight, Edit2, Lock, Wand2, GraduationCap, Grid3X3, Plus, SkipForward, Trash2, Move } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Edit2, Eye, EyeOff, Lock, Wand2, GraduationCap, Grid3X3, Plus, SkipForward, Trash2, Move } from 'lucide-react';
 import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, type V2DataDraft } from '../store';
 import { getSectorIdForGridCell } from '../geometry';
 
@@ -29,7 +29,7 @@ function StructureStage() {
   const {
     draft, setDraftLevels, setDraftSectors, confirmStructure, activeCase,
     reopenStructure, autoFillLevelNames, setAutoFillLevelNames, isEditingStructure,
-    setWalkthroughStage,
+    setWalkthroughStage, showV2Labels, setShowV2Labels,
   } = useV2Store();
   const confirmed = activeCase !== null && !isEditingStructure;
 
@@ -83,6 +83,10 @@ function StructureStage() {
         <div className="rounded-xl border border-indigo-400/15 bg-indigo-400/5 p-4">
           <p className="text-xs leading-relaxed text-indigo-100/70">Data is the active next stage. Use the level board to add items to the 8×8 sector-aware snap grid.</p>
         </div>
+        <button onClick={() => setShowV2Labels(!showV2Labels)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground">
+          {showV2Labels ? <EyeOff size={14} /> : <Eye size={14} />}
+          {showV2Labels ? 'Hide pyramid labels' : 'Show pyramid labels'}
+        </button>
         <button onClick={() => setWalkthroughStage('data')} className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-400 py-3 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-300">Continue to Data <ChevronRight size={17} /></button>
       </div>
     );
@@ -108,7 +112,7 @@ function StructureStage() {
         <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={autoFillLevelNames} onChange={(event) => setAutoFillLevelNames(event.target.checked)} className="accent-indigo-400" />
           Auto-fill level names
-          <span className="text-muted-foreground/60">({autoFillLevelNames ? 'Level 1…N' : 'manual'})</span>
+          <span className="text-muted-foreground/60">({autoFillLevelNames ? draft.levels.length === 5 ? 'manufacturing preset' : 'Level 1…N' : 'manual'})</span>
         </label>
         <div className="space-y-2">
           {draft.levels.map((level, index) => (
@@ -176,7 +180,7 @@ function DataEditor({ levelId, sectorId, gridX, gridY, onClose }: { levelId: str
 }
 
 function DataBoard() {
-  const { activeCase, dataLevelIndex, setDataLevelIndex, skippedLevelIds, skipDataLevel, autoFillDataLevel, moveDataObject, removeDataObject, setWalkthroughStage, reopenStructure } = useV2Store();
+  const { activeCase, dataLevelIndex, setDataLevelIndex, skippedLevelIds, skipDataLevel, autoFillDataLevel, dataAutoFillNotice, moveDataObject, removeDataObject, setWalkthroughStage, reopenStructure } = useV2Store();
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [editorCell, setEditorCell] = useState<{ x: number; y: number; sectorId: string } | null>(null);
   const [placementMode, setPlacementMode] = useState<'add' | 'move' | null>(null);
@@ -259,7 +263,7 @@ function DataBoard() {
             <div className="mx-auto mt-3 flex max-w-[620px] flex-wrap gap-3 text-[10px] text-muted-foreground"><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-300/50" />Free</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-300/60" />Occupied</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-cyan-300" />Selected</span>{activeCase.sectors.map((sector, index) => <span key={sector.id}><i className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: ['#38bdf8', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#facc15', '#2dd4bf', '#818cf8'][index % 8] }} />{sector.name}</span>)}</div>
           </section>
           <aside className="space-y-4">
-            <div className="rounded-xl border border-white/10 bg-[#08111d] p-4"><p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-cyan-100/80">Placement</p><div className="grid gap-2"><button onClick={() => { setPlacementMode('add'); setSelectedObjectId(null); }} className={`flex items-center justify-center gap-2 rounded border px-3 py-2.5 text-xs font-bold ${placementMode === 'add' ? 'border-cyan-200 bg-cyan-300/20 text-cyan-100' : 'border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/20'}`}><Plus size={14} /> Add data manually</button><button onClick={() => { if (selectedObjectId) setPlacementMode('move'); }} disabled={!selectedObjectId} className="flex items-center justify-center gap-2 rounded border border-white/10 bg-white/5 px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"><Move size={14} /> Move selected</button><button onClick={autoFill} className="flex items-center justify-center gap-2 rounded border border-indigo-300/25 bg-indigo-300/10 px-3 py-2.5 text-xs font-semibold text-indigo-100 hover:bg-indigo-300/20"><Wand2 size={14} /> Auto-fill free cells</button></div><p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">Auto-fill adds representative data only to free cells. It never overwrites manual entries.</p></div>
+             <div className="rounded-xl border border-white/10 bg-[#08111d] p-4"><p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-cyan-100/80">Placement</p><div className="grid gap-2"><button onClick={() => { setPlacementMode('add'); setSelectedObjectId(null); }} className={`flex items-center justify-center gap-2 rounded border px-3 py-2.5 text-xs font-bold ${placementMode === 'add' ? 'border-cyan-200 bg-cyan-300/20 text-cyan-100' : 'border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/20'}`}><Plus size={14} /> Add data manually</button><button onClick={() => { if (selectedObjectId) setPlacementMode('move'); }} disabled={!selectedObjectId} className="flex items-center justify-center gap-2 rounded border border-white/10 bg-white/5 px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"><Move size={14} /> Move selected</button><button onClick={autoFill} className="flex items-center justify-center gap-2 rounded border border-indigo-300/25 bg-indigo-300/10 px-3 py-2.5 text-xs font-semibold text-indigo-100 hover:bg-indigo-300/20"><Wand2 size={14} /> Auto-fill free cells</button></div><p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">Auto-fill adds two representative data elements per sector where free cells allow. It never overwrites manual entries.</p>{dataAutoFillNotice && <p className="mt-3 rounded border border-amber-300/20 bg-amber-300/5 px-2.5 py-2 text-[10px] leading-relaxed text-amber-100/80">{dataAutoFillNotice}</p>}</div>
             <div className="rounded-xl border border-white/10 bg-[#08111d] p-4"><div className="mb-3 flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-100/80">Sector key</p><Grid3X3 size={15} className="text-cyan-300/70" /></div><div className="space-y-2">{activeCase.sectors.map((sector, index) => <div key={sector.id} className="flex items-center gap-2 text-xs text-muted-foreground"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: ['#38bdf8', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#facc15', '#2dd4bf', '#818cf8'][index % 8] }} />{sector.name}</div>)}</div></div>
             {selectedObject && <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4"><div className="flex items-start justify-between gap-2"><div><p className="text-[10px] uppercase tracking-wider text-cyan-200/65">Selected data</p><h3 className="mt-1 text-sm font-bold text-cyan-50">{selectedObject.name}</h3></div><button onClick={() => { removeDataObject(selectedObject.id); setSelectedObjectId(null); }} title="Remove data" className="text-muted-foreground hover:text-rose-300"><Trash2 size={14} /></button></div><p className="mt-2 text-[11px] text-muted-foreground">Cell ({selectedObject.grid_x + 1}, {selectedObject.grid_y + 1}) · {activeCase.sectors.find((sector) => sector.id === selectedObject.sector_id)?.name}</p><p className="mt-2 line-clamp-3 text-xs text-cyan-50/70">{selectedObject.description || 'No description provided.'}</p></div>}
           </aside>

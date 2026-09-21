@@ -113,9 +113,11 @@ interface V2State {
   dataLevelIndex: number;
   skippedLevelIds: string[];
   dataAutoFillNotice: string | null;
+  showV2Labels: boolean;
   setIsEditingStructure: (isEditing: boolean) => void;
   setWalkthroughStage: (stage: 'structure' | 'data') => void;
   setDataLevelIndex: (index: number) => void;
+  setShowV2Labels: (show: boolean) => void;
 
   draft: V2Draft;
   autoFillLevelNames: boolean;
@@ -145,9 +147,11 @@ export const useV2Store = create<V2State>()(
       dataLevelIndex: 0,
       skippedLevelIds: [],
       dataAutoFillNotice: null,
+      showV2Labels: true,
       setIsEditingStructure: (isEditing) => set({ isEditingStructure: isEditing }),
       setWalkthroughStage: (walkthroughStage) => set({ walkthroughStage }),
       setDataLevelIndex: (dataLevelIndex) => set({ dataLevelIndex: Math.max(0, dataLevelIndex) }),
+      setShowV2Labels: (showV2Labels) => set({ showV2Labels }),
 
       draft: {
         levels: Array.from({ length: 5 }).map((_, i) => ({ name: getWalkthroughLevelName(i, 5) })),
@@ -387,7 +391,7 @@ export const useV2Store = create<V2State>()(
     }),
     {
       name: 'manufacturing-v2-case-storage',
-      version: 3,
+      version: 4,
       migrate: (persistedState: any) => {
         const activeCase = persistedState?.activeCase;
         const isEditingStructure = activeCase
@@ -400,6 +404,7 @@ export const useV2Store = create<V2State>()(
             ? 'data'
             : 'structure',
           autoFillLevelNames: persistedState?.autoFillLevelNames ?? true,
+          showV2Labels: persistedState?.showV2Labels ?? true,
           activeCase: activeCase ? {
             ...activeCase,
               id: activeCase.id || `case_${uuidv4()}`,
@@ -421,6 +426,7 @@ export const useV2Store = create<V2State>()(
         dataLevelIndex: state.dataLevelIndex,
         skippedLevelIds: state.skippedLevelIds,
         autoFillLevelNames: state.autoFillLevelNames,
+        showV2Labels: state.showV2Labels,
         draft: state.draft,
       }),
     }
