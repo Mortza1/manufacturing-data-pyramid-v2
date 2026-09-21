@@ -1,0 +1,184 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me instead of escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This is a targeted Walkthrough Stage 3 Visualise repair only. Do not implement Connections, Save/database, Advanced mode, Models, Agents or Decisions. Preserve Explorer and Forging Case Study.
+
+1. Fix the default assembled Visualise state
+
+The current assembled geometry mapping is correct, but Walkthrough Visualise is inheriting a default cutaway/section state that makes the pyramid appear flattened/clipped.
+
+For Walkthrough Stage 3 only:
+
+default to a normal non-sectioned assembled pyramid;
+do not inherit the legacy cutaway = true presentation default;
+keep the existing level taper geometry;
+keep lower levels larger and upper levels smaller;
+preserve the canonical grid-to-3D mapping.
+
+Do not change Explorer/Forging cutaway behaviour.
+
+2. Make Explode a true centered separation
+
+Explode must start from the correct assembled pyramid and separate levels around the pyramid centre:
+
+lower levels move downward;
+upper levels move upward;
+middle level remains approximately central;
+Assemble returns every level exactly to its original position.
+
+Data objects and level labels must move with their own level.
+
+Explode must never alter level_id, sector_id, grid_x or grid_y.
+
+3. Remove always-visible rings
+
+The current torus/ring is a helper marker and is being rendered for every data element.
+
+Change this so:
+
+rings/halos appear only for the currently selected or hovered data element;
+ordinary unselected data elements show only their real 3D representation;
+selection rings obey the same hide/focus/isolate visibility rules as the object.
+
+Do not use torus rings as normal data-object representations.
+
+4. Replace Section Level with Sector controls in Walkthrough Visualise
+
+Remove Section / Section Level controls from Stage 3 only.
+
+Keep the legacy section state intact for Explorer because Explorer still uses it.
+
+Add v2-only sector visibility controls using the actual configured sector names.
+
+Requirements:
+
+Show All sectors;
+independently show/hide any sector;
+allow multiple sectors visible simultaneously;
+hide a sector's pyramid surface and its data objects together;
+restore them together;
+sector visibility is presentation-only.
+
+Render the pyramid surfaces sector-by-sector so individual sectors can be hidden.
+
+Use the existing consistent sector colours for the sector surfaces and related data.
+
+Keep the existing Surface opacity slider and apply it to sector/pyramid surfaces only, not the data objects.
+
+5. Add metadata editing to the inspection card
+
+Keep the existing Stage 3 data inspection card.
+
+Add Edit.
+
+Allow editing only these metadata fields:
+
+name
+description
+availability/status
+source/system/device
+protocol
+format
+data type/signal type
+frequency/sample rate
+sensing/settings metadata
+preprocessing/features
+intended use
+
+Do not allow direct editing of:
+
+level_id
+sector_id
+grid_x
+grid_y
+
+For placement changes provide Move on Data Board, returning the user to the correct Stage 2 board with that object selected.
+
+6. Repair Level Focus controls
+
+The current Focus 1 / Only 1 behaviour is misleading.
+
+Use the actual level names instead of numbers.
+
+For each level:
+
+Focus Camera
+
+smoothly frame/highlight that level;
+keep all other levels visible but subdued;
+use the v2 level geometry to calculate the correct camera target.
+
+Show Only
+
+completely hide all non-selected level surfaces;
+hide their data objects;
+hide their object rings;
+hide their object labels;
+hide their level labels.
+
+Add Show All Levels.
+
+Focus and Show Only must not conflict. Activating one should clear any incompatible previous mode.
+
+Do not use the legacy camera-level formula for v2; derive the camera target from the actual v2 level geometry.
+
+7. Shared visibility behaviour
+
+Use one consistent presentation visibility rule for:
+
+level surface
+level label
+data object
+selection ring
+object label
+
+When a level or sector is hidden, all corresponding presentation elements should hide together.
+
+Sector labels may remain global, but hide the corresponding sector label if that sector is hidden.
+
+8. Preserve canonical placement
+
+None of these Stage 3 presentation operations may modify:
+level_id
+sector_id
+grid_x
+grid_y
+
+All positions must continue to be reconstructed from the snap-grid state.
+
+9. Preserve unrelated functionality
+
+Do not change:
+
+Structure
+Stage 2 Data board
+Auto-fill
+Clear Current Level
+metadata schema
+Explorer
+Forging Case Study
+Advanced placeholder
+course modes
+unrelated styling
+10. Test before finishing
+
+Verify:
+
+Assembled view opens as a clear tapered pyramid with no default cutaway.
+Explode separates levels symmetrically around the centre.
+Assemble restores them exactly.
+Rings appear only for selected/hovered objects.
+Sector controls replace Section Level.
+Hide one sector and verify its surface + data disappear.
+Restore it and verify everything returns.
+Surface opacity affects surfaces but not data.
+Edit a data object's metadata and save successfully.
+Move on Data Board returns to Stage 2 rather than allowing free 3D movement.
+Focus Camera frames the correct v2 level.
+Show Only truly hides all other levels and their data/labels.
+Show All restores everything.
+Rotate/zoom remain unrestricted.
+Explorer and Forging Case Study remain unchanged.
+
+Do not add any new scope.
