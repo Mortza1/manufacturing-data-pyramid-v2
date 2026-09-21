@@ -52,17 +52,11 @@ function getWalkthroughPanelWidth(stage: string, collapsed: boolean, viewportWid
 
 function getWalkthroughFit(
   camera: THREE.PerspectiveCamera,
-  viewportWidth: number,
   viewportHeight: number,
-  stage: string,
-  panelCollapsed: boolean,
+  availableWidth: number,
   levelCount: number,
   exploded: boolean,
 ) {
-  const horizontalPadding = viewportWidth >= 768 ? 24 : 16;
-  const panelGap = 16;
-  const panelWidth = getWalkthroughPanelWidth(stage, panelCollapsed, viewportWidth);
-  const availableWidth = Math.max(1, viewportWidth - horizontalPadding - panelWidth - panelGap);
   const target = new THREE.Vector3(
     0,
     getLevelBaseTop((levelCount - 1) / 2, levelCount).y - 0.5,
@@ -85,6 +79,47 @@ function getWalkthroughFit(
   };
 }
 
+function getExpandedWalkthroughViewport(canvas: HTMLCanvasElement, viewportWidth: number, viewportHeight: number) {
+  const canvasRect = canvas.getBoundingClientRect();
+  const panel = document.querySelector<HTMLElement>('[data-walkthrough-panel]');
+  const panelRect = panel?.getBoundingClientRect();
+  const fallbackRight = canvasRect.right;
+  const panelGap = viewportWidth >= 768 ? 16 : 12;
+  const visibleRight = panelRect
+    ? Math.min(canvasRect.right, panelRect.left - panelGap)
+    : fallbackRight;
+  const visibleWidth = Math.max(1, visibleRight - canvasRect.left);
+
+  return {
+    canvasRect,
+    visibleCenter: (canvasRect.left + visibleRight) / 2,
+    availableWidth: Math.min(viewportWidth, visibleWidth),
+    viewportHeight: Math.max(1, canvasRect.height || viewportHeight),
+  };
+}
+
+function getWalkthroughCompositionOffset(
+  camera: THREE.PerspectiveCamera,
+  canvasRect: DOMRect,
+  visibleCenter: number,
+  destination: THREE.Vector3,
+  target: THREE.Vector3,
+) {
+  const pixelShift = canvasRect.left + canvasRect.width / 2 - visibleCenter;
+  if (Math.abs(pixelShift) < 0.5 || canvasRect.width <= 0 || canvasRect.height <= 0) {
+    return new THREE.Vector3();
+  }
+
+  const distance = destination.distanceTo(target);
+  const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+  const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * (canvasRect.width / canvasRect.height));
+  const worldUnitsPerPixel = (2 * distance * Math.tan(horizontalFov / 2)) / canvasRect.width;
+  const viewDirection = target.clone().sub(destination).normalize();
+  const screenRight = viewDirection.clone().cross(camera.up).normalize();
+
+  return screenRight.multiplyScalar(pixelShift * worldUnitsPerPixel);
+}
+
 function CameraRig({
   cancelRef,
   manualInteractionRef,
@@ -92,7 +127,7 @@ function CameraRig({
   cancelRef: React.MutableRefObject<(() => void) | null>;
   manualInteractionRef: React.MutableRefObject<boolean>;
 }) {
-  const { camera, size } = useThree();
+  const { camera, gl, size } = useThree();
   const {
     journeyActive,
     journeyStep,
@@ -128,109 +163,134 @@ function CameraRig({
   const modeKey = `${v2Mode}-${walkthroughStage}-${viewResetNonce}-${visualiseFocusedLevelId}-${visualiseOnlyLevelId}-${isWalkthroughPanelCollapsed}-${size.width}-${size.height}-${journeyActive}-${journeyStep}-${focusLevel}-${isolateLevel}-${cutaway}-${exploded}-${courseMode}-${forgingCaseStudy}-${forgingSeparateSectors}-${forgingExploded}-${forgingCutaway}`;
 
   React.useEffect(() => {
-    manualInteractionRef.current = false;
-    transitionRef.current = null;
-    const controls = controlsRef.current;
-    const fromTarget = controls?.target?.clone() ?? new THREE.Vector3(0, 0, 0);
-    const target = new THREE.Vector3(0, 0, 0);
-    const destination = new THREE.Vector3(10, 6.5, 10);
+    let frameId = 0;
+    frameId = window.requestAnimationFrame(() => {
+      manualInteractionRef.current = false;
+      transitionRef.current = null;
+      cancelRef.current = null;
+      const controls = controlsRef.current;
+      const fromTarget = controls?.target?.clone() ?? new THREE.Vector3(0, 0, 0);
+      const target = new THREE.Vector3(0, 0, 0);
+      const destination = new THREE.Vector3(10, 6.5, 10);
 
-    const perspectiveCamera = camera as THREE.PerspectiveCamera;
-    if (!(v2Mode === 'walkthrough' && v2ActiveCase) && perspectiveCamera.view) {
-      perspectiveCamera.clearViewOffset();
-      perspectiveCamera.updateProjectionMatrix();
-    }
-    if (v2Mode === 'walkthrough' && v2ActiveCase) {
-      const fit = getWalkthroughFit(
-        perspectiveCamera,
-        size.width,
-        size.height,
-        walkthroughStage,
-        isWalkthroughPanelCollapsed,
-        v2ActiveCase.levels.length,
-        exploded,
-      );
-      perspectiveCamera.setViewOffset(size.width, size.height, 0, 0, fit.availableWidth, size.height);
-      perspectiveCamera.updateProjectionMatrix();
-      target.copy(fit.target);
-      const targetLevelId = visualiseOnlyLevelId ?? visualiseFocusedLevelId;
-      if ((walkthroughStage === 'visualise' || walkthroughStage === 'connections') && targetLevelId) {
-        const targetIndex = v2ActiveCase.levels.findIndex((level) => level.id === targetLevelId);
-        if (targetIndex < 0) {
+      const perspectiveCamera = camera as THREE.PerspectiveCamera;
+      const isWalkthroughScene = v2Mode === 'walkthrough' && v2ActiveCase;
+      const canvasRect = gl.domElement.getBoundingClientRect();
+      const legacyPanelWidth = getWalkthroughPanelWidth(walkthroughStage, isWalkthroughPanelCollapsed, size.width);
+      const legacyAvailableWidth = Math.max(1, size.width - (size.width >= 768 ? 24 : 16) - legacyPanelWidth - 16);
+      const expandedViewport = isWalkthroughScene && !isWalkthroughPanelCollapsed
+        ? getExpandedWalkthroughViewport(gl.domElement, size.width, size.height)
+        : null;
+      const availableWidth = expandedViewport?.availableWidth ?? legacyAvailableWidth;
+      const fit = isWalkthroughScene
+        ? getWalkthroughFit(
+          perspectiveCamera,
+          expandedViewport?.viewportHeight ?? size.height,
+          availableWidth,
+          v2ActiveCase.levels.length,
+          exploded,
+        )
+        : null;
+
+      if (isWalkthroughScene) {
+        if (isWalkthroughPanelCollapsed) {
+          perspectiveCamera.setViewOffset(size.width, size.height, 0, 0, fit!.availableWidth, size.height);
+        } else {
+          perspectiveCamera.clearViewOffset();
+        }
+        perspectiveCamera.updateProjectionMatrix();
+        target.copy(fit!.target);
+        const targetLevelId = visualiseOnlyLevelId ?? visualiseFocusedLevelId;
+        if ((walkthroughStage === 'visualise' || walkthroughStage === 'connections') && targetLevelId) {
+          const targetIndex = v2ActiveCase.levels.findIndex((level) => level.id === targetLevelId);
+          if (targetIndex < 0) {
+            cancelRef.current?.();
+            return;
+          }
+          const levelGeometry = getLevelBaseTop(targetIndex, v2ActiveCase.levels.length);
+          const levelY = levelGeometry.y - 0.5;
+          destination.set(10.8, levelY + 5.2, 13.2);
+          target.set(0, levelY, 0);
+        } else {
+          destination.copy(fit!.destination);
+        }
+        if (!isWalkthroughPanelCollapsed && expandedViewport) {
+          const compositionOffset = getWalkthroughCompositionOffset(
+            perspectiveCamera,
+            expandedViewport.canvasRect,
+            expandedViewport.visibleCenter,
+            destination,
+            target,
+          );
+          destination.add(compositionOffset);
+          target.add(compositionOffset);
+        }
+      } else if (v2Mode !== 'explorer') {
+        if (perspectiveCamera.view) {
+          perspectiveCamera.clearViewOffset();
+          perspectiveCamera.updateProjectionMatrix();
+        }
+        destination.set(12, 8, 14);
+        target.set(0, 2, 0);
+      } else if (forgingCaseStudy) {
+        if (perspectiveCamera.view) {
+          perspectiveCamera.clearViewOffset();
+          perspectiveCamera.updateProjectionMatrix();
+        }
+        if (forgingSeparateSectors) {
+          destination.set(16, 10, 16);
+          target.set(0, 0.25, 0);
+        } else if (forgingExploded) {
+          destination.set(13, 8.5, 15);
+          target.set(0, 0.25, 0);
+        } else if (forgingCutaway) {
+          destination.set(11, 7.5, 13);
+          target.set(0, 0.1, 0);
+        } else {
           cancelRef.current?.();
           return;
         }
-        const levelGeometry = getLevelBaseTop(targetIndex, v2ActiveCase.levels.length);
-        const levelY = levelGeometry.y - 0.5;
-        destination.set(10.8, levelY + 5.2, 13.2);
-        target.set(0, levelY, 0);
-      } else {
-        destination.copy(fit.destination);
-      }
-    } else if (v2Mode !== 'explorer') {
-      if (perspectiveCamera.view) {
-        perspectiveCamera.clearViewOffset();
-        perspectiveCamera.updateProjectionMatrix();
-      }
-      destination.set(12, 8, 14);
-      target.set(0, 2, 0);
-    } else if (forgingCaseStudy) {
-      if (perspectiveCamera.view) {
-        perspectiveCamera.clearViewOffset();
-        perspectiveCamera.updateProjectionMatrix();
-      }
-      if (forgingSeparateSectors) {
-        destination.set(16, 10, 16);
-        target.set(0, 0.25, 0);
-      } else if (forgingExploded) {
-        destination.set(13, 8.5, 15);
-        target.set(0, 0.25, 0);
-      } else if (forgingCutaway) {
+      } else if (journeyActive) {
+        const journeyLevel = getJourneyStep(COURSES[courseMode], journeyStep).level;
+        const journeyY = getLevelY(journeyLevel) - 2.5;
+        destination.set(12.5, 8.5, 13.5);
+        target.set(0, journeyY * 0.34, 0);
+      } else if (focusLevel !== null || isolateLevel !== null) {
+        const targetLevel = isolateLevel ?? focusLevel ?? 3;
+        const y = (targetLevel - 0.5) - 2.5;
+        destination.set(cutaway ? 10.5 : 11, y + 4.8, cutaway ? 12.5 : 13);
+        target.set(0, y * 0.3, 0);
+      } else if (cutaway) {
         destination.set(11, 7.5, 13);
         target.set(0, 0.1, 0);
+      } else if (exploded) {
+        destination.set(13, 8.5, 15);
+        target.set(0, 0.25, 0);
       } else {
         cancelRef.current?.();
         return;
       }
-    } else if (journeyActive) {
-      const journeyLevel = getJourneyStep(COURSES[courseMode], journeyStep).level;
-      const journeyY = getLevelY(journeyLevel) - 2.5;
-      destination.set(12.5, 8.5, 13.5);
-      target.set(0, journeyY * 0.34, 0);
-    } else if (focusLevel !== null || isolateLevel !== null) {
-      const targetLevel = isolateLevel ?? focusLevel ?? 3;
-      const y = (targetLevel - 0.5) - 2.5;
-      destination.set(cutaway ? 10.5 : 11, y + 4.8, cutaway ? 12.5 : 13);
-      target.set(0, y * 0.3, 0);
-    } else if (cutaway) {
-      destination.set(11, 7.5, 13);
-      target.set(0, 0.1, 0);
-    } else if (exploded) {
-      destination.set(13, 8.5, 15);
-      target.set(0, 0.25, 0);
-    } else {
-      cancelRef.current?.();
-      return;
-    }
 
-    transitionRef.current = {
-      from: camera.position.clone(),
-      to: destination,
-      fromTarget,
-      target,
-      elapsed: 0,
-       duration: journeyActive ? 900 : 650,
-      active: true,
-    };
-    cancelRef.current = () => {
-      transitionRef.current = null;
-    };
+      transitionRef.current = {
+        from: camera.position.clone(),
+        to: destination,
+        fromTarget,
+        target,
+        elapsed: 0,
+        duration: journeyActive ? 900 : 650,
+        active: true,
+      };
+      cancelRef.current = () => {
+        transitionRef.current = null;
+      };
+    });
 
     return () => {
-      if (cancelRef.current === undefined) return;
+      window.cancelAnimationFrame(frameId);
+      transitionRef.current = null;
       cancelRef.current = null;
     };
-  }, [camera, cancelRef, modeKey, v2Mode, walkthroughStage, v2LevelKey, visualiseFocusedLevelId, visualiseOnlyLevelId, viewResetNonce, isWalkthroughPanelCollapsed, size.width, size.height, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode, forgingCaseStudy, forgingSeparateSectors, forgingExploded, forgingCutaway]);
+  }, [camera, cancelRef, gl, modeKey, v2Mode, walkthroughStage, v2LevelKey, visualiseFocusedLevelId, visualiseOnlyLevelId, viewResetNonce, isWalkthroughPanelCollapsed, size.width, size.height, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode, forgingCaseStudy, forgingSeparateSectors, forgingExploded, forgingCutaway]);
 
   useFrame((state, delta) => {
     const controls = state.controls as any;

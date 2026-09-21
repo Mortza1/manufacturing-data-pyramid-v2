@@ -304,7 +304,7 @@ function DataBoard() {
   const goPrevious = () => setDataLevelIndex(Math.max(0, dataLevelIndex - 1));
 
   return (
-    <div className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex h-[calc(100dvh-2rem)] w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-cyan-300/20 bg-[#050912]/98 text-foreground shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6 md:h-[calc(100dvh-3rem)]">
+    <div data-walkthrough-panel className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex h-[calc(100dvh-2rem)] w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-cyan-300/20 bg-[#050912]/98 text-foreground shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6 md:h-[calc(100dvh-3rem)]">
       {editorCell && <DataEditor levelId={level.id} sectorId={editorCell.sectorId} gridX={editorCell.x} gridY={editorCell.y} onClose={() => setEditorCell(null)} />}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-cyan-300/15 bg-[#07131f] px-5 py-4">
         <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-300/70">Walkthrough / Data</p><h2 className="mt-1 text-xl font-bold text-cyan-50">Add data to {level.name}</h2><p className="mt-1 text-xs text-muted-foreground">One level at a time · {activeCase.grid.width}×{activeCase.grid.height} sector-aware snap grid</p></div>
@@ -486,7 +486,7 @@ function VisualiseStage() {
   if (isWalkthroughPanelCollapsed) return <CollapsedWalkthroughRail />;
 
   return (
-    <div className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex w-[min(460px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6">
+    <div data-walkthrough-panel className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex w-[min(460px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6">
        <div className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5">
          <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -741,7 +741,7 @@ function ConnectionsStage({ embedded = false }: { embedded?: boolean }) {
   if (isWalkthroughPanelCollapsed) return <CollapsedWalkthroughRail embedded={embedded} showFit={connectionsView === '3d'} />;
 
   return (
-    <div className={`pointer-events-auto flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl ${embedded ? 'relative h-full w-full' : 'absolute inset-y-4 right-4 z-20 w-[min(760px,calc(100vw-2rem))] md:inset-y-6 md:right-6'}`}>
+    <div data-walkthrough-panel className={`pointer-events-auto flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl ${embedded ? 'relative h-full w-full' : 'absolute inset-y-4 right-4 z-20 w-[min(760px,calc(100vw-2rem))] md:inset-y-6 md:right-6'}`}>
        <header className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5">
          <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -1120,7 +1120,7 @@ function ReviewSaveStage() {
   };
 
   return (
-    <div className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-emerald-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6">
+    <div data-walkthrough-panel className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-emerald-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6">
        <header className="shrink-0 border-b border-emerald-400/20 bg-emerald-400/10 p-5">
          <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -1267,7 +1267,7 @@ export function WalkthroughUI() {
             ? <ReviewSaveStage />
              : isWalkthroughPanelCollapsed
                ? <CollapsedWalkthroughRail />
-               : <div className="pointer-events-auto flex h-[calc(100dvh-7rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl"><div className="flex flex-wrap shrink-0 items-start justify-between gap-3 border-b border-indigo-400/20 bg-indigo-400/10 p-5"><div><h2 className="flex items-center gap-2 text-xl font-bold text-indigo-100"><GraduationCap className="text-indigo-300" /> Walkthrough</h2><p className="mt-1 text-sm text-indigo-100/65">Define your manufacturing data strategy step by step.</p></div><div className="flex flex-wrap items-center justify-end gap-2"><OpenProjectButton /><RestartWalkthroughButton compact={false} /><FitWalkthroughViewButton compact /><button onClick={() => setWalkthroughPanelCollapsed(true)} title="Collapse Panel" aria-label="Collapse Panel" className="flex h-9 w-9 items-center justify-center rounded border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"><PanelRightClose size={15} /></button></div></div><Progress currentStage={currentStage} /><div className="min-h-0 flex-1 overflow-y-auto p-5"><StructureStage /></div></div>}
+               : <div data-walkthrough-panel className="pointer-events-auto flex h-[calc(100dvh-7rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl"><div className="flex flex-wrap shrink-0 items-start justify-between gap-3 border-b border-indigo-400/20 bg-indigo-400/10 p-5"><div><h2 className="flex items-center gap-2 text-xl font-bold text-indigo-100"><GraduationCap className="text-indigo-300" /> Walkthrough</h2><p className="mt-1 text-sm text-indigo-100/65">Define your manufacturing data strategy step by step.</p></div><div className="flex flex-wrap items-center justify-end gap-2"><OpenProjectButton /><RestartWalkthroughButton compact={false} /><FitWalkthroughViewButton compact /><button onClick={() => setWalkthroughPanelCollapsed(true)} title="Collapse Panel" aria-label="Collapse Panel" className="flex h-9 w-9 items-center justify-center rounded border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"><PanelRightClose size={15} /></button></div></div><Progress currentStage={currentStage} /><div className="min-h-0 flex-1 overflow-y-auto p-5"><StructureStage /></div></div>}
     </div>
   );
 }

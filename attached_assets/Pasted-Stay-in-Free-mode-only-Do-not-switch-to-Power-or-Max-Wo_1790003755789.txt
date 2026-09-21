@@ -1,0 +1,213 @@
+Stay in Free mode only. Do not switch to Power or Max.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This is a very narrow Walkthrough 3D camera framing fix based on the completed read-only diagnosis.
+
+Do not modify anything else.
+
+Preserve:
+
+panel collapse behaviour;
+saved-project loading;
+Walkthrough default mode;
+20% opacity;
+Fit 3D View control;
+2D Cross-Section;
+project/version/database logic;
+loops and connections;
+Explorer;
+Forging Case Study.
+1. Remove the incorrect expanded-panel setViewOffset() behaviour
+
+The diagnosis confirmed that the current expanded-panel path incorrectly uses:
+
+PerspectiveCamera.setViewOffset(...)
+
+with a reduced availableWidth, even though the WebGL Canvas still renders across the full viewport and the Walkthrough panel is only a CSS overlay.
+
+This shifts the projection optical centre and pushes the pyramid underneath the right-side panel.
+
+For the expanded Walkthrough panel path only:
+
+stop using reduced-width setViewOffset() for the CSS overlay;
+clear/reset any existing view offset;
+keep the normal full-canvas projection.
+
+Do not change the 2D Cross-Section.
+
+2. Measure the actual panel position
+
+Do not rely on the current hard-coded panel widths such as:
+
+440px;
+460px;
+760px.
+
+When the Walkthrough panel is expanded, measure the actual rendered bounds using getBoundingClientRect() or equivalent.
+
+Determine:
+
+Canvas left/right/width;
+Walkthrough panel left edge;
+optional visual gap between the pyramid area and panel.
+
+Define the actual usable visualisation region as the area:
+
+from the Canvas left edge to just before the expanded panel.
+
+3. Compute the visible-area centre
+
+Conceptually:
+
+visibleRight = panelRect.left - gap
+
+visibleCenter = (canvasRect.left + visibleRight) / 2
+
+canvasCenter = canvasRect.left + canvasRect.width / 2
+
+Determine the horizontal pixel difference between:
+
+full-canvas centre;
+centre of the actual visible area to the left of the panel.
+
+Do not hard-code the resulting offset.
+
+It must adapt to responsive panel widths and browser size.
+
+4. Shift camera composition, not pyramid geometry
+
+Convert the required pixel shift into an appropriate world-space shift using:
+
+current camera distance;
+camera horizontal field of view;
+viewport width/aspect.
+
+Apply that horizontal shift along the camera's screen-right vector.
+
+Apply the same offset to both:
+
+destination
+target
+
+so the pyramid is visually centred inside the left-side visible area.
+
+Do not alter:
+
+pyramid world coordinates;
+levels;
+sectors;
+data;
+connections;
+canonical project coordinates.
+5. Apply the shift after all stage-specific presets
+
+The diagnosis identified stage-specific camera presets such as focused Visualise/Connections:
+
+destination.set(...)
+
+target.set(...)
+
+Therefore:
+
+first calculate the normal camera preset exactly as today,
+
+then
+
+apply the panel-aware horizontal composition offset to both destination and target.
+
+This ensures the same fix works for:
+
+Structure;
+Visualise;
+focused levels;
+Connections 3D view;
+Review & Save inspection;
+saved-project Visualise landing;
+Fit 3D View.
+
+Do not rewrite the existing stage-specific camera presets.
+
+6. Preserve collapsed-panel behaviour exactly
+
+When the Walkthrough panel is collapsed:
+
+do not apply the expanded-panel offset;
+retain the current centred full-width framing;
+retain current Fit 3D View behaviour.
+
+The collapsed view is already correct and should not change.
+
+7. Fit 3D View
+
+The existing Fit 3D View action must use the same panel-aware composition rule.
+
+Panel expanded
+
+Fit the full pyramid inside the actual visible region to the left of the panel.
+
+Panel collapsed
+
+Keep the current full-width centred fit.
+
+Fit should continue to reset:
+
+camera position;
+pan offset;
+OrbitControls target.
+8. Panel expand/collapse transitions
+
+When the panel state changes:
+
+Collapsed → Expanded
+
+after the panel/layout dimensions settle:
+
+measure the actual panel bounds;
+recompute the horizontal composition shift;
+smoothly reframe into the left-side visible area.
+Expanded → Collapsed
+
+restore the current centred full-width framing.
+
+A short smooth transition is fine.
+
+Do not continuously force the camera after the user begins manual interaction.
+
+9. Do not change 2D Cross-Section
+
+V2CrossSection already uses its own responsive grid/panel sizing.
+
+Do not apply:
+
+camera offset;
+Three.js framing;
+setViewOffset();
+OrbitControls changes
+
+to the 2D Cross-Section.
+
+10. Acceptance checks
+
+Verify:
+
+Expanded panel no longer pushes the pyramid under the panel.
+Pyramid is visually centred in the usable area to the left of the panel.
+No large unnecessary empty black area remains on the left.
+Collapsed-panel framing remains unchanged and centred.
+Fit 3D View uses left-side framing when panel is expanded.
+Fit 3D View uses full-width centred framing when panel is collapsed.
+Structure uses the corrected composition.
+Visualise uses the corrected composition.
+Focused-level Visualise still frames correctly.
+Connections 3D view uses the corrected composition.
+Review & Save 3D inspection uses the corrected composition.
+Loaded saved-project Visualise uses the corrected composition.
+Responsive panel widths are measured, not guessed.
+No pyramid/data/project coordinates change.
+2D Cross-Section remains unchanged.
+Explorer and Forging Case Study remain unchanged.
+
+Run TypeScript/typecheck, production build and git diff --check.
+
+Do not add any other scope.
