@@ -432,8 +432,8 @@ export function PyramidScene() {
         makeDefault
         onStart={() => {
           manualCameraInteractionRef.current = true;
-          cancelCameraTransitionRef.current = null;
           cancelCameraTransitionRef.current?.();
+          cancelCameraTransitionRef.current = null;
           setUserInteracted(true);
         }}
         autoRotate={!isInteracting && !reducedMotion && !userInteracted}
