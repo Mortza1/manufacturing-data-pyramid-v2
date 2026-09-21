@@ -1,0 +1,233 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me rather than escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This is a small Stage 4 Loop Visualisation refinement only, based on the completed read-only diagnosis.
+
+Do not modify pan/rotate behaviour in this task.
+
+Do not change the loop model, Loop Table, example loops, connection world-position transform, Data Display, Structure, Data, Visualise, Explorer or Forging Case Study.
+
+Fix only:
+
+loop sector context display;
+volumetric sector highlighting;
+conventional arrow shaft-to-head geometry.
+1. Add Loop Sector Context control
+
+When Show Only This Loop is active, add:
+
+SECTOR CONTEXT
+
+with two options:
+
+Active only
+Show all
+
+This control affects only the pyramid sector geometry. It must not alter the stored case, loop, data objects or connections.
+
+Active only
+
+Preserve the current basic behaviour:
+
+show only the level-sector volumes containing data objects participating in the selected loop;
+hide non-participating sector surfaces;
+hide their edges;
+hide their sector labels;
+keep only loop-participating data objects;
+keep the selected loop's arrows.
+Show all
+
+Keep the complete pyramid visible for context, but:
+
+loop-participating level-sector volumes are clearly highlighted;
+non-participating level-sector volumes are extremely faint/ghosted;
+non-loop data objects remain hidden;
+selected-loop data objects and arrows remain prominent.
+
+Use the existing participatingSectorIds / per-level sector participation information rather than introducing another competing loop-selection mechanism.
+
+2. Highlight sectors per level + sector
+
+Do not treat an entire vertical sector column as active merely because that sector appears somewhere in the loop.
+
+Highlight only the actual combinations used by the loop.
+
+Example:
+
+L1 / Product = participating
+L2 / Product = participating
+L3 / Machines = participating
+L4 / Machines = participating
+
+Then highlight exactly those four level-sector wedges.
+
+Other Product/Machines wedges on unrelated levels remain dim/hidden according to Sector Context mode.
+
+3. Make participating sectors visibly volumetric
+
+The existing wedge mesh geometry is correct and should remain.
+
+The problem is that the current low-opacity lit fill and relatively strong edge overlay make it look predominantly like wireframe.
+
+Change presentation so:
+
+surface fill communicates volume
+
+and
+
+edges only communicate structure.
+
+For loop-participating wedges:
+
+preserve the existing translucent filled wedge surface;
+make the face fill visually clearer/brighter at low opacity;
+retain the sector's existing colour;
+keep a restrained edge outline;
+edge opacity should be lower than the perceived fill emphasis;
+the user should clearly perceive a filled 3D volume.
+
+A small emissive/unlit contribution may be used if necessary so the translucent fill remains visible consistently under the current lighting, but do not create excessive neon glow.
+
+Active only
+participating fill opacity follows the Surface Opacity slider;
+non-participating fill/edges = 0.
+Show all
+participating wedges follow normal Surface Opacity;
+non-participating wedges use approximately 3–6% contextual opacity;
+non-participating edges are even more subdued;
+participating volumes remain clearly distinguishable.
+
+Do not change sector geometry or canonical data.
+
+4. Correct the conventional arrow construction
+
+The read-only diagnosis confirmed the exact problem:
+
+the current shaft/curve continues all the way to the arrowhead tip.
+
+This causes the line to visually pass through the cone and makes the head look like a detached flag/wedge.
+
+Change the geometry to a conventional arrow:
+
+shaft ends at arrowhead base → cone extends forward → tip reaches target
+
+Define:
+
+T = target attachment point / arrowhead tip position;
+D = normalised final curve tangent toward target;
+H = actual arrowhead/cone height.
+
+Then:
+
+Cone tip
+
+T
+
+Cone centre
+
+T - D × H/2
+
+Cone base centre
+
+T - D × H
+
+The shaft must end at the cone base centre, not at T.
+
+Therefore:
+
+source ─────────────────▷ target
+
+where the line meets the flat centre of the back of the arrowhead and the cone projects forward to the target object.
+
+5. Trim the shaft cleanly
+
+Do not merely draw the original full curve underneath the cone.
+
+Shorten/trim the rendered shaft so its final rendered point is the arrowhead base centre.
+
+Maintain a smooth tangent into the arrowhead:
+
+the final shaft direction should naturally meet the cone base;
+do not introduce a visible kink immediately before the arrowhead;
+do not render any shaft segment inside the cone.
+
+Keep the existing correct target attachment/world-position transform from the previous repair.
+
+6. Arrowhead proportions
+
+Keep one arrowhead only, at the target.
+
+Make it look like a normal arrow tip:
+
+relatively narrow base;
+compact height;
+clearly directional;
+same loop colour as the shaft;
+slight scaling with Arrow Thickness is fine;
+strict maximum size so it never becomes a large triangular flag.
+
+Do not change source/target semantics.
+
+7. Preserve the working connection position fix
+
+Do not alter the corrected Three.js positive-Y world transformation.
+
+The arrow tip target must remain attached to the actual rendered target object.
+
+Preserve:
+
+level position;
+explode offset;
+object local height;
+sector rotation;
+canonical level_id / sector_id / grid_x / grid_y.
+8. Preserve everything else
+
+Do not change in this task:
+
+pan/rotate logic;
+camera transition logic;
+Stage 4 opacity entry logic;
+Loop model;
+continuous loop builder;
+Loop Table;
+Predictive Maintenance;
+Process Optimisation;
+Add Example Loops;
+Show Only This Loop object filtering;
+Data Display;
+Object Size;
+Label Size;
+Explode/Assemble;
+Structure;
+Data;
+Visualise;
+Explorer;
+Forging Case Study;
+Advanced placeholder.
+
+Do not implement the 2D triangular view yet.
+
+9. Acceptance checks
+
+Verify:
+
+Show Only This Loop provides Active only / Show all Sector Context.
+Active sector determination is per level + sector.
+Participating wedges look like translucent filled 3D volumes rather than predominantly wireframes.
+Active only completely hides non-participating sector geometry.
+Show all keeps non-participating sectors only as faint context.
+Non-loop data remains hidden in both modes.
+The arrow tip remains at the target attachment point.
+The cone centre is half an arrowhead height behind the tip.
+The shaft terminates at the cone base centre, one full arrowhead height behind the tip.
+No shaft is rendered through the cone.
+Shaft meets arrowhead smoothly.
+Arrowhead remains compact even at maximum Arrow Thickness.
+The previously corrected world-position transform remains unchanged.
+Explorer and Forging Case Study remain unchanged.
+
+Run type/build/diff checks. Clearly state which final WebGL appearance checks still require real-browser testing.
+
+Do not add any other scope.
