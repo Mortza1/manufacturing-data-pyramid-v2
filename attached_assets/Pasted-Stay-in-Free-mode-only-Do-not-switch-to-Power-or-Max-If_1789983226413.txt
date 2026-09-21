@@ -1,0 +1,238 @@
+Stay in Free mode only. Do not switch to Power or Max. If this task cannot be completed in Free mode, stop and tell me instead of escalating.
+
+Work only in the current Manufacturing_Data_Pyramid_v2 fork.
+
+This task is Walkthrough Stage 3 — VISUALISE only. Structure and Data are now working and must not be redesigned. Do not implement Connections, Save/database, profiles, case library, Models, Agents, Decisions, or Advanced mode functionality in this task.
+
+Preserve all existing stable functionality. Do not refactor unrelated code.
+
+1. Activate Stage 3 correctly
+
+When the user clicks Finish Data in Walkthrough Stage 2:
+
+move the Walkthrough to Visualise;
+return from the 2D level placement board to a full 3D pyramid view;
+update the progress indicator to:
+
+Structure ✓ → Data ✓ → Visualise active → Connections locked → Save locked
+
+Add a clear Back to Data control so the user can return to Stage 2, change data, and come back to Visualise without losing anything.
+
+Show Connections as the next stage, but do not implement its editor yet. Do not send the user into an unfinished Connections screen.
+
+2. Reconstruct every data object from the canonical snap-grid state
+
+The Stage 3 3D pyramid must render the exact case created in Structure + Data.
+
+For every object:
+
+use its saved level_id;
+use its saved sector_id;
+use its integer grid_x;
+use its integer grid_y;
+derive z from the object's level;
+derive render x/y/z from the existing grid-to-3D geometry mapping.
+
+Do not create or save new arbitrary decimal x/y/z coordinates as canonical object positions.
+
+The canonical position must remain:
+
+level_id + sector_id + grid_x + grid_y
+
+The same grid cell must reconstruct to the corresponding location when the user leaves Stage 3 and returns later.
+
+3. Do not display the placement grid in normal 3D Visualise mode
+
+The 8×8 snap grid is an editing aid for Stage 2.
+
+In Stage 3:
+
+hide grid lines;
+hide free/occupied-cell overlays;
+hide placement-board controls;
+retain the actual pyramid, sectors and placed data objects.
+
+Do not delete the grid information from state — simply do not display it in the normal 3D Visualise view.
+
+4. Level and sector labels
+
+Preserve the label work already implemented.
+
+Stage 3 must show the actual configured level names and sector names, including manually renamed ones.
+
+Requirements:
+
+level labels should sit outside/beside their associated pyramid level rather than covering data objects;
+sector labels should clearly identify sector directions/regions without cluttering the pyramid;
+preserve the existing Show / Hide Labels control;
+labels must remain associated with the correct level/sector while the user rotates and zooms;
+hiding labels must change presentation only, never case state.
+5. Render the data objects clearly
+
+Every data object placed during Stage 2 must be visible in Stage 3.
+
+Requirements:
+
+objects remain associated with their correct level and sector;
+avoid obvious object-to-object overlap where possible;
+do not hide objects inside opaque pyramid surfaces;
+preserve sector colour identity where already used;
+retain useful object names/labels without excessive visual clutter;
+rotation and zoom must not cause objects to disappear unexpectedly.
+
+Do not change the object's saved grid cell merely to make the scene prettier.
+
+6. Object inspection
+
+Clicking/tapping a data object in Stage 3 should select it and show a concise inspection panel/card containing the metadata already stored for that object, such as:
+
+Name
+Description
+Level
+Sector
+Availability/status
+Source/system/device
+Protocol
+Format
+Data type/signal type
+Frequency/sample rate
+Sensing/settings metadata
+Preprocessing/feature extraction
+Intended use
+
+Show only fields that have values rather than filling the panel with empty rows.
+
+Provide an obvious way to close/deselect the object.
+
+Do not turn Stage 3 into a full object editor. Editing remains in the Data stage for now.
+
+7. Preserve interactive 3D controls
+
+The Visualise stage must support the existing stable controls:
+
+free orbit / 360° rotation;
+zoom in/out;
+viewing from above and below;
+Explode / Assemble;
+Isolate level;
+Isolate/focus sector where already supported;
+Section view where already supported;
+Reset camera/view;
+Show/Hide Labels;
+existing surface/transparency controls if already available.
+
+User-controlled zoom/orbit must remain available while using these views.
+
+Do not change how these stable controls behave unless a very small compatibility fix is necessary to make Walkthrough-created objects follow their level/sector correctly.
+
+8. Explode / isolate behaviour
+
+When levels or sectors move because of an existing visualisation control:
+
+their data objects must travel with them;
+objects must remain visibly associated with the correct level/sector;
+assembling/restoring must return them correctly;
+their saved grid addresses must not change.
+
+Exploding, isolating, rotating, zooming or sectioning is a presentation operation, not a data-placement operation.
+
+9. Presentation Tidy
+
+Add or reuse a Presentation Tidy control only if this can be done safely without disturbing existing functionality.
+
+Its purpose is to improve readability when multiple data objects are visually crowded.
+
+Presentation Tidy may visually offset objects toward a relevant sector face, corner or edge, but:
+
+it must be view-only;
+it must not alter level_id, sector_id, grid_x or grid_y;
+returning to normal layout must reconstruct the original grid-derived positions exactly;
+do not create a second persistent coordinate system.
+
+If a reliable view-only Tidy mode is not practical in this Free-mode pass, leave it out rather than compromising the snap-grid state.
+
+10. Brick / Futuristic styling
+
+Only if the current code already has a safe style mechanism, expose a simple:
+
+Futuristic / Brick
+
+display toggle in Stage 3.
+
+This is strictly visual.
+
+Switching style must never change:
+
+IDs;
+level/sector assignment;
+grid addresses;
+metadata;
+object count;
+case state.
+
+If this requires significant new implementation, defer it. Functional Visualise behaviour is more important.
+
+11. Stage navigation and data integrity
+
+Test this workflow carefully:
+
+Structure → Data → Visualise → Back to Data → modify/add/move/remove data → Finish Data → Visualise again
+
+Confirm:
+
+nothing disappears unexpectedly;
+manually added data remains;
+Auto-filled data remains;
+deleted data stays deleted;
+grid addresses remain unchanged unless the user deliberately moves an item in Stage 2;
+renamed levels/sectors remain correct;
+Clear Current Level still works when the user returns to Data;
+the 3D view immediately reflects Stage 2 changes after returning to Visualise.
+12. Explicitly DO NOT change
+
+Do not modify or build:
+
+Stage 4 Connections;
+Stage 5 Save/database;
+SQL/database schema;
+user accounts/profiles;
+case library;
+version history;
+Models;
+Agents;
+Decisions;
+Advanced workspace;
+Forging Case Study;
+Explorer mode;
+the working Stage 1 Structure interaction;
+the working Stage 2 8×8 placement board;
+Stage 2 Auto-fill strategy;
+Stage 2 Clear Current Level;
+existing metadata schema;
+unrelated styling.
+
+Keep Advanced as the existing placeholder only.
+
+13. Acceptance test before finishing
+
+Do not report completion until these have been checked:
+
+Create/confirm a 5-level, 4-sector Structure.
+Add representative data to at least three different levels and all four sectors.
+Finish Data.
+Visualise opens automatically.
+All placed objects appear in their correct level/sector.
+No 8×8 editing grid is visible in normal 3D view.
+Level and sector labels display the actual configured names and can be hidden/shown.
+Clicking an object shows its stored metadata.
+Rotate and zoom work freely.
+Explode/assemble keeps objects attached to their levels.
+Isolate/section does not alter stored placement.
+Back to Data works.
+Modify one object's placement in Data and return to Visualise; the new position is correctly reconstructed.
+Reload/navigation does not introduce a runtime error or corrupt the current walkthrough state.
+Explorer and Forging Case Study still behave as before.
+
+Fix only issues necessary for these acceptance tests.
+
+Do not add new scope. Do not switch from Free mode.
