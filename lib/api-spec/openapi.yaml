@@ -63,6 +63,44 @@ paths:
                 $ref: "#/components/schemas/V2User"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /users/{userId}/projects:
+    get:
+      operationId: listV2UserProjects
+      tags: [walkthrough-save]
+      summary: List saved projects for a named user
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Saved projects
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [projects]
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/V2Project"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /projects/{projectId}:
+    get:
+      operationId: getV2Project
+      tags: [walkthrough-save]
+      summary: Retrieve saved project metadata
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Saved project metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/V2Project"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /projects:
     post:
       operationId: createV2Project
@@ -113,6 +151,27 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+    get:
+      operationId: listV2ProjectVersions
+      tags: [walkthrough-save]
+      summary: List immutable versions for a saved project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Saved version metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [versions]
+                properties:
+                  versions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/V2ProjectVersionSummary"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /projects/{projectId}/versions/{versionId}:
     get:
       operationId: getV2ProjectVersion
@@ -137,6 +196,13 @@ paths:
           $ref: "#/components/responses/NotFound"
 components:
   parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     ProjectId:
       name: projectId
       in: path
@@ -455,6 +521,28 @@ components:
           format: uuid
         snapshot:
           $ref: "#/components/schemas/V2Snapshot"
+    V2ProjectVersionSummary:
+      type: object
+      required: [id, projectId, versionNumber, snapshotSchemaVersion, versionNote, createdAt, creatorUserId]
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        versionNumber:
+          type: integer
+        snapshotSchemaVersion:
+          type: integer
+        versionNote:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        creatorUserId:
+          type: string
+          format: uuid
     V2SaveResult:
       type: object
       required: [project, version]

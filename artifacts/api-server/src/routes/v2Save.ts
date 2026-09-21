@@ -97,10 +97,54 @@ function serializeVersion(version: typeof projectVersionsTable.$inferSelect) {
   return version;
 }
 
+function serializeVersionSummary(version: typeof projectVersionsTable.$inferSelect) {
+  const { snapshot: _snapshot, ...summary } = version;
+  return summary;
+}
+
 router.get("/users", async (_req, res) => {
   try {
     const users = await db.select().from(usersTable).orderBy(usersTable.displayName);
     res.json({ users: users.map(serializeUser) });
+  } catch (error) {
+    res.status(500).json({ error: errorMessage(error) });
+  }
+});
+
+router.get("/users/:userId/projects", async (req, res) => {
+  try {
+    const user = (await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.params.userId))
+      .limit(1))[0];
+    if (!user) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+    const projects = await db
+      .select()
+      .from(projectsTable)
+      .where(eq(projectsTable.ownerUserId, user.id))
+      .orderBy(desc(projectsTable.updatedAt));
+    res.json({ projects: projects.map(serializeProject) });
+  } catch (error) {
+    res.status(500).json({ error: errorMessage(error) });
+  }
+});
+
+router.get("/projects/:projectId", async (req, res) => {
+  try {
+    const project = (await db
+      .select()
+      .from(projectsTable)
+      .where(eq(projectsTable.id, req.params.projectId))
+      .limit(1))[0];
+    if (!project) {
+      res.status(404).json({ error: "Project not found." });
+      return;
+    }
+    res.json(serializeProject(project));
   } catch (error) {
     res.status(500).json({ error: errorMessage(error) });
   }
@@ -229,6 +273,7 @@ router.post("/projects/:projectId/versions", async (req, res) => {
         .where(eq(usersTable.id, parsed.data.creatorUserId))
         .limit(1))[0];
       if (!creator) throw new Error("Creator user was not found.");
+      if (project.ownerUserId !== creator.id) throw new Error("Creator user does not own this project.");
       const latest = await tx
         .select()
         .from(projectVersionsTable)
@@ -260,6 +305,28 @@ router.post("/projects/:projectId/versions", async (req, res) => {
   } catch (error) {
     const message = errorMessage(error);
     res.status(message === "Project not found." || message === "Creator user was not found." ? 404 : 400).json({ error: message });
+  }
+});
+
+router.get("/projects/:projectId/versions", async (req, res) => {
+  try {
+    const project = (await db
+      .select({ id: projectsTable.id })
+      .from(projectsTable)
+      .where(eq(projectsTable.id, req.params.projectId))
+      .limit(1))[0];
+    if (!project) {
+      res.status(404).json({ error: "Project not found." });
+      return;
+    }
+    const versions = await db
+      .select()
+      .from(projectVersionsTable)
+      .where(eq(projectVersionsTable.projectId, project.id))
+      .orderBy(desc(projectVersionsTable.versionNumber));
+    res.json({ versions: versions.map(serializeVersionSummary) });
+  } catch (error) {
+    res.status(500).json({ error: errorMessage(error) });
   }
 });
 

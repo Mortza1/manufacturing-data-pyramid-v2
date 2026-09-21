@@ -174,6 +174,16 @@ export interface V2ProjectVersion {
   snapshot: V2Snapshot;
 }
 
+export interface V2ProjectVersionSummary {
+  id: string;
+  projectId: string;
+  versionNumber: number;
+  snapshotSchemaVersion: number;
+  versionNote: string;
+  createdAt: string;
+  creatorUserId: string;
+}
+
 export interface V2SaveResult {
   project: V2Project;
   version: V2ProjectVersion;
@@ -192,3 +202,12 @@ export type NotFoundResponse = ErrorResponse;
 export type ListV2Users200 = {
   users: V2User[];
 };
+
+export type ListV2UserProjects200 = {
+  projects: V2Project[];
+};
+
+export type ListV2ProjectVersions200 = {
+  versions: V2ProjectVersionSummary[];
+};
+

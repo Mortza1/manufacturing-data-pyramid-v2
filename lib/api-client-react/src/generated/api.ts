@@ -26,8 +26,11 @@ import type {
   CreateV2UserRequest,
   ErrorResponse,
   HealthStatus,
+  ListV2ProjectVersions200,
+  ListV2UserProjects200,
   ListV2Users200,
   NotFoundResponse,
+  V2Project,
   V2SaveResult,
   V2User
 } from './api.schemas';
@@ -132,6 +135,11 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 }
 
 
+
+
+
+
+
 export const getListV2UsersUrl = () => {
 
 
@@ -204,6 +212,11 @@ export function useListV2Users<TData = Awaited<ReturnType<typeof listV2Users>>, 
 }
 
 
+
+
+
+
+
 export const getCreateV2UserUrl = () => {
 
 
@@ -274,6 +287,160 @@ export const useCreateV2User = <TError = ErrorType<BadRequestResponse>,
       > => {
       return useMutation(getCreateV2UserMutationOptions(options));
     }
+
+export const getListV2UserProjectsUrl = (userId: string,) => {
+
+
+
+
+  return `/api/users/${userId}/projects`
+}
+
+/**
+ * @summary List saved projects for a named user
+ */
+export const listV2UserProjects = async (userId: string, options?: Parameters<typeof customFetch>[1]): Promise<ListV2UserProjects200> => {
+
+  return customFetch<ListV2UserProjects200>(getListV2UserProjectsUrl(userId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListV2UserProjectsQueryKey = (userId: string,) => {
+    return [
+    `/api/users/${userId}/projects`
+    ] as const;
+    }
+
+
+export const getListV2UserProjectsQueryOptions = <TData = Awaited<ReturnType<typeof listV2UserProjects>>, TError = ErrorType<NotFoundResponse>>(userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listV2UserProjects>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListV2UserProjectsQueryKey(userId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listV2UserProjects>>> = ({ signal }) => listV2UserProjects(userId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: userId !== null && userId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listV2UserProjects>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListV2UserProjectsQueryResult = NonNullable<Awaited<ReturnType<typeof listV2UserProjects>>>
+export type ListV2UserProjectsQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary List saved projects for a named user
+ */
+
+export function useListV2UserProjects<TData = Awaited<ReturnType<typeof listV2UserProjects>>, TError = ErrorType<NotFoundResponse>>(
+ userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listV2UserProjects>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListV2UserProjectsQueryOptions(userId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetV2ProjectUrl = (projectId: string,) => {
+
+
+
+
+  return `/api/projects/${projectId}`
+}
+
+/**
+ * @summary Retrieve saved project metadata
+ */
+export const getV2Project = async (projectId: string, options?: Parameters<typeof customFetch>[1]): Promise<V2Project> => {
+
+  return customFetch<V2Project>(getGetV2ProjectUrl(projectId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetV2ProjectQueryKey = (projectId: string,) => {
+    return [
+    `/api/projects/${projectId}`
+    ] as const;
+    }
+
+
+export const getGetV2ProjectQueryOptions = <TData = Awaited<ReturnType<typeof getV2Project>>, TError = ErrorType<NotFoundResponse>>(projectId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getV2Project>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetV2ProjectQueryKey(projectId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getV2Project>>> = ({ signal }) => getV2Project(projectId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: projectId !== null && projectId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getV2Project>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetV2ProjectQueryResult = NonNullable<Awaited<ReturnType<typeof getV2Project>>>
+export type GetV2ProjectQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Retrieve saved project metadata
+ */
+
+export function useGetV2Project<TData = Awaited<ReturnType<typeof getV2Project>>, TError = ErrorType<NotFoundResponse>>(
+ projectId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getV2Project>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetV2ProjectQueryOptions(projectId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getCreateV2ProjectUrl = () => {
 
@@ -418,6 +585,83 @@ export const useCreateV2ProjectVersion = <TError = ErrorType<BadRequestResponse 
       return useMutation(getCreateV2ProjectVersionMutationOptions(options));
     }
 
+export const getListV2ProjectVersionsUrl = (projectId: string,) => {
+
+
+
+
+  return `/api/projects/${projectId}/versions`
+}
+
+/**
+ * @summary List immutable versions for a saved project
+ */
+export const listV2ProjectVersions = async (projectId: string, options?: Parameters<typeof customFetch>[1]): Promise<ListV2ProjectVersions200> => {
+
+  return customFetch<ListV2ProjectVersions200>(getListV2ProjectVersionsUrl(projectId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListV2ProjectVersionsQueryKey = (projectId: string,) => {
+    return [
+    `/api/projects/${projectId}/versions`
+    ] as const;
+    }
+
+
+export const getListV2ProjectVersionsQueryOptions = <TData = Awaited<ReturnType<typeof listV2ProjectVersions>>, TError = ErrorType<NotFoundResponse>>(projectId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listV2ProjectVersions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListV2ProjectVersionsQueryKey(projectId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listV2ProjectVersions>>> = ({ signal }) => listV2ProjectVersions(projectId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: projectId !== null && projectId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listV2ProjectVersions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListV2ProjectVersionsQueryResult = NonNullable<Awaited<ReturnType<typeof listV2ProjectVersions>>>
+export type ListV2ProjectVersionsQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary List immutable versions for a saved project
+ */
+
+export function useListV2ProjectVersions<TData = Awaited<ReturnType<typeof listV2ProjectVersions>>, TError = ErrorType<NotFoundResponse>>(
+ projectId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listV2ProjectVersions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListV2ProjectVersionsQueryOptions(projectId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetV2ProjectVersionUrl = (projectId: string,
     versionId: string,) => {
 
@@ -494,4 +738,9 @@ export function useGetV2ProjectVersion<TData = Awaited<ReturnType<typeof getV2Pr
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-// End of generated API.
+
+
+
+
+
+

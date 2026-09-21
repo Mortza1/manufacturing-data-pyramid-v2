@@ -39,6 +39,17 @@ export interface V2LoopBuilder {
   currentObjectId: string | null;
 }
 
+export interface V2LoadedProjectContext {
+  userId: string;
+  userName: string;
+  projectId: string;
+  projectName: string;
+  projectDescription: string;
+  sourceVersionId: string;
+  sourceVersionNumber: number;
+  latestVersionNumber: number;
+}
+
 export type V2LoopSelectionResult =
   | { status: 'started'; objectId: string }
   | { status: 'segment_created'; connectionId: string }
@@ -214,6 +225,8 @@ interface V2State {
   setMode: (mode: 'explorer' | 'walkthrough' | 'advanced') => void;
 
   activeCase: V2Case | null;
+  loadedProjectContext: V2LoadedProjectContext | null;
+  isProjectBrowserOpen: boolean;
   isEditingStructure: boolean;
   walkthroughStage: 'structure' | 'data' | 'visualise' | 'connections' | 'save';
   dataLevelIndex: number;
@@ -243,6 +256,9 @@ interface V2State {
   connectionsFinished: boolean;
   viewResetNonce: number;
   setIsEditingStructure: (isEditing: boolean) => void;
+  setProjectBrowserOpen: (open: boolean) => void;
+  hydrateSavedCase: (savedCase: V2Case, context: V2LoadedProjectContext) => void;
+  setLoadedProjectContext: (context: V2LoadedProjectContext | null) => void;
   setWalkthroughStage: (stage: 'structure' | 'data' | 'visualise' | 'connections' | 'save') => void;
   setDataLevelIndex: (index: number) => void;
   setShowV2Labels: (show: boolean) => void;
@@ -304,6 +320,8 @@ export const useV2Store = create<V2State>()(
       setMode: (mode) => set({ mode }),
 
       activeCase: null,
+      loadedProjectContext: null,
+      isProjectBrowserOpen: false,
       isEditingStructure: true,
       walkthroughStage: 'structure',
       dataLevelIndex: 0,
@@ -333,6 +351,43 @@ export const useV2Store = create<V2State>()(
       connectionsFinished: false,
       viewResetNonce: 0,
       setIsEditingStructure: (isEditing) => set({ isEditingStructure: isEditing }),
+      setProjectBrowserOpen: (isProjectBrowserOpen) => set({ isProjectBrowserOpen }),
+      hydrateSavedCase: (savedCase, loadedProjectContext) => set({
+        mode: 'walkthrough',
+        activeCase: savedCase,
+        loadedProjectContext,
+        isEditingStructure: false,
+        walkthroughStage: 'save',
+        dataLevelIndex: 0,
+        skippedLevelIds: [],
+        dataAutoFillNotice: null,
+        selectedVisualiseObjectId: null,
+        visualiseExploded: false,
+        visualiseFocusedLevelId: null,
+        visualiseOnlyLevelId: null,
+        visualiseHiddenSectorIds: [],
+        visualiseSurfaceOpacity: 0.72,
+        visualiseDataDensity: 'all',
+        visualiseObjectScale: 1,
+        visualiseLabelScale: 1,
+        selectedLoopId: null,
+        showOnlyLoopId: null,
+        loopSectorContext: 'active',
+        connectionsView: '3d',
+        connections2DLoopId: null,
+        isConnectionsPanelCollapsed: false,
+        lastSpecificLoopId: null,
+        expandedLoopIds: [],
+        loopBuilder: null,
+        selectedConnectionId: null,
+        connectionArrowThickness: 1,
+        connectionsFinished: true,
+        draft: {
+          levels: savedCase.levels,
+          sectors: savedCase.sectors,
+        },
+      }),
+      setLoadedProjectContext: (loadedProjectContext) => set({ loadedProjectContext }),
       setWalkthroughStage: (walkthroughStage) => set((state) => ({
         walkthroughStage,
         visualiseSurfaceOpacity: walkthroughStage === 'connections' && state.walkthroughStage !== 'connections'
@@ -780,6 +835,8 @@ export const useV2Store = create<V2State>()(
       finishConnections: () => set({ connectionsFinished: true, walkthroughStage: 'save' }),
       restartWalkthrough: () => set({
         activeCase: null,
+        loadedProjectContext: null,
+        isProjectBrowserOpen: false,
         isEditingStructure: true,
         walkthroughStage: 'structure',
         dataLevelIndex: 0,
@@ -1137,8 +1194,8 @@ export const useV2Store = create<V2State>()(
       },
     }),
     {
-      name: 'manufacturing-v2-case-storage',
-      version: 7,
+       name: 'manufacturing-v2-case-storage',
+       version: 8,
       migrate: (persistedState: any) => {
         const activeCase = persistedState?.activeCase;
         const isEditingStructure = activeCase
@@ -1174,10 +1231,12 @@ export const useV2Store = create<V2State>()(
                  },
                }).overlays,
            } : null,
+           loadedProjectContext: persistedState?.loadedProjectContext ?? null,
         };
       },
       partialize: (state) => ({
         activeCase: state.activeCase,
+         loadedProjectContext: state.loadedProjectContext,
         isEditingStructure: state.isEditingStructure,
         walkthroughStage: state.walkthroughStage,
         dataLevelIndex: state.dataLevelIndex,

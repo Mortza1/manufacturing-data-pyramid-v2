@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { AlertCircle, ArrowRight, Check, ChevronLeft, ChevronRight, Database, Edit2, Eye, EyeOff, Lock, Wand2, GraduationCap, Grid3X3, Link2, Plus, Save, SkipForward, Trash2, Move, Maximize2, Minimize2, RotateCcw, X, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, ChevronLeft, ChevronRight, Database, Edit2, Eye, EyeOff, FolderOpen, Lock, Wand2, GraduationCap, Grid3X3, Link2, Plus, Save, SkipForward, Trash2, Move, Maximize2, Minimize2, RotateCcw, X, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, LOOP_COLOR_PALETTE, type V2DataDensity, type V2DataDraft, type V2LoopDraft, type V2MetadataPatch } from '../store';
 import { getSectorIdForGridCell } from '../geometry';
 import { getVisibleV2ObjectIds } from '../visibility';
 import { V2CrossSection } from './V2CrossSection';
+import { SavedProjectBrowser } from './SavedProjectBrowser';
 
 const STAGES = ['Structure', 'Data', 'Visualise', 'Connections', 'Save'];
 
@@ -45,6 +46,23 @@ function RestartWalkthroughButton({ compact = false }: { compact?: boolean }) {
     >
       <RotateCcw size={compact ? 14 : 12} />
       {!compact && 'Restart Walkthrough'}
+    </button>
+  );
+}
+
+function OpenProjectButton({ compact = false }: { compact?: boolean }) {
+  const setProjectBrowserOpen = useV2Store((state) => state.setProjectBrowserOpen);
+  return (
+    <button
+      onClick={() => setProjectBrowserOpen(true)}
+      title="Open Project"
+      aria-label="Open Project"
+      className={compact
+        ? 'flex h-9 w-9 items-center justify-center rounded border border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/20'
+        : 'flex items-center gap-1.5 rounded border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-100 hover:bg-cyan-300/20'}
+    >
+      <FolderOpen size={compact ? 14 : 12} />
+      {!compact && 'Open Project'}
     </button>
   );
 }
@@ -254,6 +272,7 @@ function DataBoard() {
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-cyan-300/15 bg-[#07131f] px-5 py-4">
         <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-300/70">Walkthrough / Data</p><h2 className="mt-1 text-xl font-bold text-cyan-50">Add data to {level.name}</h2><p className="mt-1 text-xs text-muted-foreground">One level at a time · {activeCase.grid.width}×{activeCase.grid.height} sector-aware snap grid</p></div>
         <div className="flex flex-wrap gap-2">
+           <OpenProjectButton />
            <RestartWalkthroughButton />
           <button onClick={reopenStructure} className="rounded border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground"><Edit2 size={13} className="mr-1.5 inline" /> Revise structure</button>
           <button onClick={() => setWalkthroughStage('data')} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100">Data stage</button>
@@ -432,6 +451,7 @@ function VisualiseStage() {
             <p className="mt-1 text-xs leading-relaxed text-indigo-100/65">Explore the configured frame and inspect each placed data element.</p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
+            <OpenProjectButton />
             <RestartWalkthroughButton />
             <button onClick={() => setWalkthroughStage('data')} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-300/20">Back to Data</button>
           </div>
@@ -696,6 +716,7 @@ function ConnectionsStage({ embedded = false }: { embedded?: boolean }) {
         >
           <PanelRightOpen size={15} />
         </button>
+        <OpenProjectButton compact />
         <RestartWalkthroughButton compact />
         <span className="[writing-mode:vertical-rl] rotate-180 text-[9px] font-semibold uppercase tracking-[0.16em] text-indigo-200/70">Walkthrough</span>
       </aside>
@@ -712,6 +733,7 @@ function ConnectionsStage({ embedded = false }: { embedded?: boolean }) {
             <p className="mt-1 text-xs leading-relaxed text-indigo-100/65">Build ordered loops by selecting visible data objects directly in the pyramid. Drag to rotate · Right-drag to pan · Scroll to zoom.</p>
           </div>
            <div className="flex shrink-0 items-center gap-2">
+             <OpenProjectButton />
              <RestartWalkthroughButton />
              <button onClick={() => setConnectionsPanelCollapsed(true)} title="Collapse Panel" aria-label="Collapse Panel" className="flex h-8 w-8 items-center justify-center rounded border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"><PanelRightClose size={15} /></button>
              <Link2 size={22} className="mt-1 text-indigo-200/70" />
@@ -920,15 +942,18 @@ async function getApiError(response: Response) {
 
 function ReviewSaveStage() {
   const activeCase = useV2Store((state) => state.activeCase);
+  const loadedProjectContext = useV2Store((state) => state.loadedProjectContext);
+  const setLoadedProjectContext = useV2Store((state) => state.setLoadedProjectContext);
   const setWalkthroughStage = useV2Store((state) => state.setWalkthroughStage);
   const setConnectionsView = useV2Store((state) => state.setConnectionsView);
   const [users, setUsers] = useState<ReviewUser[]>([]);
   const [ownerUserId, setOwnerUserId] = useState('');
-  const [isCreatingUser, setIsCreatingUser] = useState(true);
+  const [isCreatingUser, setIsCreatingUser] = useState(!loadedProjectContext);
   const [newUserName, setNewUserName] = useState('');
-  const [projectName, setProjectName] = useState(activeCase?.name || '');
-  const [projectDescription, setProjectDescription] = useState('');
+  const [projectName, setProjectName] = useState(loadedProjectContext?.projectName || activeCase?.name || '');
+  const [projectDescription, setProjectDescription] = useState(loadedProjectContext?.projectDescription || '');
   const [versionNote, setVersionNote] = useState('');
+  const [saveAsNewProject, setSaveAsNewProject] = useState(!loadedProjectContext);
   const [saveState, setSaveState] = useState<ReviewSaveState>({ status: 'idle' });
 
   useEffect(() => {
@@ -941,7 +966,7 @@ function ReviewSaveStage() {
       .then((result) => {
         if (!cancelled) {
           setUsers(result.users);
-          setIsCreatingUser(result.users.length === 0);
+           setIsCreatingUser(!loadedProjectContext && result.users.length === 0);
         }
       })
       .catch(() => {
@@ -950,11 +975,20 @@ function ReviewSaveStage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadedProjectContext]);
 
   useEffect(() => {
     if (activeCase && !projectName) setProjectName(activeCase.name);
   }, [activeCase, projectName]);
+
+  useEffect(() => {
+    if (!loadedProjectContext) return;
+    setOwnerUserId(loadedProjectContext.userId);
+    setIsCreatingUser(false);
+    setProjectName(loadedProjectContext.projectName);
+    setProjectDescription(loadedProjectContext.projectDescription);
+    setSaveAsNewProject(false);
+  }, [loadedProjectContext]);
 
   const summary = useMemo(() => {
     if (!activeCase) return null;
@@ -991,7 +1025,7 @@ function ReviewSaveStage() {
   if (!activeCase || !summary) return null;
 
   const selectedUser = users.find((user) => user.id === ownerUserId);
-  const activeUserName = isCreatingUser ? newUserName.trim() : selectedUser?.displayName || '';
+  const activeUserName = isCreatingUser ? newUserName.trim() : selectedUser?.displayName || loadedProjectContext?.userName || '';
   const snapshot = {
     format: 'manufacturing-data-pyramid-v2' as const,
     schemaVersion: 1 as const,
@@ -1003,50 +1037,56 @@ function ReviewSaveStage() {
     setWalkthroughStage('connections');
   };
 
-  const saveProject = async () => {
-    if (!activeUserName) {
+  const saveProject = async (branchAsNewProject = saveAsNewProject) => {
+    if ((branchAsNewProject || !loadedProjectContext) && !activeUserName) {
       setSaveState({ status: 'error', message: 'Choose an existing user or enter a new user name.' });
       return;
     }
-    if (!projectName.trim()) {
+    if ((branchAsNewProject || !loadedProjectContext) && !projectName.trim()) {
       setSaveState({ status: 'error', message: 'Enter a project name before saving.' });
       return;
     }
     setSaveState({ status: 'saving' });
     try {
-      const response = await fetch('/api/projects', {
+      const response = await fetch(loadedProjectContext && !branchAsNewProject
+        ? `/api/projects/${loadedProjectContext.projectId}/versions`
+        : '/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(ownerUserId ? { ownerUserId } : { userName: activeUserName }),
-          projectName: projectName.trim(),
-          description: projectDescription.trim(),
-          versionNote: versionNote.trim(),
-          snapshot,
-        }),
+        body: JSON.stringify(loadedProjectContext && !branchAsNewProject
+          ? { creatorUserId: loadedProjectContext.userId, versionNote: versionNote.trim(), snapshot }
+          : {
+            ...(ownerUserId ? { ownerUserId } : { userName: activeUserName }),
+            projectName: projectName.trim(),
+            description: projectDescription.trim(),
+            versionNote: versionNote.trim(),
+            snapshot,
+          }),
       });
       if (!response.ok) throw new Error(await getApiError(response));
       const saved = await response.json() as {
-        project: { id: string; name: string };
-        version: { id: string; versionNumber: number; createdAt: string };
+        project: { id: string; ownerUserId: string; name: string; description: string };
+        version: { id: string; versionNumber: number; createdAt: string; snapshot: unknown };
       };
-      const verifyResponse = await fetch(`/api/projects/${saved.project.id}/versions/${saved.version.id}`);
-      if (!verifyResponse.ok) {
-        setSaveState({
-          status: 'success',
-          userName: activeUserName,
-          projectName: saved.project.name,
-          versionNumber: saved.version.versionNumber,
-          savedAt: saved.version.createdAt,
-          verified: false,
-        });
-        return;
-      }
-      const retrieved = await verifyResponse.json() as { version: { snapshot: unknown } };
-      const verified = JSON.stringify(retrieved.version.snapshot) === JSON.stringify(snapshot);
+      const verified = JSON.stringify(saved.version.snapshot) === JSON.stringify(snapshot);
+      if (!verified) throw new Error('The saved version returned a different snapshot and was not loaded into the current project context.');
+      const nextUserName = loadedProjectContext && !branchAsNewProject ? loadedProjectContext.userName : activeUserName;
+      setLoadedProjectContext({
+        userId: saved.project.ownerUserId,
+        userName: nextUserName,
+        projectId: saved.project.id,
+        projectName: saved.project.name,
+        projectDescription: saved.project.description,
+        sourceVersionId: saved.version.id,
+        sourceVersionNumber: saved.version.versionNumber,
+        latestVersionNumber: Math.max(loadedProjectContext?.latestVersionNumber || 0, saved.version.versionNumber),
+      });
+      setSaveAsNewProject(false);
+      setProjectName(saved.project.name);
+      setProjectDescription(saved.project.description);
       setSaveState({
         status: 'success',
-        userName: activeUserName,
+        userName: nextUserName,
         projectName: saved.project.name,
         versionNumber: saved.version.versionNumber,
         savedAt: saved.version.createdAt,
@@ -1066,7 +1106,8 @@ function ReviewSaveStage() {
             <h2 className="mt-1 text-xl font-bold text-emerald-100">Review your complete pyramid</h2>
             <p className="mt-1 text-xs leading-relaxed text-emerald-100/65">Confirm the project summary, then save an immutable version to PostgreSQL.</p>
           </div>
-          <RestartWalkthroughButton />
+           <OpenProjectButton />
+           <RestartWalkthroughButton />
         </div>
       </header>
       <Progress currentStage={4} completedStages={[0, 1, 2, 3]} />
@@ -1123,30 +1164,45 @@ function ReviewSaveStage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-white/10 bg-black/20 p-4">
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-200/80">Project identity</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">User Name
-                <select value={isCreatingUser || users.length === 0 ? '__new__' : ownerUserId} onChange={(event) => { const value = event.target.value; setIsCreatingUser(value === '__new__'); setOwnerUserId(value === '__new__' ? '' : value); }} className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2.5 py-2 text-xs text-foreground outline-none focus:border-emerald-300/60">
-                  <option value="">Select existing user</option>
-                  {users.map((user) => <option key={user.id} value={user.id}>{user.displayName}</option>)}
-                  <option value="__new__">+ New User</option>
-                </select>
-              </label>
-              {isCreatingUser && <Field label="New user name" value={newUserName} onChange={setNewUserName} required />}
-              <Field label="Project name" value={projectName} onChange={setProjectName} required />
-              <div className="sm:col-span-2"><Field label="Project description (optional)" value={projectDescription} onChange={setProjectDescription} multiline /></div>
-              <div className="sm:col-span-2"><Field label="Version note (optional)" value={versionNote} onChange={setVersionNote} multiline /></div>
-            </div>
-          </section>
+           <section className="rounded-xl border border-white/10 bg-black/20 p-4">
+             <div className="mb-3 flex items-start justify-between gap-3">
+               <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-200/80">{loadedProjectContext && !saveAsNewProject ? 'Loaded project context' : 'Project identity'}</p><p className="mt-1 text-[10px] text-muted-foreground">{loadedProjectContext && !saveAsNewProject ? `Saving a new immutable version of v${loadedProjectContext.sourceVersionNumber}.` : 'Save this complete snapshot as a separate project starting at version 1.'}</p></div>
+               {loadedProjectContext && !saveAsNewProject && <button onClick={() => setSaveAsNewProject(true)} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-100 hover:bg-cyan-300/20">Save As New Project</button>}
+             </div>
+             {loadedProjectContext && !saveAsNewProject ? (
+               <div className="grid gap-3 sm:grid-cols-2">
+                 <div className="rounded border border-white/10 bg-white/[0.03] p-3"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">User</p><p className="mt-1 text-sm font-semibold text-foreground">{loadedProjectContext.userName}</p></div>
+                 <div className="rounded border border-white/10 bg-white/[0.03] p-3"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Project</p><p className="mt-1 text-sm font-semibold text-foreground">{loadedProjectContext.projectName}</p></div>
+                 <div className="sm:col-span-2 rounded border border-cyan-300/15 bg-cyan-300/5 p-3 text-[10px] text-cyan-100/70">Latest saved version: v{loadedProjectContext.latestVersionNumber} · Loaded source: v{loadedProjectContext.sourceVersionNumber}</div>
+                 <div className="sm:col-span-2"><Field label="Version note (optional)" value={versionNote} onChange={setVersionNote} multiline /></div>
+               </div>
+             ) : (
+               <div className="grid gap-3 sm:grid-cols-2">
+                 <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">User Name
+                   <select value={isCreatingUser || users.length === 0 ? '__new__' : ownerUserId} onChange={(event) => { const value = event.target.value; setIsCreatingUser(value === '__new__'); setOwnerUserId(value === '__new__' ? '' : value); }} className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2.5 py-2 text-xs text-foreground outline-none focus:border-emerald-300/60">
+                     <option value="">Select existing user</option>
+                     {users.map((user) => <option key={user.id} value={user.id}>{user.displayName}</option>)}
+                     <option value="__new__">+ New User</option>
+                   </select>
+                 </label>
+                 {isCreatingUser && <Field label="New user name" value={newUserName} onChange={setNewUserName} required />}
+                 <Field label="Project name" value={projectName} onChange={setProjectName} required />
+                 <div className="sm:col-span-2"><Field label="Project description (optional)" value={projectDescription} onChange={setProjectDescription} multiline /></div>
+                 <div className="sm:col-span-2"><Field label="Version note (optional)" value={versionNote} onChange={setVersionNote} multiline /></div>
+               </div>
+             )}
+           </section>
 
           {saveState.status === 'error' && <div className="flex items-start gap-2 rounded border border-rose-300/25 bg-rose-400/10 p-3 text-xs text-rose-100"><AlertCircle size={15} className="mt-0.5 shrink-0" /> <span>{saveState.message} Your local working draft is unchanged.</span></div>}
           {saveState.status === 'success' && <div className="rounded border border-emerald-300/25 bg-emerald-400/10 p-3 text-xs text-emerald-100"><p className="font-bold">Saved successfully</p><p className="mt-1">{saveState.userName} / {saveState.projectName} / v{saveState.versionNumber}</p><p className="mt-1 text-emerald-100/70">{new Date(saveState.savedAt).toLocaleString()} · {saveState.verified ? 'Exact retrieval verified' : 'Saved, but exact retrieval verification could not complete'}</p></div>}
         </div>
       </div>
       <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-[#07111c] px-5 py-3">
-        <button onClick={() => setWalkthroughStage('connections')} className="flex items-center gap-1.5 rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-300/20"><ChevronLeft size={14} /> Back to Connections</button>
-        <button onClick={saveProject} disabled={saveState.status === 'saving'} className="flex items-center gap-1.5 rounded bg-emerald-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-300 disabled:cursor-wait disabled:opacity-50"><Save size={14} /> {saveState.status === 'saving' ? 'Saving…' : 'Save as New Project'}</button>
+         <div className="flex flex-wrap items-center gap-2">
+           <button onClick={() => setWalkthroughStage('connections')} className="flex items-center gap-1.5 rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-300/20"><ChevronLeft size={14} /> Back to Connections</button>
+           {loadedProjectContext && !saveAsNewProject && <button onClick={() => setSaveAsNewProject(true)} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-300/20">Save As New Project</button>}
+         </div>
+         <button onClick={() => saveProject(saveAsNewProject)} disabled={saveState.status === 'saving'} className="flex items-center gap-1.5 rounded bg-emerald-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-300 disabled:cursor-wait disabled:opacity-50"><Save size={14} /> {saveState.status === 'saving' ? 'Saving…' : loadedProjectContext && !saveAsNewProject ? 'Save New Version' : 'Save as New Project'}</button>
       </footer>
     </div>
   );
@@ -1172,6 +1228,7 @@ export function WalkthroughUI() {
   const isTwoDConnections = walkthroughStage === 'connections' && activeCase && !isEditingStructure && connectionsView === '2d';
   return (
     <div className={`absolute inset-0 z-20 pointer-events-none ${isTwoDConnections ? 'p-4 md:p-6' : 'flex items-center justify-end p-4 md:p-6'}`}>
+      <SavedProjectBrowser />
       {walkthroughStage === 'data' && activeCase && !isEditingStructure
         ? <DataBoard />
         : walkthroughStage === 'visualise' && activeCase && !isEditingStructure
@@ -1182,7 +1239,7 @@ export function WalkthroughUI() {
               : <ConnectionsStage />
           : walkthroughStage === 'save' && activeCase && !isEditingStructure
             ? <ReviewSaveStage />
-            : <div className="pointer-events-auto flex h-[calc(100dvh-7rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl"><div className="flex shrink-0 items-start justify-between gap-3 border-b border-indigo-400/20 bg-indigo-400/10 p-5"><div><h2 className="flex items-center gap-2 text-xl font-bold text-indigo-100"><GraduationCap className="text-indigo-300" /> Walkthrough</h2><p className="mt-1 text-sm text-indigo-100/65">Define your manufacturing data strategy step by step.</p></div><RestartWalkthroughButton compact={false} /></div><Progress currentStage={currentStage} /><div className="min-h-0 flex-1 overflow-y-auto p-5"><StructureStage /></div></div>}
+            : <div className="pointer-events-auto flex h-[calc(100dvh-7rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl"><div className="flex shrink-0 items-start justify-between gap-3 border-b border-indigo-400/20 bg-indigo-400/10 p-5"><div><h2 className="flex items-center gap-2 text-xl font-bold text-indigo-100"><GraduationCap className="text-indigo-300" /> Walkthrough</h2><p className="mt-1 text-sm text-indigo-100/65">Define your manufacturing data strategy step by step.</p></div><div className="flex items-center gap-2"><OpenProjectButton /><RestartWalkthroughButton compact={false} /></div></div><Progress currentStage={currentStage} /><div className="min-h-0 flex-1 overflow-y-auto p-5"><StructureStage /></div></div>}
     </div>
   );
 }

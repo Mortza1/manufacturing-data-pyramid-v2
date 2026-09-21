@@ -49,6 +49,44 @@ export const CreateV2UserResponse = zod.object({
 
 
 /**
+ * @summary List saved projects for a named user
+ */
+export const ListV2UserProjectsParams = zod.object({
+  "userId": zod.coerce.string().uuid()
+})
+
+export const ListV2UserProjectsResponse = zod.object({
+  "projects": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "ownerUserId": zod.string().uuid(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "currentVersionId": zod.string().uuid().optional(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Retrieve saved project metadata
+ */
+export const GetV2ProjectParams = zod.object({
+  "projectId": zod.coerce.string().uuid()
+})
+
+export const GetV2ProjectResponse = zod.object({
+  "id": zod.string().uuid(),
+  "ownerUserId": zod.string().uuid(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "currentVersionId": zod.string().uuid().optional(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Create a project and its first immutable version
  */
 
@@ -318,6 +356,7 @@ export const CreateV2ProjectResponse = zod.object({
 })
 })
 
+
 /**
  * @summary Append an immutable project version
  */
@@ -584,6 +623,28 @@ export const CreateV2ProjectVersionResponse = zod.object({
 })
 })
 })
+
+
+/**
+ * @summary List immutable versions for a saved project
+ */
+export const ListV2ProjectVersionsParams = zod.object({
+  "projectId": zod.coerce.string().uuid()
+})
+
+export const ListV2ProjectVersionsResponse = zod.object({
+  "versions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "projectId": zod.string().uuid(),
+  "versionNumber": zod.number().int(),
+  "snapshotSchemaVersion": zod.number().int(),
+  "versionNote": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "creatorUserId": zod.string().uuid()
+}))
+})
+
+
 /**
  * @summary Retrieve an exact saved project version
  */
@@ -729,4 +790,5 @@ export const GetV2ProjectVersionResponse = zod.object({
 })
 })
 })
-// End of generated API.
+
+
