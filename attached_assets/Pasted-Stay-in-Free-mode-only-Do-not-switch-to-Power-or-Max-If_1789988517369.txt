@@ -1,0 +1,392 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me rather than escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This is a targeted Stage 4 Connections refactor. The key principle is:
+
+Loops are the primary user-facing entities. Individual directional connections are ordered segments within a loop.
+
+Preserve Structure, Data, Visualise, Explorer and Forging Case Study. Do not implement Stage 5 Save/database, Advanced mode, Models, Agents or Decisions.
+
+1. First fix the current arrow endpoint bug
+
+The read-only inspection identified the exact cause:
+
+visible data objects are children of a level group rotated around Y;
+for four sectors the level group uses a 45° Y rotation;
+current arrow endpoints use grid-derived X/Z coordinates but do not apply that same level rotation;
+therefore arrows visibly start/end in empty space.
+
+Fix this before the loop UX refactor.
+
+Create one shared helper for the actual rendered/world position of a v2 data object and use it consistently for arrow endpoints.
+
+It must include:
+
+level vertical centre;
+Explode offset;
+object local vertical offset;
+sector/level Y rotation;
+grid-derived X/Z location;
+relevant presentation transforms.
+
+Do not calculate connection endpoints from incomplete local coordinates.
+
+Arrows must visibly begin at the source object and terminate at the target object.
+
+Use a conservative shape-aware or mesh-boundary attachment offset so arrowheads do not sit obviously inside the target object or float far away from it.
+
+Preserve all canonical object fields:
+
+level_id
+sector_id
+grid_x
+grid_y
+
+2. Introduce a first-class Loop entity
+
+The current implementation only stores a loop name string independently on every connection.
+
+Replace this with a real loop model.
+
+Each loop should have:
+
+stable loop ID;
+name;
+description;
+colour;
+optional closed/open status;
+ordered connection segments.
+
+Each connection segment should contain:
+
+stable connection ID;
+loop_id;
+sequence/order;
+source_object_id;
+target_object_id;
+direction;
+optional segment label;
+optional segment description/note.
+
+Loop colour belongs primarily to the loop so all segments use the same colour.
+
+3. Safely migrate existing connections
+
+Do not silently discard the connections already created in this v2 case.
+
+Migrate existing data by:
+
+grouping current connections by normalized loop/group string;
+creating one loop entity for each group;
+preserving existing connection IDs;
+preserving source/target, labels and descriptions;
+assigning each migrated segment a deterministic sequence;
+using a sensible loop colour derived from the existing connection colours;
+putting blank/unassigned relationships into an Unassigned loop if required.
+
+Do not modify data objects.
+
+4. Make Create New Loop the primary workflow
+
+Replace the main Create New Connection workflow with:
+
+Create New Loop
+
+First ask for:
+
+Loop name
+Optional description
+Loop colour
+
+Provide approximately 6 predefined distinguishable colours.
+
+Then begin a continuous node-selection workflow:
+
+Select first data element
+
+User clicks object A.
+
+Then:
+
+Select next data element
+
+User clicks object B.
+
+Immediately create:
+
+A → B
+
+Then automatically make B the active endpoint and prompt:
+
+Select the next data element
+
+Clicking C automatically creates:
+
+B → C
+
+Then:
+
+C → D
+
+and so on.
+
+Continue until the user chooses:
+
+Finish Loop
+
+Also provide:
+
+Undo Last Segment
+Cancel Loop
+Finish Loop
+
+Optionally offer:
+
+Close Loop to First Element
+
+but do not automatically close every loop.
+
+Do not allow self-connections, immediately repeated nodes or duplicate segments within the same loop.
+
+5. Make loop-building visually continuous
+
+While a loop is being built:
+
+highlight every node already included;
+highlight the current endpoint more strongly;
+immediately display completed directional segments;
+show the loop name and colour;
+clearly tell the user which node should be selected next.
+
+The user should always understand:
+
+start → current path → current endpoint → next selection
+
+6. Replace the Connection Table with a Loop Table
+
+The top-level table/view should show one row per loop, not one row per connection.
+
+Show:
+
+Loop name
+Colour
+Number of nodes
+Number of connection segments
+Levels spanned
+Sectors involved
+Visibility status
+Show/Hide
+Edit
+Delete
+
+Clicking a loop expands it downward.
+
+The expanded loop should display its ordered path and segment details.
+
+For each segment show:
+
+sequence;
+source data element;
+source level;
+source sector;
+source cell (grid_x, grid_y);
+target data element;
+target level;
+target sector;
+target cell (grid_x, grid_y);
+direction;
+optional segment label/note.
+
+Also display the whole ordered path in a readable line, for example:
+
+Spindle Vibration → Machine State → Condition Assessment → Reliability KPI → Asset Performance
+
+Do not show raw rendered XYZ coordinates by default.
+
+7. Add Example Loops
+
+Replace the generic Add Example Connections concept with:
+
+Add Example Loops
+
+Add two deterministic examples using the existing data objects:
+
+Predictive Maintenance
+
+Prefer a path spanning approximately 4–5 levels using suitable existing objects such as:
+
+Vibration / Machine Signal
+→ Machine State / Alarm Event
+→ Maintenance Condition Assessment
+→ Reliability / Maintenance KPI
+→ Asset Performance / Equipment Risk
+
+Prefer the Machine/Maintenance-relevant sector where suitable.
+
+Process Optimisation
+
+Prefer a path spanning approximately 4–5 levels using suitable existing objects such as:
+
+Material Temperature / Process Signal / Product Measurement
+→ Inspection Result / Process State
+→ Simulation Result
+→ Quality KPI / Resource Utilisation / Production Cost
+→ Profitability / Product Performance
+
+Selection must be deterministic/local only.
+
+No external AI/API.
+
+Prefer one suitable object per level where possible.
+
+Use deterministic tie-breaking by level, sector, grid position and object ID.
+
+Do not generate missing data just to complete a loop.
+
+If a complete meaningful loop cannot be formed, report that clearly rather than generating nonsense.
+
+Never overwrite manual loops.
+
+8. Loop visibility/filtering
+
+Add:
+
+All Loops
+
+plus one selector/control for each stored loop.
+
+Selecting a loop should:
+
+make its arrows prominent;
+highlight its participating data objects;
+dim unrelated arrows/data where appropriate.
+
+Add:
+
+Show Only This Loop
+
+which temporarily hides unrelated arrows and data elements for clarity.
+
+This is presentation-only.
+
+9. Respect Visualise visibility filters
+
+Centralize the current object-visibility logic so the same visible-object set is used consistently by:
+
+object rendering;
+arrow rendering;
+example-loop generation;
+loop-builder selection;
+Loop Table visibility status.
+
+Data Display 1 / 2 / 3 / All, hidden sectors and Show Only level must never delete loop information.
+
+If an endpoint is hidden:
+
+temporarily hide that segment in 3D;
+keep it in the Loop Table;
+show a status such as Hidden by current display filter.
+
+If the active node of a loop being built becomes hidden, pause the builder and explain why rather than silently resetting it.
+
+10. Editing and deleting loops
+
+Allow:
+
+Rename Loop
+Edit Description
+Change Loop Colour
+Delete Loop
+
+Deleting a loop deletes its connection segments only.
+
+It must never delete participating data objects.
+
+If individual segment deletion is supported, warn when removing a middle segment breaks continuity.
+
+11. Panning
+
+The inspection confirms that pan is already enabled in the existing OrbitControls.
+
+Do not rewrite the camera/pan system.
+
+Add only a small discoverability hint in Stage 4, for example:
+
+Drag to rotate · Right-drag to pan · Scroll to zoom
+
+The user should be able to pan the pyramid into the unused portion of the screen while the Connections panel is open.
+
+Keep object click selection working.
+
+12. Arrow appearance
+
+All segments within one loop use the loop's colour.
+
+Keep the existing Arrow Thickness control.
+
+Maintain clear directional arrowheads.
+
+Prefer routed/curved paths that remain readable against pyramid surfaces.
+
+When a loop is selected, emphasize its arrows without excessive glow/neon styling.
+
+13. Do not implement the triangular 2D view yet
+
+We will build:
+
+3D Loop View ↔ 2D Cross-Section Loop View
+
+immediately after this loop model is stable.
+
+Do not implement an incomplete version now.
+
+14. Preserve everything else
+
+Do not regress:
+
+Structure
+Data
+Visualise
+corrected assembled geometry
+Explode/Assemble
+snap-grid placement
+Auto-fill
+Clear Current Level
+sector visibility
+surface opacity
+Data Display
+Object Size
+Label Size
+metadata editing
+Move on Data Board
+Focus Camera / Show Only
+Explorer
+Forging Case Study
+Advanced placeholder
+15. Acceptance checks
+
+Before reporting completion verify:
+
+Existing connections migrate without data loss.
+A real Loop entity exists.
+Create New Loop asks for name and predefined colour.
+First clicked object establishes the starting node.
+Each subsequent click automatically extends the chain from the previous endpoint.
+Undo Last Segment works.
+Finish Loop preserves the ordered sequence.
+Process Optimisation and Predictive Maintenance example loops can be generated where suitable data exist.
+Loop Table shows one row per loop.
+Expanding a loop shows ordered segments with Level, Sector and grid cell.
+Arrow endpoints incorporate the same level rotation and transforms as the visible data objects.
+Arrows visibly attach source object to target object rather than floating in space.
+Explode/Assemble preserves attachment.
+Hidden endpoints hide only the affected rendered segment, not stored loop data.
+Show Only This Loop works.
+Right-drag pan remains available.
+Delete Loop removes relationships only.
+Explorer and Forging remain unchanged.
+
+Replit's automated preview may not provide WebGL. Clearly distinguish build/state checks from final visual checks that require our real WebGL browser.
+
+Do not add any other scope.
