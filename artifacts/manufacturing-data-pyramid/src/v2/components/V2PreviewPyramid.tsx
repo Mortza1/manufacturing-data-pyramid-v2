@@ -163,6 +163,7 @@ function V2Level({
   visibleObjectIds,
   participatingSectorIds,
   loopSectorContext,
+  is3DConnections,
   selectLoopObject,
   setSelectedVisualiseObjectId,
 }: {
@@ -187,6 +188,7 @@ function V2Level({
   visibleObjectIds: Set<string>;
   participatingSectorIds: Set<string> | null;
   loopSectorContext: 'active' | 'all';
+  is3DConnections: boolean;
   selectLoopObject: (id: string) => void;
   setSelectedVisualiseObjectId: (id: string | null) => void;
 }) {
@@ -205,12 +207,16 @@ function V2Level({
     <group position={[0, y + levelOffset, 0]} rotation={[0, rotY, 0]}>
       {levelVisible && sectors.map((sector, sectorIndex) => {
         const participating = participatingSectorIds === null || participatingSectorIds.has(sector.id);
-        if (visualiseHiddenSectorIds.includes(sector.id)) return null;
-        if (!participating && (participatingSectorIds === null || loopSectorContext === 'active')) return null;
-        const surfaceOpacity = participating
+        if (!is3DConnections && visualiseHiddenSectorIds.includes(sector.id)) return null;
+        if (!is3DConnections && !participating && (participatingSectorIds === null || loopSectorContext === 'active')) return null;
+        const surfaceOpacity = is3DConnections
+          ? visualiseSurfaceOpacity
+          : participating
           ? visualiseSurfaceOpacity * (levelFocused ? 1 : 0.28)
           : Math.min(0.06, visualiseSurfaceOpacity * 0.25);
-        const edgeOpacity = participating
+        const edgeOpacity = is3DConnections
+          ? Math.min(0.22, Math.max(0.06, visualiseSurfaceOpacity * 0.45))
+          : participating
           ? Math.min(0.35, Math.max(0.08, visualiseSurfaceOpacity * (levelFocused ? 0.72 : 0.3)))
           : Math.min(0.025, visualiseSurfaceOpacity * 0.12);
         return (
@@ -220,7 +226,7 @@ function V2Level({
               <meshStandardMaterial
                 color={SECTOR_COLORS[sectorIndex % SECTOR_COLORS.length]}
                 emissive={SECTOR_COLORS[sectorIndex % SECTOR_COLORS.length]}
-                emissiveIntensity={participating ? 0.28 : 0.04}
+                emissiveIntensity={is3DConnections ? 0.12 : participating ? 0.28 : 0.04}
                 transparent
                 opacity={surfaceOpacity}
                 side={THREE.DoubleSide}
@@ -374,6 +380,7 @@ export function V2PreviewPyramid() {
            visibleObjectIds={connectionVisibleObjectIds}
            participatingSectorIds={showOnlyLoopId ? loopSectorIdsByLevel?.get(level.id) ?? new Set<string>() : null}
            loopSectorContext={loopSectorContext}
+           is3DConnections={walkthroughStage === 'connections'}
           selectLoopObject={(objectId) => { if (!builderPaused) selectLoopObject(objectId); }}
           setSelectedVisualiseObjectId={setSelectedVisualiseObjectId}
         />
@@ -384,8 +391,8 @@ export function V2PreviewPyramid() {
           ? new Set(Array.from(loopSectorIdsByLevel?.values() ?? []).flatMap((ids) => Array.from(ids)))
           : null;
         if (
-          visualiseHiddenSectorIds.includes(sector.id) ||
-          (participatingSectorIds !== null &&
+          (walkthroughStage !== 'connections' && visualiseHiddenSectorIds.includes(sector.id)) ||
+          (walkthroughStage !== 'connections' && participatingSectorIds !== null &&
             loopSectorContext === 'active' &&
             !participatingSectorIds.has(sector.id))
         ) return null;
