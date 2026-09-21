@@ -24,6 +24,7 @@ export interface V2DataDraft {
 }
 
 export type V2MetadataPatch = Partial<V2DataDraft>;
+export type V2DataDensity = 1 | 2 | 3 | 'all';
 
 export const EMPTY_DATA_DRAFT: V2DataDraft = {
   name: '',
@@ -122,6 +123,9 @@ interface V2State {
   visualiseOnlyLevelId: string | null;
   visualiseHiddenSectorIds: string[];
   visualiseSurfaceOpacity: number;
+  visualiseDataDensity: V2DataDensity;
+  visualiseObjectScale: number;
+  visualiseLabelScale: number;
   viewResetNonce: number;
   setIsEditingStructure: (isEditing: boolean) => void;
   setWalkthroughStage: (stage: 'structure' | 'data' | 'visualise') => void;
@@ -134,6 +138,9 @@ interface V2State {
   toggleVisualiseSector: (sectorId: string) => void;
   showAllVisualiseSectors: () => void;
   setVisualiseSurfaceOpacity: (opacity: number) => void;
+  setVisualiseDataDensity: (density: V2DataDensity) => void;
+  setVisualiseObjectScale: (scale: number) => void;
+  setVisualiseLabelScale: (scale: number) => void;
   requestViewReset: () => void;
 
   draft: V2Draft;
@@ -173,6 +180,9 @@ export const useV2Store = create<V2State>()(
       visualiseOnlyLevelId: null,
       visualiseHiddenSectorIds: [],
       visualiseSurfaceOpacity: 0.72,
+      visualiseDataDensity: 'all',
+      visualiseObjectScale: 1,
+      visualiseLabelScale: 1,
       viewResetNonce: 0,
       setIsEditingStructure: (isEditing) => set({ isEditingStructure: isEditing }),
       setWalkthroughStage: (walkthroughStage) => set({ walkthroughStage }),
@@ -196,6 +206,13 @@ export const useV2Store = create<V2State>()(
       showAllVisualiseSectors: () => set({ visualiseHiddenSectorIds: [] }),
       setVisualiseSurfaceOpacity: (visualiseSurfaceOpacity) => set({
         visualiseSurfaceOpacity: Math.min(1, Math.max(0.18, visualiseSurfaceOpacity)),
+      }),
+      setVisualiseDataDensity: (visualiseDataDensity) => set({ visualiseDataDensity }),
+      setVisualiseObjectScale: (visualiseObjectScale) => set({
+        visualiseObjectScale: Math.min(1.35, Math.max(0.7, visualiseObjectScale)),
+      }),
+      setVisualiseLabelScale: (visualiseLabelScale) => set({
+        visualiseLabelScale: Math.min(1.35, Math.max(0.75, visualiseLabelScale)),
       }),
       requestViewReset: () => set((state) => ({ viewResetNonce: state.viewResetNonce + 1 })),
 
@@ -268,6 +285,9 @@ export const useV2Store = create<V2State>()(
           visualiseFocusedLevelId: null,
           visualiseOnlyLevelId: null,
           visualiseHiddenSectorIds: [],
+          visualiseDataDensity: 'all',
+          visualiseObjectScale: 1,
+          visualiseLabelScale: 1,
           draft: {
             levels: newLevels,
             sectors: newSectors,

@@ -1,0 +1,177 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me instead of escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This is a targeted Walkthrough Stage 3 Visualise refinement only. Do not implement Connections, Save/database, Advanced mode, Models, Agents or Decisions. Do not modify Structure or the Data placement workflow.
+
+Preserve Explorer and Forging Case Study unchanged.
+
+1. Fix the assembled pyramid proportions
+
+The read-only inspection has confirmed that the current v2 taper and grid mapping are correct. The remaining flat appearance comes from the pyramid being too wide relative to its vertical height.
+
+Current approximate proportions are:
+
+total v2 height ≈ 5
+bottom diameter ≈ 10.8
+height:diameter ≈ 0.46
+
+Increase the v2 Walkthrough pyramid total height to approximately 8.0, or an equivalent value that produces roughly 0.7 height:diameter, while preserving the existing horizontal footprint and taper.
+
+Requirements:
+
+keep the bottom footprint approximately unchanged;
+keep lower levels larger and upper levels progressively smaller;
+increase each level's vertical height/spacing consistently through the shared v2 geometry helper;
+pyramid surfaces, data objects and level labels must all use the same revised level geometry;
+do not stretch individual data objects vertically;
+do not alter canonical object placement:
+level_id
+sector_id
+grid_x
+grid_y
+
+The result should look clearly like a substantial five-level pyramid from a normal three-quarter angle, rather than a shallow stack.
+
+Do not alter gridCellToRenderPosition() semantics unless necessary to consume the revised shared geometry correctly.
+
+2. Keep the current centered Explode logic
+
+The current centered explode calculation is correct and should be preserved.
+
+Do not redesign it.
+
+After increasing the assembled pyramid height:
+
+Explode should add further separation around the centre;
+lower levels move downward;
+upper levels move upward;
+the middle remains central;
+Assemble restores the corrected pyramid exactly.
+
+If practical, add a smooth visual transition, but do not compromise correctness for animation.
+
+3. Improve the v2 Visualise camera framing
+
+Update only the Walkthrough Stage 3 v2 camera branch.
+
+Do not change Explorer or Forging camera behaviour.
+
+Reset/default Visualise view should:
+
+target the actual centre of the revised v2 pyramid geometry rather than a hard-coded legacy-style target;
+sit somewhat higher and closer than the current view;
+show the complete pyramid comfortably;
+clearly reveal its vertical hierarchy;
+leave room for labels;
+retain unrestricted 360° orbit and zoom afterward.
+
+Derive the target from the actual v2 level geometry so future level counts remain sensible.
+
+4. Add a Visualise-only Data Display control
+
+Add:
+
+DATA DISPLAY
+
+1 | 2 | 3 | All
+
+This means the maximum number of visible data elements per sector, per level.
+
+Example:
+
+1 → up to one object in each sector on each level;
+2 → up to two;
+3 → up to three;
+All → every existing object.
+
+This is a presentation filter only.
+
+Requirements:
+
+never delete data;
+never change metadata;
+never change grid placement;
+use a deterministic ordering such as existing grid position then object ID;
+returning to All restores everything;
+hidden objects must also hide their labels and selection markers;
+if fewer objects exist than the selected limit, simply show all available ones.
+
+The control must work correctly with:
+
+sector show/hide;
+Focus Camera;
+Show Only level;
+Explode/Assemble.
+5. Add Object/Icon Size control
+
+Add a compact Visualise-only Object Size slider.
+
+It should:
+
+visually scale rendered data objects only;
+use sensible min/max limits;
+preserve the current size around the middle/default value;
+not alter grid coordinates or object placement;
+not permanently rearrange objects.
+
+Selection halo/ring should scale appropriately with the object.
+
+6. Add Label/Text Size control
+
+Add a Visualise-only Label Size slider.
+
+Apply it consistently to relevant:
+
+data-object labels;
+level labels;
+sector labels.
+
+Use sensible bounded limits.
+
+This must be presentation-only and must not alter the case structure.
+
+7. Keep current Stage 3 functionality intact
+
+Do not regress:
+
+sector show/hide;
+sector colours;
+Surface opacity;
+selected/hovered-only rings;
+metadata inspection/editing;
+Move on Data Board;
+Focus Camera;
+Show Only level;
+Show All Levels;
+Show/Hide Labels;
+Back to Data;
+free rotate/zoom;
+canonical snap-grid reconstruction.
+8. WebGL limitation
+
+The Replit automated preview does not provide WebGL hardware acceleration.
+
+Do not simplify or replace the 3D implementation because of that environment.
+
+Run all available build/type/runtime checks, but clearly state which final 3D visual/pointer behaviours could not be verified automatically because WebGL was unavailable.
+
+9. Acceptance checks
+
+Verify through code/state inspection and all available runtime checks:
+
+v2 total height has materially increased from the current approximately 5-unit height.
+Bottom footprint remains approximately unchanged.
+Five levels remain correctly tapered.
+Level/data/label vertical positions all derive from the same revised geometry.
+Explode logic remains centered and correct.
+Reset/default v2 camera uses the revised pyramid geometry.
+Data Display 1, 2, 3, All is presentation-only.
+All restores every object.
+Object Size slider changes rendered scale only.
+Label Size slider changes presentation only.
+No canonical grid addresses change.
+Explorer remains unchanged.
+Forging Case Study remains unchanged.
+
+Do not add any other functionality.
