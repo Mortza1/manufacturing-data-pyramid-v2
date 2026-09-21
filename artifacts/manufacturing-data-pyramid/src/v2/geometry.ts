@@ -46,6 +46,44 @@ export function gridCellToRenderPosition(
   return [x, y, z];
 }
 
+export const V2_OBJECT_LOCAL_Y = 0.24;
+export const EXPLODED_LEVEL_SPACING = 0.72;
+
+export function getV2ObjectWorldPosition(
+  gridX: number,
+  gridY: number,
+  gridWidth: number,
+  gridHeight: number,
+  levelIndex: number,
+  totalLevels: number,
+  sectorCount: number,
+  exploded: boolean,
+  localY = V2_OBJECT_LOCAL_Y,
+  worldSpace = true,
+): [number, number, number] {
+  const [localX, , localZ] = gridCellToRenderPosition(
+    gridX,
+    gridY,
+    gridWidth,
+    gridHeight,
+    levelIndex,
+    totalLevels,
+  );
+  const rotation = sectorCount === 4 ? Math.PI / 4 : 0;
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+  const level = getLevelBaseTop(levelIndex, totalLevels);
+  const levelOffset = exploded
+    ? (levelIndex - (totalLevels - 1) / 2) * EXPLODED_LEVEL_SPACING
+    : 0;
+  if (!worldSpace) return [localX, localY, localZ];
+  return [
+    localX * cos - localZ * sin,
+    level.y + levelOffset + localY,
+    localX * sin + localZ * cos,
+  ];
+}
+
 export function getLevelBaseTop(
   levelIndex: number,
   totalLevels: number

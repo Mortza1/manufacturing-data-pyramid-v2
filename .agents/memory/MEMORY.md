@@ -1,0 +1,1 @@
+- [Stage 4 loop model](stage-4-loop-model.md) — connections are ordered segments of first-class loops; legacy flat relationships must migrate without data loss.

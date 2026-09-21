@@ -4,31 +4,33 @@ import { a, useSpring } from '@react-spring/three';
 import * as THREE from 'three';
 import { useStore } from '../../store';
 import { useV2Store, type V2DataDensity } from '../store';
-import { gridCellToRenderPosition, getLevelBaseTop } from '../geometry';
+import { EXPLODED_LEVEL_SPACING, getLevelBaseTop, getV2ObjectWorldPosition, V2_OBJECT_LOCAL_Y } from '../geometry';
+import { filterV2ObjectsByDensity, getVisibleV2ObjectIds } from '../visibility';
 import type { V2Level, V2Object, V2Sector } from '../types';
 
 const SECTOR_COLORS = ['#38bdf8', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#facc15', '#2dd4bf', '#818cf8'];
-const EXPLODED_LEVEL_SPACING = 0.72;
-type ConnectionRole = 'source' | 'target' | null;
+type ConnectionRole = 'path' | 'current' | null;
 
-function filterObjectsByDensity(objects: V2Object[], density: V2DataDensity) {
-  if (density === 'all') return objects;
-  const counts = new Map<string, number>();
-  return [...objects]
-    .sort((a, b) => a.grid_y - b.grid_y || a.grid_x - b.grid_x || a.id.localeCompare(b.id))
-    .filter((object) => {
-      const count = counts.get(object.sector_id) ?? 0;
-      if (count >= density) return false;
-      counts.set(object.sector_id, count + 1);
-      return true;
-    });
+function getObjectAttachmentRadius(object: V2Object, objectScale: number) {
+  const kind = `${object.name} ${object.data_type}`.toLowerCase();
+  if (kind.includes('event') || kind.includes('alarm')) return 0.3 * objectScale;
+  if (kind.includes('temperature') || kind.includes('vibration') || kind.includes('frequency')) return 0.27 * objectScale;
+  if (kind.includes('image') || kind.includes('geometry') || kind.includes('cad')) return 0.29 * objectScale;
+  return 0.3 * objectScale;
 }
 
-function getConnectionRoute(start: THREE.Vector3, end: THREE.Vector3, connectionId: string, objectScale: number) {
+function getConnectionRoute(
+  start: THREE.Vector3,
+  end: THREE.Vector3,
+  connectionId: string,
+  sourceObject: V2Object,
+  targetObject: V2Object,
+  objectScale: number,
+) {
   const direction = end.clone().sub(start);
   direction.normalize();
-  const attachedStart = start.clone().addScaledVector(direction, 0.34 * objectScale);
-  const attachedEnd = end.clone().addScaledVector(direction, -0.42 * objectScale);
+  const attachedStart = start.clone().addScaledVector(direction, getObjectAttachmentRadius(sourceObject, objectScale));
+  const attachedEnd = end.clone().addScaledVector(direction, -getObjectAttachmentRadius(targetObject, objectScale));
   const midpoint = attachedStart.clone().lerp(attachedEnd, 0.5);
   const lateral = new THREE.Vector3(-direction.z, 0, direction.x);
   if (lateral.lengthSq() < 0.01) lateral.set(1, 0, 0);
@@ -40,7 +42,7 @@ function getConnectionRoute(start: THREE.Vector3, end: THREE.Vector3, connection
   const curve = new THREE.QuadraticBezierCurve3(attachedStart, control, attachedEnd);
   const points = curve.getPoints(24);
   const tangent = curve.getTangent(0.985).normalize();
-  const arrowPosition = attachedEnd.clone().addScaledVector(tangent, -0.16);
+  const arrowPosition = attachedEnd.clone().addScaledVector(tangent, -0.13);
   const arrowQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
   return { points, arrowPosition, arrowQuaternion };
 }
@@ -89,7 +91,7 @@ function V2DataObject({
       : kind.includes('image') || kind.includes('geometry') || kind.includes('cad')
         ? <octahedronGeometry args={[0.27]} />
         : <boxGeometry args={[0.34, 0.34, 0.34]} />;
-  const roleColor = connectionRole === 'source' ? '#22d3ee' : connectionRole === 'target' ? '#f59e0b' : color;
+  const roleColor = connectionRole === 'path' ? '#22d3ee' : connectionRole === 'current' ? '#f59e0b' : color;
   const displayColor = selected ? '#ffffff' : roleColor;
 
   return (
@@ -161,9 +163,10 @@ function V2Level({
   visualiseObjectScale,
   visualiseLabelScale,
   connectionMode,
-  connectionSourceObjectId,
-  connectionTargetObjectId,
-  selectConnectionObject,
+  connectionHighlightObjectIds,
+  connectionCurrentObjectId,
+  showOnlyLoopId,
+  selectLoopObject,
   setSelectedVisualiseObjectId,
 }: {
   level: V2Level;
@@ -183,9 +186,10 @@ function V2Level({
   visualiseObjectScale: number;
   visualiseLabelScale: number;
   connectionMode: boolean;
-  connectionSourceObjectId: string | null;
-  connectionTargetObjectId: string | null;
-  selectConnectionObject: (id: string) => void;
+  connectionHighlightObjectIds: Set<string>;
+  connectionCurrentObjectId: string | null;
+  showOnlyLoopId: string | null;
+  selectLoopObject: (id: string) => void;
   setSelectedVisualiseObjectId: (id: string | null) => void;
 }) {
   const { base, top, height, y } = getLevelBaseTop(index, totalLevels);
@@ -197,7 +201,7 @@ function V2Level({
     : 0;
   const rotY = sectors.length === 4 ? Math.PI / 4 : 0;
   const sectorAngle = (Math.PI * 2) / Math.max(3, sectors.length);
-  const visibleObjects = filterObjectsByDensity(objects, visualiseDataDensity);
+  const visibleObjects = filterV2ObjectsByDensity(objects, visualiseDataDensity);
 
   return (
     <group position={[0, y + levelOffset, 0]} rotation={[0, rotY, 0]}>
@@ -234,21 +238,26 @@ function V2Level({
       {levelVisible && visibleObjects.map((object) => {
         const sectorIndex = sectors.findIndex((sector) => sector.id === object.sector_id);
         const sectorHidden = visualiseHiddenSectorIds.includes(object.sector_id);
-        if (sectorIndex < 0 || sectorHidden) return null;
-        const renderPosition = gridCellToRenderPosition(
+        const loopHidden = showOnlyLoopId !== null && !connectionHighlightObjectIds.has(object.id);
+        if (sectorIndex < 0 || sectorHidden || loopHidden) return null;
+        const renderPosition = getV2ObjectWorldPosition(
           object.grid_x,
           object.grid_y,
           activeCase.grid.width,
           activeCase.grid.height,
           index,
           totalLevels,
+          sectors.length,
+          visualiseExploded,
+          V2_OBJECT_LOCAL_Y,
+          false,
         );
         const selected = object.id === selectedVisualiseObjectId;
         return (
           <V2DataObject
             key={object.id}
             object={object}
-            position={[renderPosition[0], 0.24, renderPosition[2]]}
+            position={renderPosition}
             color={SECTOR_COLORS[sectorIndex % SECTOR_COLORS.length]}
             visible
             subdued={!levelFocused}
@@ -258,15 +267,15 @@ function V2Level({
             labelScale={visualiseLabelScale}
             connectionRole={
               connectionMode
-                ? object.id === connectionSourceObjectId
-                  ? 'source'
-                  : object.id === connectionTargetObjectId
-                    ? 'target'
+                ? object.id === connectionCurrentObjectId
+                  ? 'current'
+                  : connectionHighlightObjectIds.has(object.id)
+                    ? 'path'
                     : null
                 : null
             }
             onSelect={() => connectionMode
-              ? selectConnectionObject(object.id)
+              ? selectLoopObject(object.id)
               : setSelectedVisualiseObjectId(selected ? null : object.id)}
           />
         );
@@ -290,9 +299,10 @@ export function V2PreviewPyramid() {
   const visualiseObjectScale = useV2Store((state) => state.visualiseObjectScale);
   const visualiseLabelScale = useV2Store((state) => state.visualiseLabelScale);
   const walkthroughStage = useV2Store((state) => state.walkthroughStage);
-  const connectionSourceObjectId = useV2Store((state) => state.connectionSourceObjectId);
-  const connectionTargetObjectId = useV2Store((state) => state.connectionTargetObjectId);
-  const selectConnectionObject = useV2Store((state) => state.selectConnectionObject);
+  const selectedLoopId = useV2Store((state) => state.selectedLoopId);
+  const showOnlyLoopId = useV2Store((state) => state.showOnlyLoopId);
+  const loopBuilder = useV2Store((state) => state.loopBuilder);
+  const selectLoopObject = useV2Store((state) => state.selectLoopObject);
   const levels = activeCase && !isEditingStructure ? activeCase.levels : [];
   const sectors = activeCase && !isEditingStructure ? activeCase.sectors : [];
   const objects = activeCase && !isEditingStructure ? activeCase.overlays.data : [];
@@ -301,6 +311,28 @@ export function V2PreviewPyramid() {
     level.id,
     objects.filter((object) => object.level_id === level.id),
   ])), [levels, objects]);
+  const connectionVisibleObjectIds = useMemo(() => activeCase
+    ? getVisibleV2ObjectIds(activeCase, visualiseDataDensity, visualiseOnlyLevelId, visualiseHiddenSectorIds, showOnlyLoopId)
+    : new Set<string>(), [activeCase, visualiseDataDensity, visualiseOnlyLevelId, visualiseHiddenSectorIds, showOnlyLoopId]);
+  const builderPaused = Boolean(
+    loopBuilder?.currentObjectId &&
+    !connectionVisibleObjectIds.has(loopBuilder.currentObjectId),
+  );
+  const connectionHighlightObjectIds = useMemo(() => {
+    if (!activeCase) return new Set<string>();
+    const loopId = loopBuilder?.loopId ?? selectedLoopId ?? showOnlyLoopId;
+    if (!loopId) return new Set<string>();
+    const ids = new Set<string>();
+    activeCase.overlays.connectivity
+      .filter((connection) => connection.loop_id === loopId)
+      .forEach((connection) => {
+        ids.add(connection.source_object_id);
+        ids.add(connection.target_object_id);
+      });
+    if (loopBuilder?.firstObjectId) ids.add(loopBuilder.firstObjectId);
+    if (loopBuilder?.currentObjectId) ids.add(loopBuilder.currentObjectId);
+    return ids;
+  }, [activeCase, loopBuilder, selectedLoopId, showOnlyLoopId]);
 
   return (
     <group>
@@ -324,9 +356,10 @@ export function V2PreviewPyramid() {
           visualiseObjectScale={visualiseObjectScale}
           visualiseLabelScale={visualiseLabelScale}
           connectionMode={walkthroughStage === 'connections'}
-          connectionSourceObjectId={connectionSourceObjectId}
-          connectionTargetObjectId={connectionTargetObjectId}
-          selectConnectionObject={selectConnectionObject}
+          connectionHighlightObjectIds={connectionHighlightObjectIds}
+          connectionCurrentObjectId={loopBuilder?.currentObjectId ?? null}
+          showOnlyLoopId={showOnlyLoopId}
+          selectLoopObject={(objectId) => { if (!builderPaused) selectLoopObject(objectId); }}
           setSelectedVisualiseObjectId={setSelectedVisualiseObjectId}
         />
       ))}
@@ -356,26 +389,14 @@ function V2Connections() {
   const visualiseDataDensity = useV2Store((state) => state.visualiseDataDensity);
   const visualiseObjectScale = useV2Store((state) => state.visualiseObjectScale);
   const selectedConnectionId = useV2Store((state) => state.selectedConnectionId);
-  const connectionLoopFilter = useV2Store((state) => state.connectionLoopFilter);
+  const selectedLoopId = useV2Store((state) => state.selectedLoopId);
+  const showOnlyLoopId = useV2Store((state) => state.showOnlyLoopId);
   const connectionArrowThickness = useV2Store((state) => state.connectionArrowThickness);
   const selectConnection = useV2Store((state) => state.selectConnection);
 
-  const visibleObjectIds = useMemo(() => {
-    if (!activeCase) return new Set<string>();
-    const visibleIds = new Set<string>();
-    activeCase.levels.forEach((level) => {
-      const levelObjects = activeCase.overlays.data.filter((object) => object.level_id === level.id);
-      filterObjectsByDensity(levelObjects, visualiseDataDensity).forEach((object) => {
-        if (
-          (visualiseOnlyLevelId === null || visualiseOnlyLevelId === level.id) &&
-          !visualiseHiddenSectorIds.includes(object.sector_id)
-        ) {
-          visibleIds.add(object.id);
-        }
-      });
-    });
-    return visibleIds;
-  }, [activeCase, visualiseDataDensity, visualiseOnlyLevelId, visualiseHiddenSectorIds]);
+  const visibleObjectIds = useMemo(() => activeCase
+    ? getVisibleV2ObjectIds(activeCase, visualiseDataDensity, visualiseOnlyLevelId, visualiseHiddenSectorIds, showOnlyLoopId)
+    : new Set<string>(), [activeCase, visualiseDataDensity, visualiseOnlyLevelId, visualiseHiddenSectorIds, showOnlyLoopId]);
 
   const lines = useMemo(() => {
     if (!activeCase) return [];
@@ -388,28 +409,30 @@ function V2Connections() {
       const targetIndex = target ? levelIndexMap.get(target.level_id) : undefined;
       if (!source || !target || sourceIndex === undefined || targetIndex === undefined) return [];
       if (!visibleObjectIds.has(source.id) || !visibleObjectIds.has(target.id)) return [];
-      const sourceRender = gridCellToRenderPosition(source.grid_x, source.grid_y, activeCase.grid.width, activeCase.grid.height, sourceIndex, activeCase.levels.length);
-      const targetRender = gridCellToRenderPosition(target.grid_x, target.grid_y, activeCase.grid.width, activeCase.grid.height, targetIndex, activeCase.levels.length);
-      const sourceY = getLevelBaseTop(sourceIndex, activeCase.levels.length).y + (visualiseExploded ? (sourceIndex - (activeCase.levels.length - 1) / 2) * EXPLODED_LEVEL_SPACING : 0) + 0.24;
-      const targetY = getLevelBaseTop(targetIndex, activeCase.levels.length).y + (visualiseExploded ? (targetIndex - (activeCase.levels.length - 1) / 2) * EXPLODED_LEVEL_SPACING : 0) + 0.24;
+      if (showOnlyLoopId && connection.loop_id !== showOnlyLoopId) return [];
+      const sourceRender = getV2ObjectWorldPosition(source.grid_x, source.grid_y, activeCase.grid.width, activeCase.grid.height, sourceIndex, activeCase.levels.length, activeCase.sectors.length, visualiseExploded, V2_OBJECT_LOCAL_Y);
+      const targetRender = getV2ObjectWorldPosition(target.grid_x, target.grid_y, activeCase.grid.width, activeCase.grid.height, targetIndex, activeCase.levels.length, activeCase.sectors.length, visualiseExploded, V2_OBJECT_LOCAL_Y);
       return [{
         connection,
         route: getConnectionRoute(
-          new THREE.Vector3(sourceRender[0], sourceY, sourceRender[2]),
-          new THREE.Vector3(targetRender[0], targetY, targetRender[2]),
+          new THREE.Vector3(sourceRender[0], sourceRender[1], sourceRender[2]),
+          new THREE.Vector3(targetRender[0], targetRender[1], targetRender[2]),
           connection.id,
+          source,
+          target,
           visualiseObjectScale,
         ),
       }];
     });
-  }, [activeCase, visibleObjectIds, visualiseExploded, visualiseObjectScale]);
+  }, [activeCase, visibleObjectIds, visualiseExploded, visualiseObjectScale, showOnlyLoopId]);
 
   if (!activeCase) return null;
   return (
     <group>
       {lines.map(({ connection, route }) => {
         const selected = selectedConnectionId === connection.id;
-        const loopRelevant = connectionLoopFilter === 'all' || connection.loop === connectionLoopFilter;
+        const loopRelevant = !selectedLoopId || connection.loop_id === selectedLoopId;
+        const loop = activeCase.overlays.loops.find((item) => item.id === connection.loop_id);
         const selectedRelevant = !selectedConnectionId || selected;
         const opacity = loopRelevant && selectedRelevant ? 0.95 : 0.12;
         const width = (selected ? 3.4 : loopRelevant ? 2.2 : 1.2) * connectionArrowThickness;
@@ -421,11 +444,11 @@ function V2Connections() {
               selectConnection(connection.id);
             }}
           >
-            <Line points={route.points} color={selected ? '#ffffff' : connection.color} lineWidth={width} transparent opacity={opacity} depthTest={false} depthWrite={false} renderOrder={20} />
+            <Line points={route.points} color={selected ? '#ffffff' : loop?.color || '#67e8f9'} lineWidth={width} transparent opacity={opacity} depthTest={false} depthWrite={false} renderOrder={20} />
             <Line points={route.points} color="#ffffff" lineWidth={12} transparent opacity={0} depthTest={false} depthWrite={false} renderOrder={21} />
             <mesh position={route.arrowPosition} quaternion={route.arrowQuaternion} renderOrder={22}>
               <coneGeometry args={[(selected ? 0.18 : 0.14) * connectionArrowThickness, (selected ? 0.46 : 0.38) * connectionArrowThickness, 8]} />
-              <meshBasicMaterial color={selected ? '#ffffff' : connection.color} transparent opacity={opacity} toneMapped={false} depthTest={false} depthWrite={false} />
+              <meshBasicMaterial color={selected ? '#ffffff' : loop?.color || '#67e8f9'} transparent opacity={opacity} toneMapped={false} depthTest={false} depthWrite={false} />
             </mesh>
           </group>
         );

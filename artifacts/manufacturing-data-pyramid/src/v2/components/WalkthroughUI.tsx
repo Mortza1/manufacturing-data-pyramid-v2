@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { ArrowRight, Check, ChevronLeft, ChevronRight, Edit2, Eye, EyeOff, Lock, Wand2, GraduationCap, Grid3X3, Link2, Plus, SkipForward, Trash2, Move, Maximize2, Minimize2, RotateCcw, X } from 'lucide-react';
-import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, type V2ConnectionDraft, type V2DataDensity, type V2DataDraft, type V2MetadataPatch } from '../store';
+import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, LOOP_COLOR_PALETTE, type V2DataDensity, type V2DataDraft, type V2LoopDraft, type V2MetadataPatch } from '../store';
 import { getSectorIdForGridCell } from '../geometry';
+import { getVisibleV2ObjectIds } from '../visibility';
 
 const STAGES = ['Structure', 'Data', 'Visualise', 'Connections', 'Save'];
 
@@ -514,19 +515,25 @@ function ConnectionsStage() {
   const {
     activeCase,
     setWalkthroughStage,
-    connectionSourceObjectId,
-    connectionTargetObjectId,
+    selectedLoopId,
+    showOnlyLoopId,
+    expandedLoopIds,
+    loopBuilder,
     selectedConnectionId,
-    connectionLoopFilter,
-    setConnectionLoopFilter,
     connectionArrowThickness,
     setConnectionArrowThickness,
     selectConnection,
-    clearConnectionSelection,
-    createConnection,
+    startLoop,
+    undoLastSegment,
+    finishLoop,
+    cancelLoop,
+    selectLoop,
+    setShowOnlyLoop,
+    toggleLoopExpanded,
     updateConnection,
-    deleteConnection,
-    addExampleConnections,
+    updateLoop,
+    deleteLoop,
+    addExampleLoops,
     finishConnections,
     connectionsFinished,
     visualiseExploded,
@@ -542,56 +549,43 @@ function ConnectionsStage() {
     visualiseOnlyLevelId,
     visualiseHiddenSectorIds,
   } = useV2Store();
-  const [draft, setDraft] = useState<V2ConnectionDraft>({
-    label: '',
+  const [draft, setDraft] = useState<V2LoopDraft>({
+    name: '',
     description: '',
-    loop: '',
-    color: '#67e8f9',
+    color: LOOP_COLOR_PALETTE[0],
   });
+  const [segmentDraft, setSegmentDraft] = useState({ label: '', description: '' });
   const [notice, setNotice] = useState<string | null>(null);
 
   const selectedConnection = activeCase?.overlays.connectivity.find((connection) => connection.id === selectedConnectionId);
-  const source = activeCase?.overlays.data.find((object) => object.id === connectionSourceObjectId);
-  const target = activeCase?.overlays.data.find((object) => object.id === connectionTargetObjectId);
-  const loops = Array.from(new Set(activeCase?.overlays.connectivity.map((connection) => connection.loop).filter(Boolean) || []));
-  const visibleObjectIds = useMemo(() => {
-    if (!activeCase) return new Set<string>();
-    const visible = new Set<string>();
-    activeCase.levels.forEach((level) => {
-      const levelObjects = activeCase.overlays.data.filter((object) => object.level_id === level.id);
-      const ordered = visualiseDataDensity === 'all'
-        ? levelObjects
-        : [...levelObjects]
-          .sort((a, b) => a.grid_y - b.grid_y || a.grid_x - b.grid_x || a.id.localeCompare(b.id))
-          .filter((object, index, objects) => {
-            const sameSectorBefore = objects.slice(0, index).filter((candidate) => candidate.sector_id === object.sector_id).length;
-            return sameSectorBefore < visualiseDataDensity;
-          });
-      ordered.forEach((object) => {
-        if ((visualiseOnlyLevelId === null || visualiseOnlyLevelId === level.id) && !visualiseHiddenSectorIds.includes(object.sector_id)) {
-          visible.add(object.id);
-        }
-      });
-    });
-    return visible;
-  }, [activeCase, visualiseDataDensity, visualiseOnlyLevelId, visualiseHiddenSectorIds]);
+  const loops = activeCase?.overlays.loops || [];
+  const visibleObjectIds = useMemo(() => activeCase
+    ? getVisibleV2ObjectIds(activeCase, visualiseDataDensity, visualiseOnlyLevelId, visualiseHiddenSectorIds)
+    : new Set<string>(), [activeCase, visualiseDataDensity, visualiseOnlyLevelId, visualiseHiddenSectorIds]);
 
   useEffect(() => {
     if (selectedConnection) {
-      setDraft({
-        label: selectedConnection.label,
-        description: selectedConnection.description,
-        loop: selectedConnection.loop,
-        color: selectedConnection.color,
+      setSegmentDraft({
+        label: selectedConnection.label || '',
+        description: selectedConnection.description || '',
       });
     } else {
-      setDraft({ label: '', description: '', loop: '', color: '#67e8f9' });
+      setSegmentDraft({ label: '', description: '' });
     }
   }, [selectedConnectionId]);
 
   if (!activeCase) return null;
 
-  const objectContext = (object: typeof source) => {
+  const selectedLoop = loops.find((loop) => loop.id === selectedLoopId) || null;
+  const builderSegments = loopBuilder
+    ? activeCase.overlays.connectivity
+      .filter((connection) => connection.loop_id === loopBuilder.loopId)
+      .sort((a, b) => a.sequence - b.sequence || a.id.localeCompare(b.id))
+    : [];
+  const currentObject = activeCase.overlays.data.find((object) => object.id === loopBuilder?.currentObjectId);
+  const firstObject = activeCase.overlays.data.find((object) => object.id === loopBuilder?.firstObjectId);
+  const builderPaused = Boolean(loopBuilder?.currentObjectId && !visibleObjectIds.has(loopBuilder.currentObjectId));
+  const objectContext = (object: typeof currentObject) => {
     if (!object) return null;
     const level = activeCase.levels.find((item) => item.id === object.level_id);
     const sector = activeCase.sectors.find((item) => item.id === object.sector_id);
@@ -601,34 +595,36 @@ function ConnectionsStage() {
       sectorName: sector?.name || object.sector_id,
     };
   };
-  const sourceContext = objectContext(source);
-  const targetContext = objectContext(target);
-  const submitConnection = () => {
-    if (!source || !target) {
-      setNotice('Select a source and a different target in the pyramid first.');
+  const startNewLoop = () => {
+    if (!draft.name.trim()) {
+      setNotice('Enter a loop name before starting.');
       return;
     }
-    const result = selectedConnectionId
-      ? updateConnection(selectedConnectionId, draft)
-      : createConnection(draft);
-    if (!result && !selectedConnectionId) {
-      setNotice('That source-to-target connection already exists, or the connection details are incomplete.');
-      return;
-    }
-    setNotice(selectedConnectionId ? 'Connection updated.' : 'Connection created.');
+    startLoop(draft);
+    setNotice('Select the first data element in the pyramid.');
   };
-  const startNewConnection = () => {
-    clearConnectionSelection();
+  const finishCurrentLoop = (close = false) => {
+    if (!loopBuilder) return;
+    if (builderSegments.length === 0) {
+      setNotice('Select at least two data elements before finishing a loop.');
+      return;
+    }
+    finishLoop(close);
+    setNotice(close ? 'Loop finished and closed.' : 'Loop finished.');
+  };
+  const startNewLoopForm = () => {
+    cancelLoop();
+    setDraft({ name: '', description: '', color: LOOP_COLOR_PALETTE[0] });
     setNotice(null);
   };
-  const removeSelectedConnection = () => {
-    if (!selectedConnectionId || !window.confirm('Delete this connection? The endpoint data objects will remain unchanged.')) return;
-    deleteConnection(selectedConnectionId);
-    setNotice('Connection deleted.');
+  const saveSegment = () => {
+    if (!selectedConnectionId) return;
+    updateConnection(selectedConnectionId, segmentDraft);
+    setNotice('Segment details updated.');
   };
   const generateExamples = () => {
-    const count = addExampleConnections(Array.from(visibleObjectIds));
-    setNotice(count > 0 ? `Added ${count} example connection${count === 1 ? '' : 's'}.` : 'No new example connections were available from the currently visible objects.');
+    const count = addExampleLoops(Array.from(visibleObjectIds));
+    setNotice(count > 0 ? `Added ${count} example loop${count === 1 ? '' : 's'}.` : 'No complete example loops were available from the currently visible objects.');
   };
 
   return (
@@ -638,7 +634,7 @@ function ConnectionsStage() {
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-indigo-300/75">Walkthrough / Connections</p>
             <h2 className="mt-1 text-xl font-bold text-indigo-100">Map the data flow</h2>
-            <p className="mt-1 text-xs leading-relaxed text-indigo-100/65">Select visible data objects directly in the pyramid, then define a directional relationship.</p>
+            <p className="mt-1 text-xs leading-relaxed text-indigo-100/65">Build ordered loops by selecting visible data objects directly in the pyramid. Drag to rotate · Right-drag to pan · Scroll to zoom.</p>
           </div>
           <Link2 size={22} className="mt-1 shrink-0 text-indigo-200/70" />
         </div>
@@ -655,47 +651,35 @@ function ConnectionsStage() {
           <section className="rounded-xl border border-white/10 bg-black/20 p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Guided connection</p>
-                <p className="mt-1 text-[11px] text-muted-foreground">Select Source → Select Target → Configure → Create</p>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Create New Loop</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{loopBuilder ? 'Select the next data element to extend the current path.' : 'Name and colour the loop, then select its data elements in order.'}</p>
               </div>
-              <button onClick={startNewConnection} className="rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">Clear Selection</button>
+              {loopBuilder && <button onClick={startNewLoopForm} className="rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">Cancel Loop</button>}
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {[{ label: 'Source', context: sourceContext, accent: 'border-cyan-300/40 bg-cyan-300/10 text-cyan-50' }, { label: 'Target', context: targetContext, accent: 'border-amber-300/40 bg-amber-300/10 text-amber-50' }].map(({ label, context, accent }) => (
-                <div key={label} className={`rounded-lg border p-3 ${context ? accent : 'border-white/10 bg-white/[0.02]'}`}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-                  {context ? (
-                    <>
-                      <p className="mt-1 truncate text-xs font-bold">{context.object.name}</p>
-                      <p className="mt-1 text-[10px] opacity-75">L{(activeCase.levels.find((item) => item.id === context.object.level_id)?.index ?? 0) + 1} · {context.levelName}</p>
-                      <p className="text-[10px] opacity-75">{context.sectorName} · cell ({context.object.grid_x + 1}, {context.object.grid_y + 1})</p>
-                    </>
-                  ) : <p className="mt-2 text-[11px] text-muted-foreground">Click a visible data object in the 3D view.</p>}
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 flex items-center justify-center gap-2 rounded border border-white/10 bg-black/25 px-3 py-2 text-xs font-bold text-indigo-100">
-              <span className="truncate">{source?.name || 'Source Data'}</span>
-              <ArrowRight size={15} className="shrink-0 text-indigo-300" />
-              <span className="truncate">{target?.name || 'Target Data'}</span>
-            </div>
-            {source && target && (
-              <div className="mt-3 space-y-3 border-t border-white/10 pt-3">
+            {!loopBuilder ? (
+              <div className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Connection label / name" value={draft.label} onChange={(value) => setDraft((current) => ({ ...current, label: value }))} required />
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Loop / group
-                    <input list="v2-connection-loops" value={draft.loop} onChange={(event) => setDraft((current) => ({ ...current, loop: event.target.value }))} placeholder="e.g. Quality flow" className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2.5 py-2 text-xs text-foreground outline-none focus:border-cyan-300/60" />
-                    <datalist id="v2-connection-loops">{loops.map((loop) => <option key={loop} value={loop} />)}</datalist>
+                  <Field label="Loop name" value={draft.name} onChange={(value) => setDraft((current) => ({ ...current, name: value }))} required />
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Loop colour
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {LOOP_COLOR_PALETTE.map((color) => <button key={color} aria-label={`Use ${color}`} onClick={() => setDraft((current) => ({ ...current, color }))} className={`h-7 w-7 rounded-full border-2 ${draft.color === color ? 'border-white' : 'border-transparent'}`} style={{ backgroundColor: color }} />)}
+                    </div>
                   </label>
                 </div>
-                <Field label="Optional description / note" value={draft.description} onChange={(value) => setDraft((current) => ({ ...current, description: value }))} multiline />
-                <label className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Arrow colour
-                  <input aria-label="Arrow colour" type="color" value={draft.color} onChange={(event) => setDraft((current) => ({ ...current, color: event.target.value }))} className="h-7 w-10 cursor-pointer rounded border border-white/10 bg-transparent p-0.5" />
-                  <span className="font-mono normal-case text-muted-foreground/70">{draft.color}</span>
-                </label>
-                <div className="flex flex-wrap justify-end gap-2">
-                  {selectedConnectionId && <button onClick={removeSelectedConnection} className="rounded border border-rose-300/25 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100 hover:bg-rose-400/20">Delete Connection</button>}
-                  <button onClick={submitConnection} className="rounded bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300">{selectedConnectionId ? 'Update Connection' : 'Create Connection'}</button>
+                <Field label="Optional loop description" value={draft.description} onChange={(value) => setDraft((current) => ({ ...current, description: value }))} multiline />
+                <button onClick={startNewLoop} disabled={!draft.name.trim()} className="w-full rounded bg-cyan-400 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">Start Loop and Select First Element</button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/25 p-3">
+                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: selectedLoop?.color || draft.color }} />
+                  <div className="min-w-0"><p className="truncate text-xs font-bold text-foreground">{selectedLoop?.name || draft.name}</p><p className="text-[10px] text-muted-foreground">{firstObject?.name || 'Select the first element'} → {currentObject?.name || 'next element'}</p></div>
+                </div>
+                <p className={`rounded border px-3 py-2 text-[11px] font-semibold ${builderPaused ? 'border-amber-300/30 bg-amber-300/10 text-amber-100' : 'border-cyan-300/20 bg-cyan-300/5 text-cyan-100'}`}>{builderPaused ? `Loop paused: the active endpoint ${currentObject?.name || 'object'} is hidden by the current display filter. Restore its level, sector, or data density to continue.` : loopBuilder.currentObjectId ? `Current endpoint: ${currentObject?.name || 'hidden object'}. Select the next data element.` : 'Select the first data element in the pyramid.'}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => undoLastSegment()} className="rounded border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-semibold text-muted-foreground hover:bg-white/10">Undo Last Segment</button>
+                  <button onClick={() => finishCurrentLoop(false)} className="rounded bg-emerald-400 px-3 py-2 text-[10px] font-bold text-slate-950 hover:bg-emerald-300">Finish Loop</button>
+                  <button onClick={() => finishCurrentLoop(true)} className="rounded border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[10px] font-semibold text-amber-100 hover:bg-amber-300/20">Close to First Element</button>
                 </div>
               </div>
             )}
@@ -705,7 +689,7 @@ function ConnectionsStage() {
           <section className="rounded-xl border border-white/10 bg-black/20 p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Connection display</p>
-              <button onClick={generateExamples} className="rounded border border-indigo-300/25 bg-indigo-300/10 px-2.5 py-1.5 text-[10px] font-semibold text-indigo-100 hover:bg-indigo-300/20"><Wand2 size={12} className="mr-1 inline" /> Add Example Connections</button>
+              <button onClick={generateExamples} className="rounded border border-indigo-300/25 bg-indigo-300/10 px-2.5 py-1.5 text-[10px] font-semibold text-indigo-100 hover:bg-indigo-300/20"><Wand2 size={12} className="mr-1 inline" /> Add Example Loops</button>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-28 shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">Arrow thickness</span>
@@ -714,7 +698,9 @@ function ConnectionsStage() {
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Loop filter</span>
-              {['all', ...loops].map((loop) => <button key={loop} onClick={() => setConnectionLoopFilter(loop)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${connectionLoopFilter === loop ? 'border-indigo-300/60 bg-indigo-300/20 text-indigo-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}>{loop === 'all' ? 'All Connections' : loop}</button>)}
+              <button onClick={() => { selectLoop(null); setShowOnlyLoop(null); }} className={`rounded border px-2 py-1 text-[10px] font-semibold ${!selectedLoopId && !showOnlyLoopId ? 'border-indigo-300/60 bg-indigo-300/20 text-indigo-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}>All Loops</button>
+              {loops.map((loop) => <button key={loop.id} onClick={() => selectLoop(loop.id)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${selectedLoopId === loop.id ? 'border-indigo-300/60 bg-indigo-300/20 text-indigo-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}><span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: loop.color }} />{loop.name}</button>)}
+              {selectedLoopId && <button onClick={() => setShowOnlyLoop(showOnlyLoopId ? null : selectedLoopId)} className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-1 text-[10px] font-semibold text-cyan-100">{showOnlyLoopId ? 'Show All Loops' : 'Show Only This Loop'}</button>}
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <button onClick={() => setVisualiseExploded(!visualiseExploded)} className="rounded border border-white/10 bg-white/5 px-2.5 py-2 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">{visualiseExploded ? 'Assemble Pyramid' : 'Explode Pyramid'}</button>
@@ -737,24 +723,56 @@ function ConnectionsStage() {
 
           <section className="rounded-xl border border-white/10 bg-black/20 p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Connection table</p><p className="mt-1 text-[10px] text-muted-foreground">{activeCase.overlays.connectivity.length} stored relationship{activeCase.overlays.connectivity.length === 1 ? '' : 's'}</p></div>
-              {selectedConnectionId && <button onClick={startNewConnection} className="rounded border border-white/10 bg-white/5 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">Create New</button>}
+              <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Loop table</p><p className="mt-1 text-[10px] text-muted-foreground">{loops.length} stored loop{loops.length === 1 ? '' : 's'} · {activeCase.overlays.connectivity.length} ordered segment{activeCase.overlays.connectivity.length === 1 ? '' : 's'}</p></div>
+              <button onClick={startNewLoopForm} className="rounded border border-white/10 bg-white/5 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">Create New Loop</button>
             </div>
-            {activeCase.overlays.connectivity.length === 0 ? (
-              <p className="rounded border border-white/10 bg-black/20 p-3 text-[11px] leading-relaxed text-muted-foreground">No connections yet. Connections are optional; you can finish this stage with zero relationships.</p>
+            {loops.length === 0 ? (
+              <p className="rounded border border-white/10 bg-black/20 p-3 text-[11px] leading-relaxed text-muted-foreground">No loops yet. Start a loop above or add the deterministic examples.</p>
             ) : (
               <div className="overflow-x-auto rounded border border-white/10">
-                <table className="w-full min-w-[920px] text-left text-[10px]">
-                  <thead className="bg-white/[0.04] uppercase tracking-wider text-muted-foreground"><tr><th className="px-2 py-2">Connection</th><th className="px-2 py-2">Loop / Group</th><th className="px-2 py-2">Source Data</th><th className="px-2 py-2">Source Level</th><th className="px-2 py-2">Source Sector</th><th className="px-2 py-2">Source Cell</th><th className="px-2 py-2">Target Data</th><th className="px-2 py-2">Target Level</th><th className="px-2 py-2">Target Sector</th><th className="px-2 py-2">Target Cell</th><th className="px-2 py-2">Direction</th><th className="px-2 py-2">Colour</th></tr></thead>
+                <table className="w-full min-w-[780px] text-left text-[10px]">
+                  <thead className="bg-white/[0.04] uppercase tracking-wider text-muted-foreground"><tr><th className="px-2 py-2">Loop</th><th className="px-2 py-2">Colour</th><th className="px-2 py-2">Nodes</th><th className="px-2 py-2">Segments</th><th className="px-2 py-2">Levels</th><th className="px-2 py-2">Sectors</th><th className="px-2 py-2">Visibility</th><th className="px-2 py-2">Actions</th></tr></thead>
                   <tbody>
-                    {activeCase.overlays.connectivity.map((connection) => {
-                      const sourceObject = activeCase.overlays.data.find((object) => object.id === connection.source_object_id);
-                      const targetObject = activeCase.overlays.data.find((object) => object.id === connection.target_object_id);
-                      const sourceLevel = activeCase.levels.find((level) => level.id === sourceObject?.level_id);
-                      const targetLevel = activeCase.levels.find((level) => level.id === targetObject?.level_id);
-                      const sourceSector = activeCase.sectors.find((sector) => sector.id === sourceObject?.sector_id);
-                      const targetSector = activeCase.sectors.find((sector) => sector.id === targetObject?.sector_id);
-                      return <tr key={connection.id} onClick={() => selectConnection(connection.id)} className={`cursor-pointer border-t border-white/5 ${selectedConnectionId === connection.id ? 'bg-indigo-300/15' : 'hover:bg-white/[0.04]'}`}><td className="max-w-[150px] truncate px-2 py-2 font-semibold text-foreground">{connection.label}</td><td className="px-2 py-2 text-indigo-100/80">{connection.loop}</td><td className="px-2 py-2 text-cyan-100">{sourceObject?.name || 'Missing object'}</td><td className="px-2 py-2">{sourceLevel?.name || '—'}</td><td className="px-2 py-2">{sourceSector?.name || '—'}</td><td className="px-2 py-2 font-mono">({sourceObject ? sourceObject.grid_x + 1 : '—'}, {sourceObject ? sourceObject.grid_y + 1 : '—'})</td><td className="px-2 py-2 text-amber-100">{targetObject?.name || 'Missing object'}</td><td className="px-2 py-2">{targetLevel?.name || '—'}</td><td className="px-2 py-2">{targetSector?.name || '—'}</td><td className="px-2 py-2 font-mono">({targetObject ? targetObject.grid_x + 1 : '—'}, {targetObject ? targetObject.grid_y + 1 : '—'})</td><td className="px-2 py-2 text-indigo-100">Source → Target</td><td className="px-2 py-2"><span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: connection.color }} title={connection.color} /></td></tr>;
+                    {loops.map((loop) => {
+                      const segments = activeCase.overlays.connectivity.filter((connection) => connection.loop_id === loop.id).sort((a, b) => a.sequence - b.sequence || a.id.localeCompare(b.id));
+                      const nodeIds = new Set(segments.flatMap((segment) => [segment.source_object_id, segment.target_object_id]));
+                      const loopObjects = activeCase.overlays.data.filter((object) => nodeIds.has(object.id));
+                      const levels = Array.from(new Set(loopObjects.map((object) => activeCase.levels.find((level) => level.id === object.level_id)?.name || object.level_id)));
+                      const sectors = Array.from(new Set(loopObjects.map((object) => activeCase.sectors.find((sector) => sector.id === object.sector_id)?.name || object.sector_id)));
+                      const hiddenSegments = segments.filter((segment) => !visibleObjectIds.has(segment.source_object_id) || !visibleObjectIds.has(segment.target_object_id)).length;
+                      const expanded = expandedLoopIds.includes(loop.id);
+                      const path = segments.length > 0
+                        ? [segments[0].source_object_id, ...segments.map((segment) => segment.target_object_id)].map((id) => activeCase.overlays.data.find((object) => object.id === id)?.name || 'Missing object')
+                        : [];
+                      return (
+                        <Fragment key={loop.id}>
+                          <tr onClick={() => { selectLoop(loop.id); toggleLoopExpanded(loop.id); }} className={`cursor-pointer border-t border-white/5 ${selectedLoopId === loop.id ? 'bg-indigo-300/15' : 'hover:bg-white/[0.04]'}`}>
+                            <td className="px-2 py-2 font-semibold text-foreground"><span className="mr-1 inline-block text-muted-foreground">{expanded ? '▾' : '▸'}</span>{loop.name}</td>
+                            <td className="px-2 py-2"><span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: loop.color }} title={loop.color} /></td>
+                            <td className="px-2 py-2">{nodeIds.size}</td><td className="px-2 py-2">{segments.length}</td><td className="px-2 py-2">{levels.join(', ') || '—'}</td><td className="px-2 py-2">{sectors.join(', ') || '—'}</td>
+                            <td className="px-2 py-2">{hiddenSegments > 0 ? <span className="text-amber-200">Hidden by display filter</span> : <span className="text-emerald-200">Visible</span>}</td>
+                            <td className="px-2 py-2"><div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}><button onClick={() => { const name = window.prompt('Rename loop', loop.name); if (name?.trim()) updateLoop(loop.id, { name }); }} className="rounded border border-white/10 px-1.5 py-1 hover:bg-white/10" title="Rename loop"><Edit2 size={11} /></button><input aria-label={`Change ${loop.name} colour`} type="color" value={loop.color} onChange={(event) => updateLoop(loop.id, { color: event.target.value })} className="h-6 w-6 cursor-pointer rounded border border-white/10 bg-transparent p-0.5" /><button onClick={() => { const description = window.prompt('Edit loop description', loop.description); if (description !== null) updateLoop(loop.id, { description }); }} className="rounded border border-white/10 px-1.5 py-1 hover:bg-white/10" title="Edit description"><Edit2 size={11} /></button><button onClick={() => setShowOnlyLoop(showOnlyLoopId === loop.id ? null : loop.id)} className="rounded border border-cyan-300/25 px-1.5 py-1 text-cyan-100 hover:bg-cyan-400/10" title={showOnlyLoopId === loop.id ? 'Show all loops' : 'Show only this loop'}>{showOnlyLoopId === loop.id ? <EyeOff size={11} /> : <Eye size={11} />}</button><button onClick={() => { if (window.confirm(`Delete loop "${loop.name}"? Its relationships will be removed, but data objects will remain.`)) deleteLoop(loop.id); }} className="rounded border border-rose-300/25 px-1.5 py-1 text-rose-200 hover:bg-rose-400/10" title="Delete loop"><Trash2 size={11} /></button></div></td>
+                          </tr>
+                          {expanded && <tr><td colSpan={8} className="bg-black/20 p-3">
+                            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ordered path</p>
+                            <p className="mb-3 text-xs font-semibold text-indigo-100">{path.length > 0 ? path.join(' → ') : 'No segments yet'}</p>
+                            <div className="space-y-2">
+                              {segments.map((segment) => {
+                                const sourceObject = activeCase.overlays.data.find((object) => object.id === segment.source_object_id);
+                                const targetObject = activeCase.overlays.data.find((object) => object.id === segment.target_object_id);
+                                const sourceLevel = activeCase.levels.find((level) => level.id === sourceObject?.level_id);
+                                const targetLevel = activeCase.levels.find((level) => level.id === targetObject?.level_id);
+                                const sourceSector = activeCase.sectors.find((sector) => sector.id === sourceObject?.sector_id);
+                                const targetSector = activeCase.sectors.find((sector) => sector.id === targetObject?.sector_id);
+                                return <div key={segment.id} className={`rounded border p-2 ${selectedConnectionId === segment.id ? 'border-indigo-300/40 bg-indigo-300/10' : 'border-white/10 bg-white/[0.02]'}`} onClick={(event) => { event.stopPropagation(); selectConnection(segment.id); }}>
+                                  <div className="grid gap-2 text-[10px] sm:grid-cols-7"><span className="font-mono text-indigo-200">#{segment.sequence + 1}</span><span className="text-cyan-100">{sourceObject?.name || 'Missing object'}<br /><span className="text-muted-foreground">{sourceLevel?.name || '—'} · {sourceSector?.name || '—'} · ({sourceObject?.grid_x ?? '—'}, {sourceObject?.grid_y ?? '—'})</span></span><ArrowRight size={13} className="mt-1 text-indigo-300" /><span className="text-amber-100">{targetObject?.name || 'Missing object'}<br /><span className="text-muted-foreground">{targetLevel?.name || '—'} · {targetSector?.name || '—'} · ({targetObject?.grid_x ?? '—'}, {targetObject?.grid_y ?? '—'})</span></span><span className="text-indigo-100">Source → Target</span><span className="text-muted-foreground">{segment.label || '—'}<br />{segment.description || 'No note'}</span><span className={visibleObjectIds.has(segment.source_object_id) && visibleObjectIds.has(segment.target_object_id) ? 'text-emerald-200' : 'text-amber-200'}>{visibleObjectIds.has(segment.source_object_id) && visibleObjectIds.has(segment.target_object_id) ? 'Visible' : 'Hidden by filter'}</span></div>
+                                  {selectedConnectionId === segment.id && <div className="mt-2 grid gap-2 border-t border-white/10 pt-2 sm:grid-cols-[1fr_1fr_auto]"><Field label="Segment label" value={segmentDraft.label} onChange={(value) => setSegmentDraft((current) => ({ ...current, label: value }))} /><Field label="Segment note" value={segmentDraft.description} onChange={(value) => setSegmentDraft((current) => ({ ...current, description: value }))} /><button onClick={(event) => { event.stopPropagation(); saveSegment(); }} className="self-end rounded bg-cyan-400 px-3 py-2 text-[10px] font-bold text-slate-950">Save</button></div>}
+                                </div>;
+                              })}
+                            </div>
+                          </td></tr>}
+                        </Fragment>
+                      );
                     })}
                   </tbody>
                 </table>

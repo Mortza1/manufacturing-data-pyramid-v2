@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
-import type { V2Case, V2Connection, V2Object } from './types';
+import type { V2Case, V2Connection, V2Loop, V2Object } from './types';
 import { getSectorIdForGridCell } from './geometry';
 
 interface V2Draft {
@@ -25,12 +25,24 @@ export interface V2DataDraft {
 
 export type V2MetadataPatch = Partial<V2DataDraft>;
 export type V2DataDensity = 1 | 2 | 3 | 'all';
-export interface V2ConnectionDraft {
-  label: string;
+export interface V2LoopDraft {
+  name: string;
   description: string;
-  loop: string;
   color: string;
 }
+
+export const LOOP_COLOR_PALETTE = ['#22d3ee', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#facc15'] as const;
+
+export interface V2LoopBuilder {
+  loopId: string;
+  firstObjectId: string | null;
+  currentObjectId: string | null;
+}
+
+export type V2LoopSelectionResult =
+  | { status: 'started'; objectId: string }
+  | { status: 'segment_created'; connectionId: string }
+  | { status: 'rejected'; reason: 'self' | 'repeated' | 'missing' | 'inactive' };
 
 export const EMPTY_DATA_DRAFT: V2DataDraft = {
   name: '',
@@ -112,6 +124,84 @@ function getAutoFillNameCandidates(levelName: string, sectorName: string) {
   ];
 }
 
+function getStableLegacyLoopId(normalisedName: string) {
+  let hash = 2166136261;
+  for (const char of normalisedName) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `loop_legacy_${(hash >>> 0).toString(16)}`;
+}
+
+function normalisePersistedLoops(rawCase: any) {
+  const rawConnections = Array.isArray(rawCase?.overlays?.connectivity) ? rawCase.overlays.connectivity : [];
+  const rawLoops = Array.isArray(rawCase?.overlays?.loops) ? rawCase.overlays.loops : [];
+  const loopsByKey = new Map<string, V2Loop>();
+  rawLoops.forEach((rawLoop: any) => {
+    const name = String(rawLoop?.name || 'Unassigned').trim() || 'Unassigned';
+    const key = normaliseDataName(name);
+    const loop: V2Loop = {
+      id: rawLoop?.id || getStableLegacyLoopId(key),
+      name,
+      description: String(rawLoop?.description || ''),
+      color: rawLoop?.color || '#67e8f9',
+      closed: Boolean(rawLoop?.closed),
+    };
+    loopsByKey.set(key, loop);
+    if (rawLoop?.id) loopsByKey.set(`id:${rawLoop.id}`, loop);
+  });
+  const rawLoopsById = new Map<string, any>();
+  rawLoops.forEach((rawLoop: any) => {
+    if (rawLoop?.id) rawLoopsById.set(String(rawLoop.id), rawLoop);
+  });
+  const grouped = new Map<string, any[]>();
+  rawConnections.forEach((rawConnection: any) => {
+    const linkedLoop = rawConnection?.loop_id ? rawLoopsById.get(String(rawConnection.loop_id)) : undefined;
+    const loopName = String(linkedLoop?.name || rawConnection?.loop || '').trim() || 'Unassigned';
+    const key = linkedLoop?.id ? `id:${linkedLoop.id}` : normaliseDataName(loopName);
+    if (!loopsByKey.has(key)) {
+      loopsByKey.set(key, {
+        id: linkedLoop?.id || rawConnection?.loop_id || getStableLegacyLoopId(key),
+        name: loopName,
+        description: String(linkedLoop?.description || ''),
+        color: linkedLoop?.color || rawConnection?.color || '#67e8f9',
+        closed: Boolean(linkedLoop?.closed),
+      });
+    }
+    const list = grouped.get(key) ?? [];
+    list.push(rawConnection);
+    grouped.set(key, list);
+  });
+  const connectivity = rawConnections.map((rawConnection: any) => {
+    const linkedLoop = rawConnection?.loop_id ? rawLoopsById.get(String(rawConnection.loop_id)) : undefined;
+    const loopName = String(linkedLoop?.name || rawConnection?.loop || '').trim() || 'Unassigned';
+    const key = linkedLoop?.id ? `id:${linkedLoop.id}` : normaliseDataName(loopName);
+    const group = grouped.get(key) || [];
+    const sequence = Number.isFinite(rawConnection?.sequence)
+      ? rawConnection.sequence
+      : group.indexOf(rawConnection);
+    return {
+      id: rawConnection?.id || `connection_${uuidv4()}`,
+      loop_id: rawConnection?.loop_id || loopsByKey.get(key)?.id || getStableLegacyLoopId(key),
+      sequence,
+      source_object_id: rawConnection?.source_object_id,
+      target_object_id: rawConnection?.target_object_id,
+      direction: 'source_to_target' as const,
+      label: rawConnection?.label || '',
+      description: rawConnection?.description || '',
+    };
+  });
+  const uniqueLoops = Array.from(new Map(Array.from(loopsByKey.values()).map((loop) => [loop.id, loop])).values());
+  return {
+    ...rawCase,
+    overlays: {
+      ...(rawCase?.overlays || {}),
+      loops: uniqueLoops,
+      connectivity,
+    },
+  };
+}
+
 interface V2State {
   mode: 'explorer' | 'walkthrough' | 'advanced';
   setMode: (mode: 'explorer' | 'walkthrough' | 'advanced') => void;
@@ -132,10 +222,11 @@ interface V2State {
   visualiseDataDensity: V2DataDensity;
   visualiseObjectScale: number;
   visualiseLabelScale: number;
-  connectionSourceObjectId: string | null;
-  connectionTargetObjectId: string | null;
+  selectedLoopId: string | null;
+  showOnlyLoopId: string | null;
+  expandedLoopIds: string[];
+  loopBuilder: V2LoopBuilder | null;
   selectedConnectionId: string | null;
-  connectionLoopFilter: 'all' | string;
   connectionArrowThickness: number;
   connectionsFinished: boolean;
   viewResetNonce: number;
@@ -153,15 +244,21 @@ interface V2State {
   setVisualiseDataDensity: (density: V2DataDensity) => void;
   setVisualiseObjectScale: (scale: number) => void;
   setVisualiseLabelScale: (scale: number) => void;
-  selectConnectionObject: (objectId: string) => void;
-  clearConnectionSelection: () => void;
+  startLoop: (draft: V2LoopDraft) => string | null;
+  selectLoopObject: (objectId: string) => V2LoopSelectionResult;
+  undoLastSegment: () => boolean;
+  finishLoop: (closeLoop?: boolean) => boolean;
+  cancelLoop: () => void;
+  selectLoop: (loopId: string | null) => void;
+  setShowOnlyLoop: (loopId: string | null) => void;
+  toggleLoopExpanded: (loopId: string) => void;
   selectConnection: (connectionId: string) => void;
-  createConnection: (draft: V2ConnectionDraft) => string | null;
-  updateConnection: (connectionId: string, patch: Partial<V2ConnectionDraft>) => boolean;
+  updateConnection: (connectionId: string, patch: Partial<Pick<V2Connection, 'label' | 'description'>>) => boolean;
   deleteConnection: (connectionId: string) => boolean;
-  setConnectionLoopFilter: (loop: 'all' | string) => void;
+  updateLoop: (loopId: string, patch: Partial<V2LoopDraft>) => boolean;
+  deleteLoop: (loopId: string) => boolean;
   setConnectionArrowThickness: (thickness: number) => void;
-  addExampleConnections: (visibleObjectIds: string[]) => number;
+  addExampleLoops: (visibleObjectIds: string[]) => number;
   finishConnections: () => void;
   requestViewReset: () => void;
 
@@ -205,10 +302,11 @@ export const useV2Store = create<V2State>()(
       visualiseDataDensity: 'all',
       visualiseObjectScale: 1,
       visualiseLabelScale: 1,
-      connectionSourceObjectId: null,
-      connectionTargetObjectId: null,
+      selectedLoopId: null,
+      showOnlyLoopId: null,
+      expandedLoopIds: [],
+      loopBuilder: null,
       selectedConnectionId: null,
-      connectionLoopFilter: 'all',
       connectionArrowThickness: 1,
       connectionsFinished: false,
       viewResetNonce: 0,
@@ -242,56 +340,74 @@ export const useV2Store = create<V2State>()(
       setVisualiseLabelScale: (visualiseLabelScale) => set({
         visualiseLabelScale: Math.min(1.35, Math.max(0.75, visualiseLabelScale)),
       }),
-      selectConnectionObject: (objectId) => set((state) => {
-        if (!state.activeCase?.overlays.data.some((object) => object.id === objectId)) return state;
-        if (!state.connectionSourceObjectId || state.connectionTargetObjectId) {
-          return {
-            connectionSourceObjectId: objectId,
-            connectionTargetObjectId: null,
-            selectedConnectionId: null,
-          };
-        }
-        if (state.connectionSourceObjectId === objectId) return state;
-        return {
-          connectionTargetObjectId: objectId,
-          selectedConnectionId: null,
+      startLoop: (draft) => {
+        const { activeCase } = get();
+        if (!activeCase || !draft.name.trim()) return null;
+        const loop: V2Loop = {
+          id: `loop_${uuidv4()}`,
+          name: draft.name.trim(),
+          description: draft.description.trim(),
+          color: draft.color || LOOP_COLOR_PALETTE[0],
+          closed: false,
         };
-      }),
-      clearConnectionSelection: () => set({
-        connectionSourceObjectId: null,
-        connectionTargetObjectId: null,
-        selectedConnectionId: null,
-      }),
-      selectConnection: (connectionId) => set((state) => {
-        const connection = state.activeCase?.overlays.connectivity.find((item) => item.id === connectionId);
-        return connection
-          ? {
-            selectedConnectionId: connection.id,
-            connectionSourceObjectId: connection.source_object_id,
-            connectionTargetObjectId: connection.target_object_id,
-          }
-          : state;
-      }),
-      createConnection: (draft) => {
-        const { activeCase, connectionSourceObjectId, connectionTargetObjectId } = get();
-        if (!activeCase || !connectionSourceObjectId || !connectionTargetObjectId || connectionSourceObjectId === connectionTargetObjectId) return null;
-        const duplicate = activeCase.overlays.connectivity.some((connection) =>
-          connection.source_object_id === connectionSourceObjectId &&
-          connection.target_object_id === connectionTargetObjectId
+        set({
+          activeCase: {
+            ...activeCase,
+            overlays: {
+              ...activeCase.overlays,
+              loops: [...activeCase.overlays.loops, loop],
+            },
+          },
+          selectedLoopId: loop.id,
+          showOnlyLoopId: null,
+          selectedConnectionId: null,
+          loopBuilder: {
+            loopId: loop.id,
+            firstObjectId: null,
+            currentObjectId: null,
+          },
+        });
+        return loop.id;
+      },
+      selectLoopObject: (objectId) => {
+        const { activeCase, loopBuilder } = get();
+        if (!activeCase || !loopBuilder) return { status: 'rejected', reason: 'inactive' };
+        if (!activeCase.overlays.data.some((object) => object.id === objectId)) return { status: 'rejected', reason: 'missing' };
+        if (!loopBuilder.firstObjectId) {
+          set({
+            loopBuilder: {
+              ...loopBuilder,
+              firstObjectId: objectId,
+              currentObjectId: objectId,
+            },
+          });
+          return { status: 'started', objectId };
+        }
+        if (loopBuilder.currentObjectId === objectId) return { status: 'rejected', reason: 'self' };
+        const existingSegments = activeCase.overlays.connectivity
+          .filter((connection) => connection.loop_id === loopBuilder.loopId)
+          .sort((a, b) => a.sequence - b.sequence || a.id.localeCompare(b.id));
+        const usedObjectIds = new Set(existingSegments.flatMap((connection) => [
+          connection.source_object_id,
+          connection.target_object_id,
+        ]));
+        if (usedObjectIds.has(objectId)) return { status: 'rejected', reason: 'repeated' };
+        const duplicate = existingSegments.some((connection) =>
+          connection.source_object_id === loopBuilder.currentObjectId &&
+          connection.target_object_id === objectId
         );
-        if (duplicate) return null;
-        const source = activeCase.overlays.data.find((object) => object.id === connectionSourceObjectId);
-        const target = activeCase.overlays.data.find((object) => object.id === connectionTargetObjectId);
-        if (!source || !target) return null;
+        if (duplicate) return { status: 'rejected', reason: 'repeated' };
+        const sourceObjectId = loopBuilder.currentObjectId;
+        if (!sourceObjectId) return { status: 'rejected', reason: 'missing' };
         const connection: V2Connection = {
           id: `connection_${uuidv4()}`,
-          source_object_id: source.id,
-          target_object_id: target.id,
+          loop_id: loopBuilder.loopId,
+          sequence: existingSegments.length,
+          source_object_id: sourceObjectId,
+          target_object_id: objectId,
           direction: 'source_to_target',
-          label: draft.label.trim() || `${source.name} → ${target.name}`,
-          description: draft.description.trim(),
-          loop: draft.loop.trim() || 'Unassigned',
-          color: draft.color || '#67e8f9',
+          label: `Segment ${existingSegments.length + 1}`,
+          description: '',
         };
         set({
           activeCase: {
@@ -301,10 +417,135 @@ export const useV2Store = create<V2State>()(
               connectivity: [...activeCase.overlays.connectivity, connection],
             },
           },
+          selectedLoopId: loopBuilder.loopId,
           selectedConnectionId: connection.id,
+          loopBuilder: {
+            ...loopBuilder,
+            currentObjectId: objectId,
+          },
         });
-        return connection.id;
+        return { status: 'segment_created', connectionId: connection.id };
       },
+      undoLastSegment: () => {
+        const { activeCase, loopBuilder } = get();
+        if (!activeCase || !loopBuilder) return false;
+        const segments = activeCase.overlays.connectivity
+          .filter((connection) => connection.loop_id === loopBuilder.loopId)
+          .sort((a, b) => b.sequence - a.sequence || b.id.localeCompare(a.id));
+        const last = segments[0];
+        if (!last) {
+          set({
+            loopBuilder: {
+              ...loopBuilder,
+              firstObjectId: null,
+              currentObjectId: null,
+            },
+            selectedConnectionId: null,
+          });
+          return true;
+        }
+        set({
+          activeCase: {
+            ...activeCase,
+            overlays: {
+              ...activeCase.overlays,
+              connectivity: activeCase.overlays.connectivity.filter((connection) => connection.id !== last.id),
+            },
+          },
+          selectedConnectionId: null,
+          loopBuilder: {
+            ...loopBuilder,
+            currentObjectId: last.source_object_id,
+          },
+        });
+        return true;
+      },
+      finishLoop: (closeLoop = false) => {
+        const { activeCase, loopBuilder } = get();
+        if (!activeCase || !loopBuilder) return false;
+        const loop = activeCase.overlays.loops.find((item) => item.id === loopBuilder.loopId);
+        if (!loop) return false;
+        const segments = activeCase.overlays.connectivity
+          .filter((connection) => connection.loop_id === loop.id)
+          .sort((a, b) => a.sequence - b.sequence || a.id.localeCompare(b.id));
+        let nextCase = activeCase;
+        if (closeLoop && loopBuilder.firstObjectId && loopBuilder.currentObjectId && loopBuilder.firstObjectId !== loopBuilder.currentObjectId) {
+          const duplicate = segments.some((connection) =>
+            connection.source_object_id === loopBuilder.currentObjectId &&
+            connection.target_object_id === loopBuilder.firstObjectId
+          );
+          if (!duplicate) {
+            const closingSegment: V2Connection = {
+              id: `connection_${uuidv4()}`,
+              loop_id: loop.id,
+              sequence: segments.length,
+              source_object_id: loopBuilder.currentObjectId,
+              target_object_id: loopBuilder.firstObjectId,
+              direction: 'source_to_target',
+              label: `Segment ${segments.length + 1}`,
+              description: 'Closing segment',
+            };
+            nextCase = {
+              ...activeCase,
+              overlays: {
+                ...activeCase.overlays,
+                connectivity: [...activeCase.overlays.connectivity, closingSegment],
+              },
+            };
+          }
+        }
+        set({
+          activeCase: {
+            ...nextCase,
+            overlays: {
+              ...nextCase.overlays,
+              loops: nextCase.overlays.loops.map((item) => item.id === loop.id ? { ...item, closed: closeLoop } : item),
+            },
+          },
+          loopBuilder: null,
+          selectedLoopId: loop.id,
+          selectedConnectionId: null,
+        });
+        return true;
+      },
+      cancelLoop: () => set((state) => {
+        const builder = state.loopBuilder;
+        if (!builder || !state.activeCase) return { loopBuilder: null };
+        const remainingConnections = state.activeCase.overlays.connectivity.filter((connection) => connection.loop_id !== builder.loopId);
+        const remainingLoops = state.activeCase.overlays.loops.filter((loop) => loop.id !== builder.loopId);
+        return {
+          activeCase: {
+            ...state.activeCase,
+            overlays: {
+              ...state.activeCase.overlays,
+              loops: remainingLoops,
+              connectivity: remainingConnections,
+            },
+          },
+          loopBuilder: null,
+          selectedLoopId: null,
+          selectedConnectionId: null,
+        };
+      }),
+      selectLoop: (selectedLoopId) => set({
+        selectedLoopId,
+        selectedConnectionId: null,
+      }),
+      setShowOnlyLoop: (showOnlyLoopId) => set({ showOnlyLoopId }),
+      toggleLoopExpanded: (loopId) => set((state) => ({
+        expandedLoopIds: state.expandedLoopIds.includes(loopId)
+          ? state.expandedLoopIds.filter((id) => id !== loopId)
+          : [...state.expandedLoopIds, loopId],
+      })),
+      selectConnection: (connectionId) => set((state) => {
+        const connection = state.activeCase?.overlays.connectivity.find((item) => item.id === connectionId);
+        return connection
+          ? {
+            selectedConnectionId: connection.id,
+            selectedLoopId: connection.loop_id,
+          }
+          : state;
+      }),
       updateConnection: (connectionId, patch) => {
         const { activeCase } = get();
         if (!activeCase) return false;
@@ -318,10 +559,8 @@ export const useV2Store = create<V2State>()(
               connectivity: activeCase.overlays.connectivity.map((item) => item.id === connectionId
                 ? {
                   ...item,
-                  ...(patch.label !== undefined ? { label: patch.label.trim() || item.label } : {}),
-                  ...(patch.description !== undefined ? { description: patch.description.trim() } : {}),
-                  ...(patch.loop !== undefined ? { loop: patch.loop.trim() || 'Unassigned' } : {}),
-                  ...(patch.color !== undefined ? { color: patch.color || item.color } : {}),
+                  ...(patch.label !== undefined ? { label: patch.label?.trim() || item.label } : {}),
+                  ...(patch.description !== undefined ? { description: patch.description?.trim() || '' } : {}),
                 }
                 : item),
             },
@@ -341,67 +580,137 @@ export const useV2Store = create<V2State>()(
             },
           } : null,
           selectedConnectionId: state.selectedConnectionId === connectionId ? null : state.selectedConnectionId,
-          connectionSourceObjectId: state.selectedConnectionId === connectionId ? null : state.connectionSourceObjectId,
-          connectionTargetObjectId: state.selectedConnectionId === connectionId ? null : state.connectionTargetObjectId,
         }));
         return true;
       },
-      setConnectionLoopFilter: (connectionLoopFilter) => set({ connectionLoopFilter }),
-      setConnectionArrowThickness: (connectionArrowThickness) => set({
-        connectionArrowThickness: Math.min(1.8, Math.max(0.7, connectionArrowThickness)),
-      }),
-      addExampleConnections: (visibleObjectIds) => {
+      updateLoop: (loopId, patch) => {
         const { activeCase } = get();
-        if (!activeCase) return 0;
-        const visible = activeCase.overlays.data
-          .filter((object) => visibleObjectIds.includes(object.id))
-          .sort((a, b) => a.level_id.localeCompare(b.level_id) || a.sector_id.localeCompare(b.sector_id) || a.grid_y - b.grid_y || a.grid_x - b.grid_x || a.id.localeCompare(b.id));
-        const existing = new Set(activeCase.overlays.connectivity.map((connection) => `${connection.source_object_id}->${connection.target_object_id}`));
-        const additions: V2Connection[] = [];
-        const bySector = new Map<string, V2Object[]>();
-        visible.forEach((object) => {
-          const list = bySector.get(object.sector_id) ?? [];
-          list.push(object);
-          bySector.set(object.sector_id, list);
-        });
-        for (const objects of bySector.values()) {
-          const candidates = objects
-            .map((object) => ({ object, levelIndex: activeCase.levels.findIndex((level) => level.id === object.level_id) }))
-            .sort((a, b) => a.levelIndex - b.levelIndex || a.object.grid_y - b.object.grid_y || a.object.grid_x - b.object.grid_x);
-          for (let index = 0; index < candidates.length - 1 && additions.length < 3; index += 1) {
-            const source = candidates[index].object;
-            const target = candidates[index + 1].object;
-            if (candidates[index].levelIndex === candidates[index + 1].levelIndex) continue;
-            const key = `${source.id}->${target.id}`;
-            if (existing.has(key)) continue;
-            existing.add(key);
-            additions.push({
-              id: `connection_${uuidv4()}`,
-              source_object_id: source.id,
-              target_object_id: target.id,
-              direction: 'source_to_target',
-              label: `${source.name} → ${target.name}`,
-              description: 'Example relationship generated from adjacent levels in the same sector.',
-              loop: 'Example Flow',
-              color: '#a78bfa',
-            });
-          }
-          if (additions.length >= 3) break;
-        }
-        if (additions.length === 0) return 0;
+        if (!activeCase || !activeCase.overlays.loops.some((loop) => loop.id === loopId)) return false;
         set({
           activeCase: {
             ...activeCase,
             overlays: {
               ...activeCase.overlays,
-              connectivity: [...activeCase.overlays.connectivity, ...additions],
+              loops: activeCase.overlays.loops.map((loop) => loop.id === loopId
+                ? {
+                  ...loop,
+                  ...(patch.name !== undefined ? { name: patch.name.trim() || loop.name } : {}),
+                  ...(patch.description !== undefined ? { description: patch.description.trim() } : {}),
+                  ...(patch.color !== undefined ? { color: patch.color || loop.color } : {}),
+                }
+                : loop),
             },
           },
-          selectedConnectionId: additions[0].id,
-          connectionSourceObjectId: additions[0].source_object_id,
-          connectionTargetObjectId: additions[0].target_object_id,
         });
-        return additions.length;
+        return true;
+      },
+      deleteLoop: (loopId) => {
+        const { activeCase } = get();
+        if (!activeCase || !activeCase.overlays.loops.some((loop) => loop.id === loopId)) return false;
+        set((state) => ({
+          activeCase: state.activeCase ? {
+            ...state.activeCase,
+            overlays: {
+              ...state.activeCase.overlays,
+              loops: state.activeCase.overlays.loops.filter((loop) => loop.id !== loopId),
+              connectivity: state.activeCase.overlays.connectivity.filter((connection) => connection.loop_id !== loopId),
+            },
+          } : null,
+          selectedLoopId: state.selectedLoopId === loopId ? null : state.selectedLoopId,
+          showOnlyLoopId: state.showOnlyLoopId === loopId ? null : state.showOnlyLoopId,
+          expandedLoopIds: state.expandedLoopIds.filter((id) => id !== loopId),
+          loopBuilder: state.loopBuilder?.loopId === loopId ? null : state.loopBuilder,
+        }));
+        return true;
+      },
+      setConnectionArrowThickness: (connectionArrowThickness) => set({
+        connectionArrowThickness: Math.min(1.8, Math.max(0.7, connectionArrowThickness)),
+      }),
+      addExampleLoops: (visibleObjectIds) => {
+        const { activeCase } = get();
+        if (!activeCase) return 0;
+        const visible = activeCase.overlays.data.filter((object) => visibleObjectIds.includes(object.id));
+        const levelIndex = new Map(activeCase.levels.map((level, index) => [level.id, index]));
+        const sectorIndex = new Map(activeCase.sectors.map((sector, index) => [sector.id, index]));
+        const existingLoopNames = new Set(activeCase.overlays.loops.map((loop) => normaliseDataName(loop.name)));
+        const examples = [
+          {
+            name: 'Predictive Maintenance',
+            description: 'Deterministic maintenance path across the available manufacturing levels.',
+            color: '#22d3ee',
+            terms: ['vibration', 'machine', 'alarm', 'maintenance', 'condition', 'reliability', 'wear', 'asset', 'equipment'],
+            sectorTerms: ['machine', 'maintenance'],
+          },
+          {
+            name: 'Process Optimisation',
+            description: 'Deterministic process and quality path across the available manufacturing levels.',
+            color: '#a78bfa',
+            terms: ['temperature', 'signal', 'measurement', 'inspection', 'process', 'simulation', 'quality', 'utilisation', 'cost', 'profitability', 'performance'],
+            sectorTerms: ['product', 'resources', 'machine'],
+          },
+        ];
+        const loops: V2Loop[] = [];
+        const connections: V2Connection[] = [];
+        for (const example of examples) {
+          if (existingLoopNames.has(normaliseDataName(example.name))) continue;
+          const path: V2Object[] = [];
+          for (let index = 0; index < activeCase.levels.length; index += 1) {
+            const candidates = visible
+              .filter((object) => levelIndex.get(object.level_id) === index && !path.some((selected) => selected.id === object.id))
+              .map((object) => {
+                const searchable = `${object.name} ${object.data_type} ${object.description}`.toLowerCase();
+                const sectorName = activeCase.sectors.find((sector) => sector.id === object.sector_id)?.name.toLowerCase() || '';
+                const termScore = example.terms.reduce((score, term) => score + (searchable.includes(term) ? 2 : 0), 0);
+                const sectorScore = example.sectorTerms.some((term) => sectorName.includes(term)) ? 1 : 0;
+                return { object, score: termScore + sectorScore };
+              })
+              .sort((a, b) =>
+                b.score - a.score ||
+                (sectorIndex.get(a.object.sector_id) ?? 0) - (sectorIndex.get(b.object.sector_id) ?? 0) ||
+                a.object.grid_y - b.object.grid_y ||
+                a.object.grid_x - b.object.grid_x ||
+                a.object.id.localeCompare(b.object.id)
+              );
+            if (candidates[0]) path.push(candidates[0].object);
+          }
+          if (path.length < 3) continue;
+          const loop: V2Loop = {
+            id: `loop_${uuidv4()}`,
+            name: example.name,
+            description: example.description,
+            color: example.color,
+            closed: false,
+          };
+          loops.push(loop);
+          path.slice(0, -1).forEach((source, index) => {
+            const target = path[index + 1];
+            connections.push({
+              id: `connection_${uuidv4()}`,
+              loop_id: loop.id,
+              sequence: index,
+              source_object_id: source.id,
+              target_object_id: target.id,
+              direction: 'source_to_target',
+              label: `Segment ${index + 1}`,
+              description: '',
+            });
+          });
+          existingLoopNames.add(normaliseDataName(example.name));
+        }
+        if (loops.length === 0) return 0;
+        set({
+          activeCase: {
+            ...activeCase,
+            overlays: {
+              ...activeCase.overlays,
+              loops: [...activeCase.overlays.loops, ...loops],
+              connectivity: [...activeCase.overlays.connectivity, ...connections],
+            },
+          },
+          selectedLoopId: loops[0].id,
+          expandedLoopIds: [...new Set([...get().expandedLoopIds, loops[0].id])],
+        });
+        return loops.length;
       },
       finishConnections: () => set({ connectionsFinished: true }),
       requestViewReset: () => set((state) => ({ viewResetNonce: state.viewResetNonce + 1 })),
@@ -450,6 +759,8 @@ export const useV2Store = create<V2State>()(
         const preservedConnectivity = (activeCase?.overlays.connectivity || []).filter((connection) =>
           preservedDataIds.has(connection.source_object_id) && preservedDataIds.has(connection.target_object_id)
         );
+        const preservedLoopIds = new Set(preservedConnectivity.map((connection) => connection.loop_id));
+        const preservedLoops = (activeCase?.overlays.loops || []).filter((loop) => preservedLoopIds.has(loop.id));
         const newCase: V2Case = {
           id: activeCase?.id || `case_${uuidv4()}`,
           name: activeCase?.name || 'Untitled Pyramid Case',
@@ -459,12 +770,14 @@ export const useV2Store = create<V2State>()(
           overlays: activeCase ? {
             ...activeCase.overlays,
             data: preservedData,
+            loops: preservedLoops,
             connectivity: preservedConnectivity,
           } : {
             data: preservedData,
             models: [],
             agents: [],
             decisions: [],
+            loops: [],
             connectivity: [],
           },
         };
@@ -484,10 +797,11 @@ export const useV2Store = create<V2State>()(
           visualiseDataDensity: 'all',
           visualiseObjectScale: 1,
           visualiseLabelScale: 1,
-          connectionSourceObjectId: null,
-          connectionTargetObjectId: null,
+          selectedLoopId: null,
+          showOnlyLoopId: null,
+          expandedLoopIds: [],
+          loopBuilder: null,
           selectedConnectionId: null,
-          connectionLoopFilter: 'all',
           connectionsFinished: false,
           draft: {
             levels: newLevels,
@@ -654,26 +968,25 @@ export const useV2Store = create<V2State>()(
         if (removedIds.size === 0) {
           return { ...state, dataAutoFillNotice: null };
         }
-        const selectedConnection = state.activeCase.overlays.connectivity.find((connection) => connection.id === state.selectedConnectionId);
-        const selectionAffected = Boolean(
-          (state.connectionSourceObjectId && removedIds.has(state.connectionSourceObjectId)) ||
-          (state.connectionTargetObjectId && removedIds.has(state.connectionTargetObjectId)) ||
-          (selectedConnection && (removedIds.has(selectedConnection.source_object_id) || removedIds.has(selectedConnection.target_object_id))),
+        const remainingConnectivity = state.activeCase.overlays.connectivity.filter((connection) =>
+          !removedIds.has(connection.source_object_id) && !removedIds.has(connection.target_object_id)
         );
+        const remainingLoopIds = new Set(remainingConnectivity.map((connection) => connection.loop_id));
+        const remainingLoops = state.activeCase.overlays.loops.filter((loop) => remainingLoopIds.has(loop.id));
+        const selectionAffected = !remainingConnectivity.some((connection) => connection.id === state.selectedConnectionId);
         return {
           ...state,
           dataAutoFillNotice: null,
-          connectionSourceObjectId: selectionAffected ? null : state.connectionSourceObjectId,
-          connectionTargetObjectId: selectionAffected ? null : state.connectionTargetObjectId,
           selectedConnectionId: selectionAffected ? null : state.selectedConnectionId,
+          selectedLoopId: state.selectedLoopId && remainingLoopIds.has(state.selectedLoopId) ? state.selectedLoopId : null,
+          showOnlyLoopId: state.showOnlyLoopId && remainingLoopIds.has(state.showOnlyLoopId) ? state.showOnlyLoopId : null,
           activeCase: {
             ...state.activeCase,
             overlays: {
               ...state.activeCase.overlays,
               data: state.activeCase.overlays.data.filter((object) => object.level_id !== levelId),
-              connectivity: state.activeCase.overlays.connectivity.filter((connection) =>
-                !removedIds.has(connection.source_object_id) && !removedIds.has(connection.target_object_id)
-              ),
+              loops: remainingLoops,
+              connectivity: remainingConnectivity,
             },
           },
         };
@@ -687,8 +1000,6 @@ export const useV2Store = create<V2State>()(
       resetDataLevel: () => set({ dataLevelIndex: 0, skippedLevelIds: [] }),
       removeDataObject: (objectId) => set((state) => state.activeCase ? ({
         selectedVisualiseObjectId: state.selectedVisualiseObjectId === objectId ? null : state.selectedVisualiseObjectId,
-        connectionSourceObjectId: state.connectionSourceObjectId === objectId ? null : state.connectionSourceObjectId,
-        connectionTargetObjectId: state.connectionTargetObjectId === objectId ? null : state.connectionTargetObjectId,
         selectedConnectionId: state.activeCase.overlays.connectivity.some((connection) =>
           connection.id === state.selectedConnectionId &&
           (connection.source_object_id === objectId || connection.target_object_id === objectId)
@@ -700,6 +1011,13 @@ export const useV2Store = create<V2State>()(
             data: state.activeCase.overlays.data.filter((object) => object.id !== objectId),
             connectivity: state.activeCase.overlays.connectivity.filter((connection) =>
               connection.source_object_id !== objectId && connection.target_object_id !== objectId
+            ),
+            loops: state.activeCase.overlays.loops.filter((loop) =>
+              state.activeCase?.overlays.connectivity.some((connection) =>
+                connection.loop_id === loop.id &&
+                connection.source_object_id !== objectId &&
+                connection.target_object_id !== objectId
+              )
             ),
           },
         },
@@ -725,7 +1043,7 @@ export const useV2Store = create<V2State>()(
     }),
     {
       name: 'manufacturing-v2-case-storage',
-       version: 5,
+        version: 6,
       migrate: (persistedState: any) => {
         const activeCase = persistedState?.activeCase;
         const isEditingStructure = activeCase
@@ -745,21 +1063,16 @@ export const useV2Store = create<V2State>()(
              ...activeCase,
                id: activeCase.id || `case_${uuidv4()}`,
                name: activeCase.name || 'Untitled Pyramid Case',
-               overlays: {
-                 ...(activeCase.overlays || {}),
-                 data: activeCase.overlays?.data || activeCase.objects || [],
-                 models: activeCase.overlays?.models || [],
-                 agents: activeCase.overlays?.agents || [],
-                 decisions: activeCase.overlays?.decisions || [],
-                 connectivity: (activeCase.overlays?.connectivity || []).map((connection: any) => ({
-                   ...connection,
-                   direction: connection.direction || 'source_to_target',
-                   label: connection.label || connection.name || 'Connection',
-                   description: connection.description || '',
-                   loop: connection.loop || 'Unassigned',
-                   color: connection.color || '#67e8f9',
-                 })),
-               },
+               overlays: normalisePersistedLoops({
+                 ...(activeCase || {}),
+                 overlays: {
+                   ...(activeCase.overlays || {}),
+                   data: activeCase.overlays?.data || activeCase.objects || [],
+                   models: activeCase.overlays?.models || [],
+                   agents: activeCase.overlays?.agents || [],
+                   decisions: activeCase.overlays?.decisions || [],
+                 },
+               }).overlays,
            } : null,
         };
       },

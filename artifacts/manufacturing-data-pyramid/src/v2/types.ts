@@ -35,15 +35,23 @@ export interface V2Object {
   intended_use: string;
 }
 
+export interface V2Loop {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  closed: boolean;
+}
+
 export interface V2Connection {
   id: string;
+  loop_id: string;
+  sequence: number;
   source_object_id: string;
   target_object_id: string;
   direction: 'source_to_target';
-  label: string;
-  description: string;
-  loop: string;
-  color: string;
+  label?: string;
+  description?: string;
 }
 
 export interface V2Overlays {
@@ -51,6 +59,7 @@ export interface V2Overlays {
   models: V2Object[];
   agents: V2Object[];
   decisions: V2Object[];
+  loops: V2Loop[];
   connectivity: V2Connection[];
 }
 
