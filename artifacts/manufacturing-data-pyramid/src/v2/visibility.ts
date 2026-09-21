@@ -27,6 +27,23 @@ export function getLoopObjectIds(activeCase: V2Case, loopId: string | null) {
   return ids;
 }
 
+export function getLoopSectorIdsByLevel(activeCase: V2Case, loopId: string | null) {
+  if (!loopId) return null;
+  const objectMap = new Map(activeCase.overlays.data.map((object) => [object.id, object]));
+  const sectorIdsByLevel = new Map<string, Set<string>>();
+  activeCase.overlays.connectivity
+    .filter((connection) => connection.loop_id === loopId)
+    .flatMap((connection) => [connection.source_object_id, connection.target_object_id])
+    .map((objectId) => objectMap.get(objectId))
+    .filter((object): object is V2Object => Boolean(object))
+    .forEach((object) => {
+      const sectorIds = sectorIdsByLevel.get(object.level_id) ?? new Set<string>();
+      sectorIds.add(object.sector_id);
+      sectorIdsByLevel.set(object.level_id, sectorIds);
+    });
+  return sectorIdsByLevel;
+}
+
 export function getVisibleV2ObjectIds(
   activeCase: V2Case,
   density: V2DataDensity,
@@ -38,7 +55,10 @@ export function getVisibleV2ObjectIds(
   const loopObjectIds = getLoopObjectIds(activeCase, showOnlyLoopId);
   activeCase.levels.forEach((level) => {
     const levelObjects = activeCase.overlays.data.filter((object) => object.level_id === level.id);
-    filterV2ObjectsByDensity(levelObjects, density).forEach((object) => {
+    const displayObjects = loopObjectIds
+      ? levelObjects.filter((object) => loopObjectIds.has(object.id))
+      : filterV2ObjectsByDensity(levelObjects, density);
+    displayObjects.forEach((object) => {
       if (
         (onlyLevelId === null || onlyLevelId === level.id) &&
         !hiddenSectorIds.includes(object.sector_id) &&

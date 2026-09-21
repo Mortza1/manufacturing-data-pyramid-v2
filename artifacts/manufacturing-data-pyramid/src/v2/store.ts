@@ -311,7 +311,12 @@ export const useV2Store = create<V2State>()(
       connectionsFinished: false,
       viewResetNonce: 0,
       setIsEditingStructure: (isEditing) => set({ isEditingStructure: isEditing }),
-      setWalkthroughStage: (walkthroughStage) => set({ walkthroughStage }),
+      setWalkthroughStage: (walkthroughStage) => set((state) => ({
+        walkthroughStage,
+        visualiseSurfaceOpacity: walkthroughStage === 'connections' && state.walkthroughStage !== 'connections'
+          ? 0.2
+          : state.visualiseSurfaceOpacity,
+      })),
       setDataLevelIndex: (dataLevelIndex) => set({ dataLevelIndex: Math.max(0, dataLevelIndex), dataAutoFillNotice: null }),
       setShowV2Labels: (showV2Labels) => set({ showV2Labels }),
       setSelectedVisualiseObjectId: (selectedVisualiseObjectId) => set({ selectedVisualiseObjectId }),
@@ -531,7 +536,10 @@ export const useV2Store = create<V2State>()(
         selectedLoopId,
         selectedConnectionId: null,
       }),
-      setShowOnlyLoop: (showOnlyLoopId) => set({ showOnlyLoopId }),
+      setShowOnlyLoop: (showOnlyLoopId) => set({
+        showOnlyLoopId,
+        selectedLoopId: showOnlyLoopId,
+      }),
       toggleLoopExpanded: (loopId) => set((state) => ({
         expandedLoopIds: state.expandedLoopIds.includes(loopId)
           ? state.expandedLoopIds.filter((id) => id !== loopId)
@@ -1055,6 +1063,9 @@ export const useV2Store = create<V2State>()(
            walkthroughStage: activeCase && !isEditingStructure && ['data', 'visualise', 'connections'].includes(persistedState?.walkthroughStage)
              ? persistedState.walkthroughStage
             : 'structure',
+           visualiseSurfaceOpacity: activeCase && !isEditingStructure && persistedState?.walkthroughStage === 'connections'
+             ? 0.2
+             : 0.72,
            connectionsFinished: persistedState?.connectionsFinished ?? false,
           autoFillLevelNames: persistedState?.autoFillLevelNames ?? true,
           showV2Labels: persistedState?.showV2Labels ?? true,
