@@ -156,7 +156,7 @@ export const useV2Store = create<V2State>()(
         set({
           activeCase: newCase,
           isEditingStructure: false,
-          walkthroughStage: 'data',
+          walkthroughStage: 'structure',
           dataLevelIndex: 0,
           skippedLevelIds: [],
           draft: {
@@ -288,7 +288,9 @@ export const useV2Store = create<V2State>()(
         return {
           ...persistedState,
           isEditingStructure,
-          walkthroughStage: activeCase && !isEditingStructure ? 'data' : 'structure',
+          walkthroughStage: activeCase && !isEditingStructure && persistedState?.walkthroughStage === 'data'
+            ? 'data'
+            : 'structure',
           autoFillLevelNames: persistedState?.autoFillLevelNames ?? true,
           activeCase: activeCase ? {
             ...activeCase,

@@ -274,10 +274,10 @@ export function WalkthroughUI() {
   const activeCase = useV2Store((state) => state.activeCase);
   const isEditingStructure = useV2Store((state) => state.isEditingStructure);
   const walkthroughStage = useV2Store((state) => state.walkthroughStage);
-  const currentStage = walkthroughStage === 'data' && activeCase && !isEditingStructure ? 1 : 0;
+  const currentStage = activeCase && !isEditingStructure ? 1 : 0;
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-end p-4 md:p-6 pointer-events-none">
-      {currentStage === 1 ? <DataBoard /> : <div className="pointer-events-auto flex h-[calc(100dvh-7rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl"><div className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5"><h2 className="flex items-center gap-2 text-xl font-bold text-indigo-100"><GraduationCap className="text-indigo-300" /> Walkthrough</h2><p className="mt-1 text-sm text-indigo-100/65">Define your manufacturing data strategy step by step.</p></div><Progress currentStage={currentStage} /><div className="min-h-0 flex-1 overflow-y-auto p-5"><StructureStage /></div></div>}
+      {walkthroughStage === 'data' && activeCase && !isEditingStructure ? <DataBoard /> : <div className="pointer-events-auto flex h-[calc(100dvh-7rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl"><div className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5"><h2 className="flex items-center gap-2 text-xl font-bold text-indigo-100"><GraduationCap className="text-indigo-300" /> Walkthrough</h2><p className="mt-1 text-sm text-indigo-100/65">Define your manufacturing data strategy step by step.</p></div><Progress currentStage={currentStage} /><div className="min-h-0 flex-1 overflow-y-auto p-5"><StructureStage /></div></div>}
     </div>
   );
 }
