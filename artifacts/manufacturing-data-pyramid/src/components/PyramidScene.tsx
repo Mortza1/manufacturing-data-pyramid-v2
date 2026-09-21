@@ -44,7 +44,13 @@ function WebGLFallback() {
   );
 }
 
-function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => void) | null> }) {
+function CameraRig({
+  cancelRef,
+  manualInteractionRef,
+}: {
+  cancelRef: React.MutableRefObject<(() => void) | null>;
+  manualInteractionRef: React.MutableRefObject<boolean>;
+}) {
   const { camera } = useThree();
   const {
     journeyActive,
@@ -80,6 +86,8 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
   const modeKey = `${v2Mode}-${walkthroughStage}-${viewResetNonce}-${visualiseFocusedLevelId}-${visualiseOnlyLevelId}-${journeyActive}-${journeyStep}-${focusLevel}-${isolateLevel}-${cutaway}-${exploded}-${courseMode}-${forgingCaseStudy}-${forgingSeparateSectors}-${forgingExploded}-${forgingCutaway}`;
 
   React.useEffect(() => {
+    manualInteractionRef.current = false;
+    transitionRef.current = null;
     const controls = controlsRef.current;
     const fromTarget = controls?.target?.clone() ?? new THREE.Vector3(0, 0, 0);
     const target = new THREE.Vector3(0, 0, 0);
@@ -151,7 +159,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
       active: true,
     };
     cancelRef.current = () => {
-      if (transitionRef.current) transitionRef.current.active = false;
+      transitionRef.current = null;
     };
 
     return () => {
@@ -163,6 +171,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
   useFrame((state, delta) => {
     const controls = state.controls as any;
     controlsRef.current = controls;
+    if (manualInteractionRef.current) return;
     const transition = transitionRef.current;
     if (!transition?.active) return;
 
@@ -316,6 +325,7 @@ export function PyramidScene() {
     forgingCutaway,
   } = useStore();
   const cancelCameraTransitionRef = useRef<(() => void) | null>(null);
+  const manualCameraInteractionRef = useRef(false);
   const [userInteracted, setUserInteracted] = React.useState(false);
   
   const v2Mode = useV2Store(state => state.mode);
@@ -414,13 +424,15 @@ export function PyramidScene() {
           color="#000000"
         />
         
-        <CameraRig cancelRef={cancelCameraTransitionRef} />
+        <CameraRig cancelRef={cancelCameraTransitionRef} manualInteractionRef={manualCameraInteractionRef} />
         <CanvasContextMenuGuard />
       </Suspense>
 
       <OrbitControls
         makeDefault
         onStart={() => {
+          manualCameraInteractionRef.current = true;
+          cancelCameraTransitionRef.current = null;
           cancelCameraTransitionRef.current?.();
           setUserInteracted(true);
         }}

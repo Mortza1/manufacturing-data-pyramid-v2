@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export function getSectorForAngle(angle: number, numSectors: number): number {
   let a = angle % (2 * Math.PI);
   if (a < 0) a += 2 * Math.PI;
@@ -77,11 +79,11 @@ export function getV2ObjectWorldPosition(
     ? (levelIndex - (totalLevels - 1) / 2) * EXPLODED_LEVEL_SPACING
     : 0;
   if (!worldSpace) return [localX, localY, localZ];
-  return [
-    localX * cos - localZ * sin,
-    level.y + levelOffset + localY,
-    localX * sin + localZ * cos,
-  ];
+  const transform = new THREE.Matrix4()
+    .makeRotationY(rotation)
+    .setPosition(0, level.y + levelOffset, 0);
+  const worldPosition = new THREE.Vector3(localX, localY, localZ).applyMatrix4(transform);
+  return [worldPosition.x, worldPosition.y, worldPosition.z];
 }
 
 export function getLevelBaseTop(

@@ -556,6 +556,19 @@ function ConnectionsStage() {
   });
   const [segmentDraft, setSegmentDraft] = useState({ label: '', description: '' });
   const [notice, setNotice] = useState<string | null>(null);
+  const [hydrationComplete, setHydrationComplete] = useState(() => useV2Store.persist.hasHydrated());
+
+  useEffect(() => {
+    if (useV2Store.persist.hasHydrated()) {
+      setHydrationComplete(true);
+      return;
+    }
+    return useV2Store.persist.onFinishHydration(() => setHydrationComplete(true));
+  }, []);
+
+  useEffect(() => {
+    if (hydrationComplete) setVisualiseSurfaceOpacity(0.2);
+  }, [hydrationComplete, setVisualiseSurfaceOpacity]);
 
   const selectedConnection = activeCase?.overlays.connectivity.find((connection) => connection.id === selectedConnectionId);
   const loops = activeCase?.overlays.loops || [];

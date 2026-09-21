@@ -161,13 +161,11 @@ function V2Level({
   visualiseOnlyLevelId,
   visualiseHiddenSectorIds,
   visualiseSurfaceOpacity,
-  visualiseDataDensity,
   visualiseObjectScale,
   visualiseLabelScale,
   connectionMode,
   connectionHighlightObjectIds,
   connectionCurrentObjectId,
-  showOnlyLoopId,
   visibleObjectIds,
   participatingSectorIds,
   selectLoopObject,
@@ -186,13 +184,11 @@ function V2Level({
   visualiseOnlyLevelId: string | null;
   visualiseHiddenSectorIds: string[];
   visualiseSurfaceOpacity: number;
-  visualiseDataDensity: V2DataDensity;
   visualiseObjectScale: number;
   visualiseLabelScale: number;
   connectionMode: boolean;
   connectionHighlightObjectIds: Set<string>;
   connectionCurrentObjectId: string | null;
-  showOnlyLoopId: string | null;
   visibleObjectIds: Set<string>;
   participatingSectorIds: Set<string> | null;
   selectLoopObject: (id: string) => void;
@@ -232,7 +228,11 @@ function V2Level({
             </mesh>
             <lineSegments>
               <edgesGeometry args={[new THREE.CylinderGeometry(top, base, height, 1, 1, false, sectorIndex * sectorAngle, sectorAngle)]} />
-              <lineBasicMaterial color={SECTOR_COLORS[sectorIndex % SECTOR_COLORS.length]} transparent opacity={levelFocused ? 0.7 : 0.25} />
+               <lineBasicMaterial
+                 color={SECTOR_COLORS[sectorIndex % SECTOR_COLORS.length]}
+                 transparent
+                 opacity={Math.max(0.12, visualiseSurfaceOpacity * (levelFocused ? 0.9 : 0.45))}
+               />
             </lineSegments>
           </React.Fragment>
         );
@@ -363,13 +363,11 @@ export function V2PreviewPyramid() {
           visualiseOnlyLevelId={visualiseOnlyLevelId}
           visualiseHiddenSectorIds={visualiseHiddenSectorIds}
           visualiseSurfaceOpacity={visualiseSurfaceOpacity}
-          visualiseDataDensity={visualiseDataDensity}
           visualiseObjectScale={visualiseObjectScale}
           visualiseLabelScale={visualiseLabelScale}
           connectionMode={walkthroughStage === 'connections'}
           connectionHighlightObjectIds={connectionHighlightObjectIds}
           connectionCurrentObjectId={loopBuilder?.currentObjectId ?? null}
-          showOnlyLoopId={showOnlyLoopId}
            visibleObjectIds={connectionVisibleObjectIds}
            participatingSectorIds={showOnlyLoopId ? loopSectorIdsByLevel?.get(level.id) ?? new Set<string>() : null}
           selectLoopObject={(objectId) => { if (!builderPaused) selectLoopObject(objectId); }}

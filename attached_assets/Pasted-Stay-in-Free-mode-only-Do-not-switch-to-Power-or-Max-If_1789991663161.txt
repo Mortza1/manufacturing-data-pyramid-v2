@@ -1,0 +1,187 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me instead of escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This is a very narrow Stage 4 repair based on the completed read-only diagnosis. Do not redesign loops, tables, example loops, sector filtering, Data Display, or any other working functionality. Do not add the triangular 2D view yet.
+
+Fix only:
+
+1. connection world-position rotation
+2. arrowhead visual attachment
+3. persistent pan/orbit target
+4. reliable Stage 4 20% opacity
+
+1. Fix the exact four-sector rotation error in connection endpoints
+
+The diagnosis confirmed that the visible data objects and arrow endpoint helper currently use opposite Y-rotation mathematics.
+
+The rendered object is inside a Three.js group with positive Y rotation.
+
+The current manual world-position helper produces the opposite sign for the rotated Z coordinate.
+
+Correct the helper so its X/Z transformation is mathematically identical to the actual Three.js positive-Y rotation used by the rendered level group.
+
+Preferably avoid maintaining a separate handwritten rotation formula if practical.
+
+The safest solution is to use a shared Three.js matrix/Object3D transform or another single geometry transformation path that guarantees the arrow endpoint uses the exact same transformation convention as the rendered data object.
+
+After the fix, for every connection:
+
+source endpoint corresponds to the exact rendered source object;
+target endpoint corresponds to the exact rendered target object;
+four-sector PI/4 rotation is identical for objects and arrows;
+level Y position remains correct;
+Explode offset remains correct;
+local object height remains correct;
+outer pyramid translation remains correct.
+
+Do not modify:
+
+level_id
+sector_id
+grid_x
+grid_y
+
+2. Re-evaluate arrowheads only after endpoint correction
+
+The diagnosis confirms that the cone axis/quaternion logic itself is correct.
+
+Therefore do not introduce another arbitrary arrowhead orientation workaround before fixing the endpoint transform.
+
+After the world-position rotation is corrected:
+
+use the actual final curve endpoint;
+use the actual final curve tangent;
+cone +Y points along the final tangent;
+cone centre remains positioned so its tip ends at the curve endpoint;
+make the cone visually smaller/narrower if necessary so it looks like an arrow tip rather than a large wedge/flag;
+keep arrowhead size bounded when Arrow Thickness increases.
+
+Visually the result should be a conventional directional arrow:
+
+source object ─────────▶ target object
+
+The arrowhead should sit immediately beside/on the target object boundary, not float independently in space.
+
+Do not add a second arrowhead or decorative wedge.
+
+3. Fix pan → rotate around the new panned centre
+
+The diagnosis found that the weakness is not OrbitControls itself but the camera transition ownership.
+
+Implement a persistent manual camera interaction state/ref shared between OrbitControls and CameraRig.
+
+On any user camera interaction start:
+
+immediately mark manual interaction active;
+completely invalidate/clear the currently active camera transition;
+do not rely only on the existing effect-owned cancellation callback;
+retain the user's current OrbitControls target.
+
+While manual interaction is active:
+
+CameraRig useFrame must not write camera position;
+CameraRig useFrame must not write controls.target;
+it must not call a look-at operation that effectively restores an old target.
+
+Therefore the required sequence is:
+
+right-drag pan → release → left-drag rotate → rotate around the newly panned target
+
+and:
+
+pan → zoom → zoom relative to the newly panned target
+
+Manual ownership should remain active after the mouse is released.
+
+Do not clear manual ownership merely on pointer-up/end.
+
+Clear manual ownership only when the user explicitly requests an automatic camera operation such as:
+
+Reset View;
+Focus Camera;
+another explicit camera preset.
+
+At that point the requested camera transition may deliberately establish a new target.
+
+Reset View must restore:
+
+default camera position;
+default pyramid target.
+
+Keep:
+
+left drag = rotate;
+right drag = pan;
+middle/wheel = zoom/dolly.
+
+Do not move the actual pyramid geometry to simulate panning.
+
+4. Make Stage 4 20% opacity reliable after hydration
+
+The diagnosis confirms that visualiseSurfaceOpacity = 0.2 can currently be overwritten by persisted/hydrated state containing 0.72.
+
+Fix the Stage 4 entry behaviour so the first stable entry into Connections after persistence hydration is complete sets surface opacity to:
+
+0.20
+
+Do not rely solely on the guarded setWalkthroughStage('connections') transition.
+
+Requirements:
+
+entering Stage 4 from Visualise results in the slider actually showing approximately 20%;
+reopening/resuming directly into Stage 4 also normalises the initial Connections opacity to approximately 20% after hydration;
+once the user manually changes the Stage 4 opacity, do not repeatedly force it back to 20% during ordinary interaction;
+selecting loops, filtering loops, exploding, panning, etc. must not reset it.
+
+Also make the sector edge-line prominence visually consistent with low surface opacity.
+
+Currently edge lines can remain visually strong even when surfaces are at 20%.
+
+Scale their presentation appropriately with the surface opacity so a 20% pyramid actually looks translucent, while keeping edges visible enough to understand the geometry.
+
+5. Do not change the currently working loop/filter logic
+
+The read-only diagnosis found that Show Only This Loop is now internally consistent:
+
+loop participants are selected first;
+density is bypassed;
+objects and arrows use the same visible-ID set;
+non-loop relationships are filtered.
+
+Do not refactor this again in this task unless required to preserve compatibility with the corrected endpoint transformation.
+
+Likewise preserve:
+
+first-class loops;
+continuous loop builder;
+example-loop behaviour;
+Loop Table;
+Show Only This Loop;
+sector filtering;
+Data Display;
+Object Size;
+Label Size;
+Explode/Assemble;
+Structure/Data/Visualise;
+Explorer;
+Forging Case Study.
+6. Real-browser-oriented acceptance checks
+
+Run typecheck/build/diff checks, but recognise that automated Replit preview cannot validate WebGL interaction.
+
+Verify by code/state inspection that:
+
+Connection endpoint rotation now exactly matches Three.js positive Y rotation.
+There is no opposite-sign Z rotation remaining in the arrow helper.
+Source/target endpoint helper and rendered objects share equivalent transforms.
+Arrowhead still uses the corrected target endpoint and final tangent.
+Arrowhead geometry is compact and clearly arrow-like.
+Manual camera interaction permanently disables active automatic transition ownership until an explicit preset/reset/focus is requested.
+CameraRig cannot overwrite controls.target while manual camera ownership is active.
+Stage 4 reliably settles at 0.20 opacity after hydration.
+Surface/edge appearance is visually compatible with the 20% setting.
+No canonical data or loop information changes.
+Explorer and Forging remain untouched.
+
+Do not add any other functionality.
