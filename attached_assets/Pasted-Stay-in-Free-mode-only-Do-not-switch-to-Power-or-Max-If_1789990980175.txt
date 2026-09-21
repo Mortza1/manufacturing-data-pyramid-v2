@@ -1,0 +1,232 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me rather than escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This is a recovery/completion task for the interrupted Stage 4 repair.
+
+The previous run stopped part-way through. Do not roll back the existing changes.
+
+The following changes are already present and should be preserved:
+
+visibility.ts
+getLoopSectorIdsByLevel(...) exists.
+loop-only visibility starts from loop participants before level/sector filtering.
+store.ts
+entering Connections sets Stage 4 surface opacity to 0.20;
+setShowOnlyLoop(...) synchronises selectedLoopId;
+reopened cases already in Connections use 0.20.
+
+Complete only the missing work below.
+
+1. Wire loop-only visibility into the actual 3D renderer
+
+The store/visibility logic was updated, but V2PreviewPyramid still begins from the ordinary density-filtered object set.
+
+Fix the renderer so that when Show Only This Loop is active:
+
+derive the complete participating object set from the selected loop;
+force every participating loop node to render;
+do not allow Data Display 1 / 2 / 3 to remove loop nodes;
+hide every non-loop data object;
+arrows and objects must use exactly the same visible participant set.
+
+When Show Only This Loop is not active, preserve normal Data Display behaviour.
+
+Do not modify or delete underlying data.
+
+2. Use the existing loop-sector helper
+
+getLoopSectorIdsByLevel(...) already exists from the partial repair.
+
+Wire it into V2PreviewPyramid.
+
+In Show Only This Loop:
+
+at each level, render only sectors containing participating loop objects;
+non-participating sector surfaces should be fully transparent/hidden;
+non-participating sector edge lines should be hidden;
+non-participating sector labels should be hidden;
+a level with no participating loop object should show no sector surface;
+loop data objects and arrows remain visible.
+
+Leaving Show Only This Loop must restore the previous normal sector presentation.
+
+Do not mutate sector definitions.
+
+3. Fix arrowheads precisely
+
+The current arrowhead still uses a tangent sampled before the endpoint and a fixed centre offset.
+
+Repair it so:
+
+use the actual final curve endpoint;
+use the curve tangent at the actual end, equivalent to t = 1;
+orient the cone along this final tangent;
+because the cone is centred on its own origin, position its centre at:
+
+endpoint − tangent × (arrowhead height / 2)
+
+so its tip ends exactly at the connection endpoint;
+
+the connection line/curve and arrowhead must use the same final endpoint;
+keep arrowhead narrow and proportionate;
+cap its size so maximum Arrow Thickness does not create an oversized cone;
+no arrowhead at the source end.
+
+Preserve the existing loop colour.
+
+4. Preserve the corrected world-position connection logic
+
+Do not undo the existing world-position helper.
+
+Arrow endpoints must continue to account for:
+
+grid placement;
+level vertical centre;
+Explode offset;
+object local height;
+four-sector Y rotation;
+current object presentation scale where relevant.
+
+Refine the boundary offsets if necessary so the arrow visibly touches the source/target object rather than floating away from it.
+
+5. Fix Add Example Loops
+
+The two predefined example loops are:
+
+Predictive Maintenance
+Process Optimisation
+
+Generate these from the stored case data, not the density-filtered visible-object subset.
+
+Behaviour:
+
+neither exists → attempt to add both;
+only one exists → add only the missing one;
+both exist → hide the Add Example Loops button completely;
+never create duplicates;
+never overwrite manually created loops;
+deterministic/local matching only;
+no external AI/API calls.
+
+Ordinary Data Display filtering must not prevent a valid example loop from being generated.
+
+6. Explicit mouse controls
+
+In the v2 3D scene, explicitly configure OrbitControls as:
+
+Left mouse: Rotate
+Middle mouse: Dolly/Zoom
+Right mouse: Pan
+
+Do not rely only on library defaults.
+
+Suppress the browser context menu on right-drag over the actual 3D canvas where required.
+
+Do not interfere with right-clicking or pointer behaviour inside the Walkthrough UI panel.
+
+Keep:
+
+Drag to rotate · Right-drag to pan · Scroll to zoom
+
+7. Critical pan/orbit-target behaviour
+
+The user's real-browser behaviour must be:
+
+Pan → new visual position → rotate around that new panned centre.
+
+Currently, after moving the pyramid/view, rotation can behave as though the original pyramid centre is still the orbit axis.
+
+Inspect the current CameraRig / OrbitControls target handling and fix this.
+
+When the user pans:
+
+OrbitControls target must move with the pan;
+that new target must persist after the drag ends;
+subsequent rotation must orbit around that new target;
+subsequent zoom must also use that new target;
+do not continuously write the original pyramid centre back into the controls target.
+
+Once manual camera interaction begins:
+
+cancel any active automatic camera transition cleanly;
+retain the user's current camera position;
+retain the user's current OrbitControls target.
+
+The target should change automatically again only when the user deliberately chooses something such as:
+
+Reset View;
+Focus Camera;
+another explicit camera preset.
+
+Reset View must restore both:
+
+the original default camera position;
+the original default pyramid orbit target.
+
+This is camera state only. Do not move the actual pyramid geometry or alter data coordinates to implement panning.
+
+8. Do not add Pan Mode unless actually necessary
+
+First make normal right-drag OrbitControls pan work correctly.
+
+Do not add another Pan Mode button in this recovery unless normal right-drag genuinely cannot be made reliable.
+
+9. Preserve all existing successful Stage 4 work
+
+Do not regress:
+
+first-class Loop entities;
+ordered loop segments;
+continuous A → B → C loop creation;
+Undo Last Segment;
+Cancel Loop;
+Finish Loop;
+loop colour palette;
+Loop Table;
+Show Only This Loop;
+arrow thickness;
+Predictive Maintenance;
+Process Optimisation;
+Explode / Assemble;
+Structure;
+Data;
+Visualise;
+Data Display;
+Object Size;
+Label Size;
+metadata editing;
+Explorer;
+Forging Case Study;
+Advanced placeholder.
+
+Do not implement the triangular 2D loop view yet.
+
+10. Test the interrupted repair fully this time
+
+After completing the missing patches:
+
+run TypeScript/type checks;
+run the production build;
+run diff/consistency checks;
+confirm the development workflow runs.
+
+Check specifically:
+
+Existing partial store.ts and visibility.ts changes remain intact.
+Show Only This Loop renders every actual loop participant regardless of Data Display density.
+No unrelated data objects remain visible.
+Non-participating sectors/edges/sector labels disappear.
+Arrowhead tip lands at the route endpoint.
+Arrowhead points along the final curve tangent.
+Predictive Maintenance and Process Optimisation are not duplicated.
+Add Example Loops disappears when both exist.
+Right-drag pan is explicitly mapped.
+After panning, subsequent rotation uses the new panned orbit target.
+Reset View restores the default camera and target.
+Explode/Assemble does not break arrow attachment.
+Explorer and Forging Case Study remain unchanged.
+
+If the automated environment cannot verify WebGL interaction, clearly state which items require our real-browser validation.
+
+Do not add any other scope.
