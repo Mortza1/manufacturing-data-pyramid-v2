@@ -23,6 +23,8 @@ export interface V2DataDraft {
   intended_use: string;
 }
 
+export type V2MetadataPatch = Partial<V2DataDraft>;
+
 export const EMPTY_DATA_DRAFT: V2DataDraft = {
   name: '',
   description: '',
@@ -115,12 +117,23 @@ interface V2State {
   dataAutoFillNotice: string | null;
   showV2Labels: boolean;
   selectedVisualiseObjectId: string | null;
+  visualiseExploded: boolean;
+  visualiseFocusedLevelId: string | null;
+  visualiseOnlyLevelId: string | null;
+  visualiseHiddenSectorIds: string[];
+  visualiseSurfaceOpacity: number;
   viewResetNonce: number;
   setIsEditingStructure: (isEditing: boolean) => void;
   setWalkthroughStage: (stage: 'structure' | 'data' | 'visualise') => void;
   setDataLevelIndex: (index: number) => void;
   setShowV2Labels: (show: boolean) => void;
   setSelectedVisualiseObjectId: (id: string | null) => void;
+  setVisualiseExploded: (exploded: boolean) => void;
+  setVisualiseFocusedLevelId: (levelId: string | null) => void;
+  setVisualiseOnlyLevelId: (levelId: string | null) => void;
+  toggleVisualiseSector: (sectorId: string) => void;
+  showAllVisualiseSectors: () => void;
+  setVisualiseSurfaceOpacity: (opacity: number) => void;
   requestViewReset: () => void;
 
   draft: V2Draft;
@@ -138,6 +151,7 @@ interface V2State {
   skipDataLevel: () => void;
   resetDataLevel: () => void;
   removeDataObject: (objectId: string) => void;
+  updateDataObjectMetadata: (objectId: string, patch: V2MetadataPatch) => boolean;
 }
 
 export const useV2Store = create<V2State>()(
@@ -154,12 +168,35 @@ export const useV2Store = create<V2State>()(
       dataAutoFillNotice: null,
       showV2Labels: true,
       selectedVisualiseObjectId: null,
+      visualiseExploded: false,
+      visualiseFocusedLevelId: null,
+      visualiseOnlyLevelId: null,
+      visualiseHiddenSectorIds: [],
+      visualiseSurfaceOpacity: 0.72,
       viewResetNonce: 0,
       setIsEditingStructure: (isEditing) => set({ isEditingStructure: isEditing }),
       setWalkthroughStage: (walkthroughStage) => set({ walkthroughStage }),
       setDataLevelIndex: (dataLevelIndex) => set({ dataLevelIndex: Math.max(0, dataLevelIndex), dataAutoFillNotice: null }),
       setShowV2Labels: (showV2Labels) => set({ showV2Labels }),
       setSelectedVisualiseObjectId: (selectedVisualiseObjectId) => set({ selectedVisualiseObjectId }),
+      setVisualiseExploded: (visualiseExploded) => set({ visualiseExploded }),
+      setVisualiseFocusedLevelId: (visualiseFocusedLevelId) => set({
+        visualiseFocusedLevelId,
+        visualiseOnlyLevelId: null,
+      }),
+      setVisualiseOnlyLevelId: (visualiseOnlyLevelId) => set({
+        visualiseOnlyLevelId,
+        visualiseFocusedLevelId: null,
+      }),
+      toggleVisualiseSector: (sectorId) => set((state) => ({
+        visualiseHiddenSectorIds: state.visualiseHiddenSectorIds.includes(sectorId)
+          ? state.visualiseHiddenSectorIds.filter((id) => id !== sectorId)
+          : [...state.visualiseHiddenSectorIds, sectorId],
+      })),
+      showAllVisualiseSectors: () => set({ visualiseHiddenSectorIds: [] }),
+      setVisualiseSurfaceOpacity: (visualiseSurfaceOpacity) => set({
+        visualiseSurfaceOpacity: Math.min(1, Math.max(0.18, visualiseSurfaceOpacity)),
+      }),
       requestViewReset: () => set((state) => ({ viewResetNonce: state.viewResetNonce + 1 })),
 
       draft: {
@@ -226,6 +263,11 @@ export const useV2Store = create<V2State>()(
           walkthroughStage: 'structure',
           dataLevelIndex: 0,
           skippedLevelIds: [],
+          selectedVisualiseObjectId: null,
+          visualiseExploded: false,
+          visualiseFocusedLevelId: null,
+          visualiseOnlyLevelId: null,
+          visualiseHiddenSectorIds: [],
           draft: {
             levels: newLevels,
             sectors: newSectors,
@@ -414,6 +456,7 @@ export const useV2Store = create<V2State>()(
       }),
       resetDataLevel: () => set({ dataLevelIndex: 0, skippedLevelIds: [] }),
       removeDataObject: (objectId) => set((state) => state.activeCase ? ({
+        selectedVisualiseObjectId: state.selectedVisualiseObjectId === objectId ? null : state.selectedVisualiseObjectId,
         activeCase: {
           ...state.activeCase,
           overlays: {
@@ -425,6 +468,24 @@ export const useV2Store = create<V2State>()(
           },
         },
       }) : state),
+      updateDataObjectMetadata: (objectId, patch) => {
+        const { activeCase } = get();
+        if (!activeCase) return false;
+        const object = activeCase.overlays.data.find((candidate) => candidate.id === objectId);
+        if (!object) return false;
+        set({
+          activeCase: {
+            ...activeCase,
+            overlays: {
+              ...activeCase.overlays,
+              data: activeCase.overlays.data.map((candidate) => candidate.id === objectId
+                ? { ...candidate, ...patch }
+                : candidate),
+            },
+          },
+        });
+        return true;
+      },
     }),
     {
       name: 'manufacturing-v2-case-storage',

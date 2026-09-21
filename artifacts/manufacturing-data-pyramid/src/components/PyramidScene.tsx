@@ -8,6 +8,7 @@ import { SceneEnvironment } from './SceneEnvironment';
 import { useStore } from '../store';
 import { useV2Store } from '../v2/store';
 import { V2PreviewPyramid } from '../v2/components/V2PreviewPyramid';
+import { getLevelBaseTop } from '../v2/geometry';
 import { COURSES, getJourneyStep, getLevelY } from '../data';
 import * as THREE from 'three';
 import React, { Suspense, useRef, useMemo } from 'react';
@@ -60,6 +61,9 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
   } = useStore();
   const v2Mode = useV2Store(state => state.mode);
   const walkthroughStage = useV2Store(state => state.walkthroughStage);
+  const v2ActiveCase = useV2Store(state => state.activeCase);
+  const visualiseFocusedLevelId = useV2Store(state => state.visualiseFocusedLevelId);
+  const visualiseOnlyLevelId = useV2Store(state => state.visualiseOnlyLevelId);
   const viewResetNonce = useV2Store(state => state.viewResetNonce);
   const controlsRef = useRef<any>(null);
   const transitionRef = useRef<{
@@ -72,7 +76,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
     active: boolean;
   } | null>(null);
 
-  const modeKey = `${v2Mode}-${walkthroughStage}-${viewResetNonce}-${journeyActive}-${journeyStep}-${focusLevel}-${isolateLevel}-${cutaway}-${exploded}-${courseMode}-${forgingCaseStudy}-${forgingSeparateSectors}-${forgingExploded}-${forgingCutaway}`;
+  const modeKey = `${v2Mode}-${walkthroughStage}-${viewResetNonce}-${visualiseFocusedLevelId}-${visualiseOnlyLevelId}-${journeyActive}-${journeyStep}-${focusLevel}-${isolateLevel}-${cutaway}-${exploded}-${courseMode}-${forgingCaseStudy}-${forgingSeparateSectors}-${forgingExploded}-${forgingCutaway}`;
 
   React.useEffect(() => {
     const controls = controlsRef.current;
@@ -80,7 +84,18 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
     const target = new THREE.Vector3(0, 0, 0);
     const destination = new THREE.Vector3(10, 6.5, 10);
 
-    if (v2Mode !== 'explorer') {
+    if (v2Mode === 'walkthrough' && walkthroughStage === 'visualise' && v2ActiveCase && (visualiseFocusedLevelId || visualiseOnlyLevelId)) {
+      const targetLevelId = visualiseOnlyLevelId ?? visualiseFocusedLevelId;
+      const targetIndex = v2ActiveCase.levels.findIndex((level) => level.id === targetLevelId);
+      if (targetIndex < 0) {
+        cancelRef.current?.();
+        return;
+      }
+      const levelGeometry = getLevelBaseTop(targetIndex, v2ActiveCase.levels.length);
+      const levelY = levelGeometry.y - 0.5;
+      destination.set(10.8, levelY + 5.2, 13.2);
+      target.set(0, levelY, 0);
+    } else if (v2Mode !== 'explorer') {
       destination.set(12, 8, 14);
       target.set(0, 2, 0);
     } else if (forgingCaseStudy) {
@@ -135,7 +150,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
       if (cancelRef.current === undefined) return;
       cancelRef.current = null;
     };
-  }, [camera, cancelRef, modeKey, v2Mode, walkthroughStage, viewResetNonce, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode, forgingCaseStudy, forgingSeparateSectors, forgingExploded, forgingCutaway]);
+  }, [camera, cancelRef, modeKey, v2Mode, walkthroughStage, v2ActiveCase, visualiseFocusedLevelId, visualiseOnlyLevelId, viewResetNonce, journeyActive, journeyStep, focusLevel, isolateLevel, cutaway, exploded, courseMode, forgingCaseStudy, forgingSeparateSectors, forgingExploded, forgingCutaway]);
 
   useFrame((state, delta) => {
     const controls = state.controls as any;

@@ -1,8 +1,7 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
-import { Check, ChevronLeft, ChevronRight, Edit2, Eye, EyeOff, Lock, Wand2, GraduationCap, Grid3X3, Plus, SkipForward, Trash2, Move, Maximize2, Minimize2, BoxSelect, RotateCcw, X } from 'lucide-react';
-import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, type V2DataDraft } from '../store';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { Check, ChevronLeft, ChevronRight, Edit2, Eye, EyeOff, Lock, Wand2, GraduationCap, Grid3X3, Plus, SkipForward, Trash2, Move, Maximize2, Minimize2, RotateCcw, X } from 'lucide-react';
+import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, type V2DataDraft, type V2MetadataPatch } from '../store';
 import { getSectorIdForGridCell } from '../geometry';
-import { useStore } from '../../store';
 
 const STAGES = ['Structure', 'Data', 'Visualise', 'Connections', 'Save'];
 
@@ -181,11 +180,14 @@ function DataEditor({ levelId, sectorId, gridX, gridY, onClose }: { levelId: str
 }
 
 function DataBoard() {
-  const { activeCase, dataLevelIndex, setDataLevelIndex, skippedLevelIds, skipDataLevel, autoFillDataLevel, dataAutoFillNotice, clearDataLevel, moveDataObject, removeDataObject, setWalkthroughStage, reopenStructure } = useV2Store();
-  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const { activeCase, dataLevelIndex, setDataLevelIndex, skippedLevelIds, skipDataLevel, autoFillDataLevel, dataAutoFillNotice, clearDataLevel, moveDataObject, removeDataObject, setWalkthroughStage, reopenStructure, selectedVisualiseObjectId } = useV2Store();
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(selectedVisualiseObjectId);
   const [editorCell, setEditorCell] = useState<{ x: number; y: number; sectorId: string } | null>(null);
   const [placementMode, setPlacementMode] = useState<'add' | 'move' | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  useEffect(() => {
+    if (selectedVisualiseObjectId) setSelectedObjectId(selectedVisualiseObjectId);
+  }, [selectedVisualiseObjectId]);
   if (!activeCase) return null;
   const level = activeCase.levels[dataLevelIndex] || activeCase.levels[0];
   const objects = activeCase.overlays.data.filter((object) => object.level_id === level.id);
@@ -275,6 +277,29 @@ function DataBoard() {
   );
 }
 
+function MetadataField({ label, value, onChange, multiline = false }: { label: string; value: string; onChange: (value: string) => void; multiline?: boolean }) {
+  const shared = {
+    value,
+    onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(event.target.value),
+    className: 'mt-1 w-full rounded border border-white/10 bg-black/35 px-2.5 py-2 text-xs text-foreground outline-none focus:border-cyan-300/60',
+  };
+  return <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}{multiline ? <textarea {...shared} rows={3} /> : <input {...shared} />}</label>;
+}
+
+const EDITABLE_METADATA_FIELDS: { key: keyof V2DataDraft; label: string; multiline?: boolean }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'availability', label: 'Availability / status' },
+  { key: 'source', label: 'Source / system / device' },
+  { key: 'protocol', label: 'Protocol' },
+  { key: 'format', label: 'Format' },
+  { key: 'data_type', label: 'Data type / signal type' },
+  { key: 'frequency', label: 'Frequency / sample rate' },
+  { key: 'sensing_settings', label: 'Sensing / settings metadata' },
+  { key: 'preprocessing', label: 'Preprocessing / feature extraction' },
+  { key: 'intended_use', label: 'Intended use' },
+  { key: 'description', label: 'Description', multiline: true },
+];
+
 function VisualiseStage() {
   const {
     activeCase,
@@ -283,29 +308,74 @@ function VisualiseStage() {
     setShowV2Labels,
     selectedVisualiseObjectId,
     setSelectedVisualiseObjectId,
+    visualiseExploded,
+    setVisualiseExploded,
+    visualiseFocusedLevelId,
+    visualiseOnlyLevelId,
+    setVisualiseFocusedLevelId,
+    setVisualiseOnlyLevelId,
+    visualiseHiddenSectorIds,
+    toggleVisualiseSector,
+    showAllVisualiseSectors,
+    visualiseSurfaceOpacity,
+    setVisualiseSurfaceOpacity,
     requestViewReset,
+    setDataLevelIndex,
+    updateDataObjectMetadata,
   } = useV2Store();
-  const {
-    exploded,
-    setExploded,
-    cutaway,
-    setCutaway,
-    sectionLevel,
-    setSectionLevel,
-    focusLevel,
-    setFocusLevel,
-    isolateLevel,
-    setIsolateLevel,
-    pyramidOpacity,
-    setPyramidOpacity,
-  } = useStore();
+  const [editing, setEditing] = useState(false);
+  const [metadataDraft, setMetadataDraft] = useState<V2MetadataPatch>({});
+
+  const selectedObject = activeCase?.overlays.data.find((object) => object.id === selectedVisualiseObjectId);
+  const selectedLevel = selectedObject ? activeCase?.levels.find((level) => level.id === selectedObject.level_id) : undefined;
+  const selectedSector = selectedObject ? activeCase?.sectors.find((sector) => sector.id === selectedObject.sector_id) : undefined;
+
+  useEffect(() => {
+    if (!selectedObject) {
+      setEditing(false);
+      setMetadataDraft({});
+      return;
+    }
+    setEditing(false);
+    setMetadataDraft({
+      name: selectedObject.name,
+      description: selectedObject.description,
+      availability: selectedObject.availability,
+      source: selectedObject.source,
+      protocol: selectedObject.protocol,
+      format: selectedObject.format,
+      data_type: selectedObject.data_type,
+      frequency: selectedObject.frequency,
+      sensing_settings: selectedObject.sensing_settings,
+      preprocessing: selectedObject.preprocessing,
+      intended_use: selectedObject.intended_use,
+    });
+  }, [selectedObject?.id]);
 
   if (!activeCase) return null;
 
-  const selectedObject = activeCase.overlays.data.find((object) => object.id === selectedVisualiseObjectId);
-  const selectedLevel = selectedObject ? activeCase.levels.find((level) => level.id === selectedObject.level_id) : undefined;
-  const selectedSector = selectedObject ? activeCase.sectors.find((sector) => sector.id === selectedObject.sector_id) : undefined;
-  const levelNumber = selectedLevel ? selectedLevel.index + 1 : null;
+  const resetView = () => {
+    setVisualiseFocusedLevelId(null);
+    setVisualiseOnlyLevelId(null);
+    setVisualiseExploded(false);
+    setVisualiseSurfaceOpacity(0.72);
+    showAllVisualiseSectors();
+    requestViewReset();
+    setSelectedVisualiseObjectId(null);
+  };
+  const moveToDataBoard = () => {
+    if (!selectedLevel || !selectedObject) return;
+    setDataLevelIndex(selectedLevel.index);
+    setWalkthroughStage('data');
+  };
+  const saveMetadata = () => {
+    if (!selectedObject || !metadataDraft.name?.trim()) return;
+    updateDataObjectMetadata(selectedObject.id, {
+      ...metadataDraft,
+      name: metadataDraft.name.trim(),
+    });
+    setEditing(false);
+  };
   const metadata = selectedObject ? [
     ['Availability / status', selectedObject.availability],
     ['Source / system / device', selectedObject.source],
@@ -317,19 +387,9 @@ function VisualiseStage() {
     ['Preprocessing / features', selectedObject.preprocessing],
     ['Intended use', selectedObject.intended_use],
   ].filter(([, value]) => value?.trim()) : [];
-  const resetView = () => {
-    setFocusLevel(null);
-    setIsolateLevel(null);
-    setExploded(false);
-    setCutaway(true);
-    setSectionLevel(3);
-    setPyramidOpacity(0.72);
-    requestViewReset();
-    setSelectedVisualiseObjectId(null);
-  };
 
   return (
-    <div className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex w-[min(440px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6">
+    <div className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex w-[min(460px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6">
       <div className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -348,36 +408,66 @@ function VisualiseStage() {
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Presentation</p>
               <button onClick={resetView} className="flex items-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground"><RotateCcw size={12} /> Reset view</button>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setExploded(!exploded)} className={`flex items-center justify-center gap-2 rounded border px-2.5 py-2 text-xs font-semibold ${exploded ? 'border-cyan-300/50 bg-cyan-300/15 text-cyan-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}>{exploded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}{exploded ? 'Assemble' : 'Explode'}</button>
-              <button onClick={() => setCutaway(!cutaway)} className={`flex items-center justify-center gap-2 rounded border px-2.5 py-2 text-xs font-semibold ${cutaway ? 'border-cyan-300/50 bg-cyan-300/15 text-cyan-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}><BoxSelect size={14} /> Section</button>
-            </div>
-            {cutaway && <div className="mt-3 flex flex-wrap items-center gap-1.5"><span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Section level</span>{activeCase.levels.map((level) => { const value = level.index + 1; return <button key={level.id} onClick={() => setSectionLevel(value)} className={`h-7 min-w-7 rounded px-1.5 text-[10px] font-mono ${sectionLevel === value ? 'bg-cyan-300 text-slate-950' : 'bg-white/10 text-muted-foreground hover:text-foreground'}`}>{value}</button>; })}</div>}
+            <button onClick={() => setVisualiseExploded(!visualiseExploded)} className={`flex w-full items-center justify-center gap-2 rounded border px-2.5 py-2 text-xs font-semibold ${visualiseExploded ? 'border-cyan-300/50 bg-cyan-300/15 text-cyan-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground'}`}>{visualiseExploded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}{visualiseExploded ? 'Assemble' : 'Explode'}</button>
             <div className="mt-3 flex items-center gap-2">
-              <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">Surface</span>
-              <input aria-label="Surface opacity" type="range" min="0.18" max="1" step="0.01" value={pyramidOpacity} onChange={(event) => setPyramidOpacity(Number(event.target.value))} className="w-full accent-cyan-300" />
-              <span className="w-8 text-right font-mono text-[10px] text-muted-foreground">{Math.round(pyramidOpacity * 100)}%</span>
+              <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">Surface opacity</span>
+              <input aria-label="Surface opacity" type="range" min="0.18" max="1" step="0.01" value={visualiseSurfaceOpacity} onChange={(event) => setVisualiseSurfaceOpacity(Number(event.target.value))} className="w-full accent-cyan-300" />
+              <span className="w-8 text-right font-mono text-[10px] text-muted-foreground">{Math.round(visualiseSurfaceOpacity * 100)}%</span>
             </div>
           </div>
           <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-            <div className="mb-3 flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Level focus</p><button onClick={() => setShowV2Labels(!showV2Labels)} className="flex items-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">{showV2Labels ? <EyeOff size={12} /> : <Eye size={12} />}{showV2Labels ? 'Hide labels' : 'Show labels'}</button></div>
-            <div className="flex flex-wrap gap-1.5">
-              {activeCase.levels.map((level) => {
-                const value = level.index + 1;
-                return <div key={level.id} className="flex gap-1"><button onClick={() => setFocusLevel(focusLevel === value ? null : value)} className={`rounded-l border px-2.5 py-1.5 text-[10px] font-semibold ${focusLevel === value ? 'border-indigo-300 bg-indigo-300/20 text-indigo-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}>Focus {value}</button><button onClick={() => setIsolateLevel(isolateLevel === value ? null : value)} className={`rounded-r border-y border-r px-2 py-1.5 text-[10px] font-semibold ${isolateLevel === value ? 'border-amber-300/50 bg-amber-300/15 text-amber-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`} title={`Isolate ${level.name}`}>Only</button></div>;
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Levels</p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setShowV2Labels(!showV2Labels)} className="flex items-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">{showV2Labels ? <EyeOff size={12} /> : <Eye size={12} />}{showV2Labels ? 'Hide labels' : 'Show labels'}</button>
+                <button onClick={() => { setVisualiseFocusedLevelId(null); setVisualiseOnlyLevelId(null); }} className="rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">Show All Levels</button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {activeCase.levels.map((level) => (
+                <div key={level.id} className="flex items-center justify-between gap-2 rounded border border-white/5 bg-white/[0.02] px-2 py-1.5">
+                  <span className="truncate text-xs text-foreground"><span className="mr-2 font-mono text-indigo-300/70">L{level.index + 1}</span>{level.name}</span>
+                  <div className="flex shrink-0 gap-1">
+                    <button onClick={() => setVisualiseFocusedLevelId(visualiseFocusedLevelId === level.id ? null : level.id)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${visualiseFocusedLevelId === level.id ? 'border-indigo-300 bg-indigo-300/20 text-indigo-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}>Focus Camera</button>
+                    <button onClick={() => setVisualiseOnlyLevelId(visualiseOnlyLevelId === level.id ? null : level.id)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${visualiseOnlyLevelId === level.id ? 'border-amber-300/50 bg-amber-300/15 text-amber-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}>Show Only</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Sectors</p>
+              <button onClick={showAllVisualiseSectors} className="rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">Show All Sectors</button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {activeCase.sectors.map((sector, index) => {
+                const hidden = visualiseHiddenSectorIds.includes(sector.id);
+                const color = ['#38bdf8', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#facc15', '#2dd4bf', '#818cf8'][index % 8];
+                return <button key={sector.id} onClick={() => toggleVisualiseSector(sector.id)} className={`flex items-center justify-between rounded border px-2.5 py-2 text-left text-xs font-semibold ${hidden ? 'border-white/10 bg-white/[0.02] text-muted-foreground' : 'border-white/15 bg-white/5 text-foreground hover:bg-white/10'}`}><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color, opacity: hidden ? 0.3 : 1 }} />{sector.name}</span><span className="text-[10px] uppercase tracking-wider">{hidden ? 'Show' : 'Hide'}</span></button>;
               })}
             </div>
           </div>
           {selectedObject && selectedLevel && selectedSector ? (
             <div className="rounded-xl border border-cyan-300/25 bg-cyan-300/5">
               <div className="flex items-start justify-between gap-3 border-b border-cyan-300/15 p-4">
-                <div><p className="text-[10px] uppercase tracking-wider text-cyan-200/65">Selected data element</p><h3 className="mt-1 text-base font-bold text-cyan-50">{selectedObject.name}</h3><p className="mt-1 text-[10px] text-cyan-100/65">L{levelNumber} · {selectedLevel.name} · {selectedSector.name} · cell ({selectedObject.grid_x + 1}, {selectedObject.grid_y + 1})</p></div>
+                <div><p className="text-[10px] uppercase tracking-wider text-cyan-200/65">Selected data element</p><h3 className="mt-1 text-base font-bold text-cyan-50">{selectedObject.name}</h3><p className="mt-1 text-[10px] text-cyan-100/65">L{selectedLevel.index + 1} · {selectedLevel.name} · {selectedSector.name} · cell ({selectedObject.grid_x + 1}, {selectedObject.grid_y + 1})</p></div>
                 <button onClick={() => setSelectedVisualiseObjectId(null)} aria-label="Close inspection" className="rounded p-1 text-muted-foreground hover:bg-white/10 hover:text-foreground"><X size={16} /></button>
               </div>
-              <div className="space-y-3 p-4">
-                {selectedObject.description?.trim() && <div><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Description</p><p className="mt-1 text-xs leading-relaxed text-cyan-50/80">{selectedObject.description}</p></div>}
-                {metadata.length > 0 && <dl className="grid gap-2 sm:grid-cols-2">{metadata.map(([label, value]) => <div key={label} className="rounded border border-white/10 bg-black/20 p-2"><dt className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt><dd className="mt-1 text-[11px] leading-snug text-foreground">{value}</dd></div>)}</dl>}
-              </div>
+              {editing ? (
+                <div className="space-y-3 p-4">
+                  <div className="grid gap-3 sm:grid-cols-2">{EDITABLE_METADATA_FIELDS.map((field) => <MetadataField key={field.key} label={field.label} value={metadataDraft[field.key] ?? ''} multiline={field.multiline} onChange={(value) => setMetadataDraft((current) => ({ ...current, [field.key]: value }))} />)}</div>
+                  <div className="flex justify-end gap-2"><button onClick={() => setEditing(false)} className="rounded border border-white/10 px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-white/5">Cancel</button><button onClick={saveMetadata} disabled={!metadataDraft.name?.trim()} className="rounded bg-cyan-400 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">Save metadata</button></div>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-3 p-4">
+                    {selectedObject.description?.trim() && <div><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Description</p><p className="mt-1 text-xs leading-relaxed text-cyan-50/80">{selectedObject.description}</p></div>}
+                    {metadata.length > 0 && <dl className="grid gap-2 sm:grid-cols-2">{metadata.map(([label, value]) => <div key={label} className="rounded border border-white/10 bg-black/20 p-2"><dt className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt><dd className="mt-1 text-[11px] leading-snug text-foreground">{value}</dd></div>)}</dl>}
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2 border-t border-cyan-300/15 p-3"><button onClick={() => setEditing(true)} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-300/20">Edit metadata</button><button onClick={moveToDataBoard} className="rounded border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">Move on Data Board</button></div>
+                </>
+              )}
             </div>
           ) : (
             <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-xs leading-relaxed text-muted-foreground">Click any glowing data object in the pyramid to inspect its stored metadata. Presentation controls move only the view; the saved grid address remains unchanged.</div>
