@@ -1,8 +1,9 @@
-import { Fragment, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
-import { ArrowRight, Check, ChevronLeft, ChevronRight, Edit2, Eye, EyeOff, Lock, Wand2, GraduationCap, Grid3X3, Link2, Plus, SkipForward, Trash2, Move, Maximize2, Minimize2, RotateCcw, X } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { ArrowRight, Check, ChevronLeft, ChevronRight, Edit2, Eye, EyeOff, Lock, Wand2, GraduationCap, Grid3X3, Link2, Plus, SkipForward, Trash2, Move, Maximize2, Minimize2, RotateCcw, X, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, LOOP_COLOR_PALETTE, type V2DataDensity, type V2DataDraft, type V2LoopDraft, type V2MetadataPatch } from '../store';
 import { getSectorIdForGridCell } from '../geometry';
 import { getVisibleV2ObjectIds } from '../visibility';
+import { V2CrossSection } from './V2CrossSection';
 
 const STAGES = ['Structure', 'Data', 'Visualise', 'Connections', 'Save'];
 
@@ -23,6 +24,28 @@ function Progress({ currentStage, completedStages = [] }: { currentStage: number
         );
       })}
     </div>
+  );
+}
+
+function RestartWalkthroughButton({ compact = false }: { compact?: boolean }) {
+  const restartWalkthrough = useV2Store((state) => state.restartWalkthrough);
+  const restart = () => {
+    if (window.confirm('Restart Walkthrough?\n\nThis will clear the current Walkthrough structure, data, loops and progress and return to Stage 1. Explorer and other app modes will not be affected.')) {
+      restartWalkthrough();
+    }
+  };
+  return (
+    <button
+      onClick={restart}
+      title="Restart Walkthrough"
+      aria-label="Restart Walkthrough"
+      className={compact
+        ? 'flex h-9 w-9 items-center justify-center rounded border border-rose-300/25 bg-rose-400/10 text-rose-100 hover:bg-rose-400/20'
+        : 'flex items-center gap-1.5 rounded border border-rose-300/25 bg-rose-400/10 px-2.5 py-1.5 text-[10px] font-semibold text-rose-100 hover:bg-rose-400/20'}
+    >
+      <RotateCcw size={compact ? 14 : 12} />
+      {!compact && 'Restart Walkthrough'}
+    </button>
   );
 }
 
@@ -231,6 +254,7 @@ function DataBoard() {
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-cyan-300/15 bg-[#07131f] px-5 py-4">
         <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-300/70">Walkthrough / Data</p><h2 className="mt-1 text-xl font-bold text-cyan-50">Add data to {level.name}</h2><p className="mt-1 text-xs text-muted-foreground">One level at a time · {activeCase.grid.width}×{activeCase.grid.height} sector-aware snap grid</p></div>
         <div className="flex flex-wrap gap-2">
+           <RestartWalkthroughButton />
           <button onClick={reopenStructure} className="rounded border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground"><Edit2 size={13} className="mr-1.5 inline" /> Revise structure</button>
           <button onClick={() => setWalkthroughStage('data')} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100">Data stage</button>
         </div>
@@ -407,7 +431,10 @@ function VisualiseStage() {
             <h2 className="mt-1 text-xl font-bold text-indigo-100">Review your pyramid</h2>
             <p className="mt-1 text-xs leading-relaxed text-indigo-100/65">Explore the configured frame and inspect each placed data element.</p>
           </div>
-          <button onClick={() => setWalkthroughStage('data')} className="shrink-0 rounded border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-300/20">Back to Data</button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <RestartWalkthroughButton />
+            <button onClick={() => setWalkthroughStage('data')} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-300/20">Back to Data</button>
+          </div>
         </div>
       </div>
       <Progress currentStage={2} />
@@ -511,7 +538,7 @@ function VisualiseStage() {
   );
 }
 
-function ConnectionsStage() {
+function ConnectionsStage({ embedded = false }: { embedded?: boolean }) {
   const {
     activeCase,
     setWalkthroughStage,
@@ -519,6 +546,8 @@ function ConnectionsStage() {
     showOnlyLoopId,
     loopSectorContext,
     connectionsView,
+    connections2DLoopId,
+    isConnectionsPanelCollapsed,
     expandedLoopIds,
     loopBuilder,
     selectedConnectionId,
@@ -533,6 +562,8 @@ function ConnectionsStage() {
     setShowOnlyLoop,
     setLoopSectorContext,
     setConnectionsView,
+    setConnections2DLoop,
+    setConnectionsPanelCollapsed,
     toggleLoopExpanded,
     updateConnection,
     updateLoop,
@@ -646,9 +677,33 @@ function ConnectionsStage() {
   const hasBothExampleLoops = ['Predictive Maintenance', 'Process Optimisation'].every((name) =>
     loops.some((loop) => loop.name.trim().toLowerCase() === name.toLowerCase()),
   );
+  const displayLoopId = connectionsView === '2d' ? connections2DLoopId : selectedLoopId;
+  const selectDisplayLoop = (loopId: string | null) => {
+    if (connectionsView === '2d') {
+      setConnections2DLoop(loopId);
+    } else {
+      selectLoop(loopId);
+    }
+  };
+  if (isConnectionsPanelCollapsed) {
+    return (
+      <aside className={`pointer-events-auto flex min-h-0 w-11 flex-col items-center gap-2 rounded-xl border border-indigo-400/20 bg-[#070b14]/95 py-3 shadow-2xl backdrop-blur-xl ${embedded ? 'relative h-full' : 'absolute inset-y-4 right-4 z-20 md:inset-y-6 md:right-6'}`}>
+        <button
+          onClick={() => setConnectionsPanelCollapsed(false)}
+          title="Expand Walkthrough panel"
+          aria-label="Expand Walkthrough panel"
+          className="flex h-9 w-9 items-center justify-center rounded border border-indigo-300/25 bg-indigo-300/10 text-indigo-100 hover:bg-indigo-300/20"
+        >
+          <PanelRightOpen size={15} />
+        </button>
+        <RestartWalkthroughButton compact />
+        <span className="[writing-mode:vertical-rl] rotate-180 text-[9px] font-semibold uppercase tracking-[0.16em] text-indigo-200/70">Walkthrough</span>
+      </aside>
+    );
+  }
 
   return (
-    <div className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6">
+    <div className={`pointer-events-auto flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl ${embedded ? 'relative h-full w-full' : 'absolute inset-y-4 right-4 z-20 w-[min(760px,calc(100vw-2rem))] md:inset-y-6 md:right-6'}`}>
       <header className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -656,7 +711,11 @@ function ConnectionsStage() {
             <h2 className="mt-1 text-xl font-bold text-indigo-100">Map the data flow</h2>
             <p className="mt-1 text-xs leading-relaxed text-indigo-100/65">Build ordered loops by selecting visible data objects directly in the pyramid. Drag to rotate · Right-drag to pan · Scroll to zoom.</p>
           </div>
-          <Link2 size={22} className="mt-1 shrink-0 text-indigo-200/70" />
+           <div className="flex shrink-0 items-center gap-2">
+             <RestartWalkthroughButton />
+             <button onClick={() => setConnectionsPanelCollapsed(true)} title="Collapse Panel" aria-label="Collapse Panel" className="flex h-8 w-8 items-center justify-center rounded border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"><PanelRightClose size={15} /></button>
+             <Link2 size={22} className="mt-1 text-indigo-200/70" />
+           </div>
         </div>
       </header>
       <div className="shrink-0 border-b border-indigo-400/15 bg-black/20 px-5 py-3">
@@ -735,9 +794,9 @@ function ConnectionsStage() {
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Loop filter</span>
-              <button onClick={() => { selectLoop(null); setShowOnlyLoop(null); }} className={`rounded border px-2 py-1 text-[10px] font-semibold ${!selectedLoopId && !showOnlyLoopId ? 'border-indigo-300/60 bg-indigo-300/20 text-indigo-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}>All Loops</button>
-              {loops.map((loop) => <button key={loop.id} onClick={() => selectLoop(loop.id)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${selectedLoopId === loop.id ? 'border-indigo-300/60 bg-indigo-300/20 text-indigo-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}><span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: loop.color }} />{loop.name}</button>)}
-              {selectedLoopId && <button onClick={() => setShowOnlyLoop(showOnlyLoopId ? null : selectedLoopId)} className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-1 text-[10px] font-semibold text-cyan-100">{showOnlyLoopId ? 'Show All Loops' : 'Show Only This Loop'}</button>}
+               {connectionsView !== '2d' && <button onClick={() => { selectLoop(null); setShowOnlyLoop(null); }} className={`rounded border px-2 py-1 text-[10px] font-semibold ${!selectedLoopId && !showOnlyLoopId ? 'border-indigo-300/60 bg-indigo-300/20 text-indigo-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}>All Loops</button>}
+               {loops.map((loop) => <button key={loop.id} onClick={() => selectDisplayLoop(loop.id)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${displayLoopId === loop.id ? 'border-indigo-300/60 bg-indigo-300/20 text-indigo-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}><span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: loop.color }} />{loop.name}</button>)}
+               {connectionsView !== '2d' && selectedLoopId && <button onClick={() => setShowOnlyLoop(showOnlyLoopId ? null : selectedLoopId)} className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-1 text-[10px] font-semibold text-cyan-100">{showOnlyLoopId ? 'Show All Loops' : 'Show Only This Loop'}</button>}
             </div>
             {showOnlyLoopId && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -847,18 +906,31 @@ export function WalkthroughUI() {
   const activeCase = useV2Store((state) => state.activeCase);
   const isEditingStructure = useV2Store((state) => state.isEditingStructure);
   const walkthroughStage = useV2Store((state) => state.walkthroughStage);
+  const connectionsView = useV2Store((state) => state.connectionsView);
+  const isConnectionsPanelCollapsed = useV2Store((state) => state.isConnectionsPanelCollapsed);
+  const setConnectionsPanelCollapsed = useV2Store((state) => state.setConnectionsPanelCollapsed);
+  const previousConnectionsView = useRef<'3d' | '2d' | null>(null);
+  useEffect(() => {
+    if (walkthroughStage === 'connections' && connectionsView === '2d' && previousConnectionsView.current !== '2d') {
+      setConnectionsPanelCollapsed(true);
+    }
+    previousConnectionsView.current = connectionsView;
+  }, [connectionsView, setConnectionsPanelCollapsed, walkthroughStage]);
   const currentStage = activeCase && !isEditingStructure
     ? walkthroughStage === 'connections' ? 3 : walkthroughStage === 'visualise' ? 2 : 1
     : 0;
+  const isTwoDConnections = walkthroughStage === 'connections' && activeCase && !isEditingStructure && connectionsView === '2d';
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-end p-4 md:p-6 pointer-events-none">
+    <div className={`absolute inset-0 z-20 pointer-events-none ${isTwoDConnections ? 'p-4 md:p-6' : 'flex items-center justify-end p-4 md:p-6'}`}>
       {walkthroughStage === 'data' && activeCase && !isEditingStructure
         ? <DataBoard />
         : walkthroughStage === 'visualise' && activeCase && !isEditingStructure
           ? <VisualiseStage />
           : walkthroughStage === 'connections' && activeCase && !isEditingStructure
-            ? <ConnectionsStage />
-          : <div className="pointer-events-auto flex h-[calc(100dvh-7rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl"><div className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5"><h2 className="flex items-center gap-2 text-xl font-bold text-indigo-100"><GraduationCap className="text-indigo-300" /> Walkthrough</h2><p className="mt-1 text-sm text-indigo-100/65">Define your manufacturing data strategy step by step.</p></div><Progress currentStage={currentStage} /><div className="min-h-0 flex-1 overflow-y-auto p-5"><StructureStage /></div></div>}
+            ? isTwoDConnections
+              ? <div className={`pointer-events-auto grid h-full min-h-0 w-full gap-3 ${isConnectionsPanelCollapsed ? 'grid-rows-[minmax(0,1fr)_44px] md:grid-cols-[minmax(0,1fr)_44px] md:grid-rows-1' : 'grid-rows-[minmax(280px,1fr)_minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_minmax(360px,760px)] md:grid-rows-1'}`}><V2CrossSection /><ConnectionsStage embedded /></div>
+              : <ConnectionsStage />
+          : <div className="pointer-events-auto flex h-[calc(100dvh-7rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl"><div className="flex shrink-0 items-start justify-between gap-3 border-b border-indigo-400/20 bg-indigo-400/10 p-5"><div><h2 className="flex items-center gap-2 text-xl font-bold text-indigo-100"><GraduationCap className="text-indigo-300" /> Walkthrough</h2><p className="mt-1 text-sm text-indigo-100/65">Define your manufacturing data strategy step by step.</p></div><RestartWalkthroughButton compact={false} /></div><Progress currentStage={currentStage} /><div className="min-h-0 flex-1 overflow-y-auto p-5"><StructureStage /></div></div>}
     </div>
   );
 }

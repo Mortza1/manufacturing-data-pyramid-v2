@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useV2Store } from '../store';
 import { getVisibleV2ObjectIds } from '../visibility';
 import type { V2Connection, V2Level, V2Object, V2Sector } from '../types';
@@ -142,11 +142,9 @@ function routeConnection(source: NodeLayout, target: NodeLayout, connection: V2C
 
 function V2CrossSection() {
   const activeCase = useV2Store((state) => state.activeCase);
-  const visualiseDataDensity = useV2Store((state) => state.visualiseDataDensity);
-  const visualiseOnlyLevelId = useV2Store((state) => state.visualiseOnlyLevelId);
   const visualiseHiddenSectorIds = useV2Store((state) => state.visualiseHiddenSectorIds);
-  const selectedLoopId = useV2Store((state) => state.selectedLoopId);
-  const showOnlyLoopId = useV2Store((state) => state.showOnlyLoopId);
+  const connections2DLoopId = useV2Store((state) => state.connections2DLoopId);
+  const setConnections2DLoop = useV2Store((state) => state.setConnections2DLoop);
   const loopSectorContext = useV2Store((state) => state.loopSectorContext);
   const selectedConnectionId = useV2Store((state) => state.selectedConnectionId);
   const selectedVisualiseObjectId = useV2Store((state) => state.selectedVisualiseObjectId);
@@ -155,20 +153,102 @@ function V2CrossSection() {
   const selectConnection = useV2Store((state) => state.selectConnection);
   const selectLoopObject = useV2Store((state) => state.selectLoopObject);
   const [showLabels, setShowLabels] = useState(true);
-  const [fitVersion, setFitVersion] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const panGesture = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    moved: boolean;
+  } | null>(null);
+  const suppressClick = useRef(false);
+
+  const activeLoopId = connections2DLoopId && activeCase?.overlays.loops.some((loop) => loop.id === connections2DLoopId)
+    ? connections2DLoopId
+    : activeCase?.overlays.loops[0]?.id || null;
+
+  useEffect(() => {
+    if (activeCase && !connections2DLoopId && activeCase.overlays.loops[0]) {
+      setConnections2DLoop(activeCase.overlays.loops[0].id);
+    }
+  }, [activeCase, connections2DLoopId, setConnections2DLoop]);
+
+  const resetViewport = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const getViewPoint = (clientX: number, clientY: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return { x: VIEWBOX_WIDTH / 2, y: VIEWBOX_HEIGHT / 2 };
+    return {
+      x: ((clientX - rect.left) / rect.width) * VIEWBOX_WIDTH,
+      y: ((clientY - rect.top) / rect.height) * VIEWBOX_HEIGHT,
+    };
+  };
+
+  const handleWheel = (event: React.WheelEvent<SVGSVGElement>) => {
+    event.preventDefault();
+    const nextZoom = clamp(zoom * (event.deltaY < 0 ? 1.1 : 0.9), 0.5, 4);
+    const pointer = getViewPoint(event.clientX, event.clientY);
+    const ratio = nextZoom / zoom;
+    setPan((current) => ({
+      x: pointer.x - (pointer.x - current.x) * ratio,
+      y: pointer.y - (pointer.y - current.y) * ratio,
+    }));
+    setZoom(nextZoom);
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (event.button !== 0 || event.target !== event.currentTarget) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    panGesture.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: pan.x,
+      originY: pan.y,
+      moved: false,
+    };
+    suppressClick.current = false;
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    const gesture = panGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const deltaX = event.clientX - gesture.startX;
+    const deltaY = event.clientY - gesture.startY;
+    if (!gesture.moved && Math.hypot(deltaX, deltaY) < 4) return;
+    gesture.moved = true;
+    suppressClick.current = true;
+    setPan({
+      x: gesture.originX + (deltaX / rect.width) * VIEWBOX_WIDTH,
+      y: gesture.originY + (deltaY / rect.height) * VIEWBOX_HEIGHT,
+    });
+  };
+
+  const finishPointerGesture = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (panGesture.current?.pointerId === event.pointerId) {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      panGesture.current = null;
+    }
+  };
 
   const layout = useMemo(() => {
     if (!activeCase) return null;
     const bands = getBands(activeCase.levels);
     const levelMap = new Map(activeCase.levels.map((level, index) => [level.id, { level, index, band: bands[index] }]));
     const sectorMap = new Map(activeCase.sectors.map((sector, index) => [sector.id, { sector, index }]));
-    const visibleIds = getVisibleV2ObjectIds(
-      activeCase,
-      showOnlyLoopId ? 'all' : visualiseDataDensity,
-      showOnlyLoopId ? null : visualiseOnlyLevelId,
-      showOnlyLoopId ? [] : visualiseHiddenSectorIds,
-      showOnlyLoopId,
-    );
+     const visibleIds = activeLoopId
+       ? getVisibleV2ObjectIds(activeCase, 'all', null, [], activeLoopId)
+       : new Set<string>();
     const nodeLayouts = new Map<string, NodeLayout>();
     activeCase.overlays.data
       .filter((object) => object.overlay === 'data' && visibleIds.has(object.id))
@@ -197,9 +277,8 @@ function V2CrossSection() {
       });
 
     const loops = new Map(activeCase.overlays.loops.map((loop) => [loop.id, loop]));
-    const effectiveLoopId = showOnlyLoopId ?? selectedLoopId;
     const connections = activeCase.overlays.connectivity
-      .filter((connection) => !showOnlyLoopId || connection.loop_id === showOnlyLoopId)
+       .filter((connection) => Boolean(activeLoopId && connection.loop_id === activeLoopId))
       .filter((connection) => nodeLayouts.has(connection.source_object_id) && nodeLayouts.has(connection.target_object_id))
       .sort((a, b) => a.loop_id.localeCompare(b.loop_id) || a.sequence - b.sequence || a.id.localeCompare(b.id))
       .map((connection) => {
@@ -207,7 +286,6 @@ function V2CrossSection() {
         const target = nodeLayouts.get(connection.target_object_id)!;
         const route = routeConnection(source, target, connection);
         const selected = selectedConnectionId === connection.id;
-        const relevant = !effectiveLoopId || connection.loop_id === effectiveLoopId;
         return {
           connection,
           loopColor: loops.get(connection.loop_id)?.color || '#67e8f9',
@@ -216,14 +294,14 @@ function V2CrossSection() {
           base: route.base,
           arrowPoints: route.arrowPoints,
           selected,
-          opacity: selected ? 1 : relevant ? 0.9 : 0.16,
+           opacity: selected ? 1 : 0.9,
         };
       });
 
     const participatingByLevel = new Map<string, Set<string>>();
-    if (showOnlyLoopId) {
+     if (activeLoopId) {
       activeCase.overlays.connectivity
-        .filter((connection) => connection.loop_id === showOnlyLoopId)
+         .filter((connection) => connection.loop_id === activeLoopId)
         .flatMap((connection) => [connection.source_object_id, connection.target_object_id])
         .map((objectId) => activeCase.overlays.data.find((object) => object.id === objectId))
         .filter((object): object is V2Object => Boolean(object))
@@ -235,11 +313,14 @@ function V2CrossSection() {
     }
     const visibleLoops = new Set(connections.map((item) => item.connection.loop_id));
     return { bands, nodeLayouts, connections, loops, visibleLoops, participatingByLevel };
-  }, [activeCase, visualiseDataDensity, visualiseOnlyLevelId, visualiseHiddenSectorIds, selectedLoopId, showOnlyLoopId, selectedConnectionId]);
+   }, [activeCase, activeLoopId, selectedConnectionId]);
 
   if (!activeCase || !layout) return null;
-  const effectiveLoopId = showOnlyLoopId ?? selectedLoopId;
   const onNodeClick = (objectId: string) => {
+    if (suppressClick.current) {
+      suppressClick.current = false;
+      return;
+    }
     if (loopBuilder) {
       selectLoopObject(objectId);
     } else {
@@ -248,28 +329,40 @@ function V2CrossSection() {
   };
 
   return (
-    <div className="pointer-events-auto absolute inset-0 z-[5] flex items-center p-4 md:pr-[48vw]">
-      <div className="flex h-[calc(100dvh-2rem)] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#060b14]/95 shadow-2xl backdrop-blur-xl">
+    <div className="pointer-events-auto relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#060b14]/95 shadow-2xl backdrop-blur-xl">
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-cyan-300/15 px-5 py-3">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-300/75">Stage 4 / Cross-section</p>
-            <h2 className="text-lg font-bold text-cyan-50">Loop topology</h2>
+            <h2 className="text-lg font-bold text-cyan-50">2D Cross-Section Loop View</h2>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowLabels((value) => !value)} className="rounded border border-white/10 bg-white/5 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10">{showLabels ? 'Hide node labels' : 'Show node labels'}</button>
-            <button onClick={() => setFitVersion((value) => value + 1)} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-100 hover:bg-cyan-300/20">Fit view</button>
+            <button onClick={resetViewport} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-100 hover:bg-cyan-300/20">Fit view</button>
           </div>
         </div>
         <div className="min-h-0 flex-1 p-3 md:p-5">
-          <svg key={`${layout.bands.length}-${fitVersion}`} viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`} preserveAspectRatio="xMidYMid meet" className="h-full w-full" role="img" aria-label="Triangular pyramid cross-section showing data objects and loop connections">
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
+            preserveAspectRatio="xMidYMid meet"
+            className="h-full w-full touch-none cursor-grab active:cursor-grabbing"
+            role="img"
+            aria-label="Triangular pyramid cross-section showing data objects and loop connections"
+            onWheel={handleWheel}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={finishPointerGesture}
+            onPointerCancel={finishPointerGesture}
+          >
             <title>Stage 4 loop cross-section</title>
+            <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
             <polygon points={`${VIEWBOX_WIDTH / 2 - PLOT.apexHalf},${PLOT.top} ${VIEWBOX_WIDTH / 2 + PLOT.apexHalf},${PLOT.top} ${VIEWBOX_WIDTH / 2 + PLOT.baseHalf},${PLOT.bottom} ${VIEWBOX_WIDTH / 2 - PLOT.baseHalf},${PLOT.bottom}`} fill="#07131e" stroke="#7dd3fc" strokeOpacity="0.55" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
             {layout.bands.map((band) => (
               <g key={band.level.id}>
                 {activeCase.sectors.map((sector, sectorIndex) => {
-                  const participating = !showOnlyLoopId || layout.participatingByLevel.get(band.level.id)?.has(sector.id);
+                  const participating = Boolean(activeLoopId && layout.participatingByLevel.get(band.level.id)?.has(sector.id));
                   const hidden = visualiseHiddenSectorIds.includes(sector.id);
-                  if (hidden || (showOnlyLoopId && loopSectorContext === 'active' && !participating)) return null;
+                  if (hidden || (activeLoopId && loopSectorContext === 'active' && !participating)) return null;
                   return <path key={`${band.level.id}-${sector.id}`} d={sectorPath(band, sectorIndex, activeCase.sectors.length)} fill={SECTOR_COLORS[sectorIndex % SECTOR_COLORS.length]} fillOpacity={participating ? 0.15 : 0.035} stroke={SECTOR_COLORS[sectorIndex % SECTOR_COLORS.length]} strokeOpacity={participating ? 0.35 : 0.08} strokeWidth="1" vectorEffect="non-scaling-stroke" />;
                 })}
                 <line x1={band.leftTop} y1={band.top} x2={band.rightTop} y2={band.top} stroke="#bae6fd" strokeOpacity="0.28" strokeWidth="1" vectorEffect="non-scaling-stroke" />
@@ -295,7 +388,7 @@ function V2CrossSection() {
             ))}
             {Array.from(layout.nodeLayouts.values()).map((node) => {
               const selected = selectedVisualiseObjectId === node.object.id;
-              const highlighted = Boolean(effectiveLoopId && layout.connections.some((item) => item.connection.loop_id === effectiveLoopId && (item.connection.source_object_id === node.object.id || item.connection.target_object_id === node.object.id)));
+               const highlighted = Boolean(activeLoopId && layout.connections.some((item) => item.connection.loop_id === activeLoopId && (item.connection.source_object_id === node.object.id || item.connection.target_object_id === node.object.id)));
               return (
                 <g key={node.object.id} onClick={(event) => { event.stopPropagation(); onNodeClick(node.object.id); }} className="cursor-pointer">
                   <title>{`${node.object.name} · ${node.level.name} · ${node.sector.name} · cell (${node.object.grid_x}, ${node.object.grid_y})`}</title>
@@ -304,6 +397,8 @@ function V2CrossSection() {
                 </g>
               );
             })}
+            </g>
+            {!activeLoopId && <text x={VIEWBOX_WIDTH / 2} y={VIEWBOX_HEIGHT / 2} textAnchor="middle" fill="#dbeafe" fontSize="18" fontWeight="600">No loops available. Create a loop in the Connections stage first.</text>}
           </svg>
         </div>
         <div className="grid shrink-0 gap-3 border-t border-cyan-300/15 px-5 py-3 text-[10px] md:grid-cols-2">
@@ -318,13 +413,12 @@ function V2CrossSection() {
             <div className="flex flex-wrap gap-x-3 gap-y-1">
               {Array.from(layout.visibleLoops).map((loopId) => {
                 const loop = layout.loops.get(loopId);
-                return loop ? <span key={loop.id} className={`flex items-center gap-1.5 ${effectiveLoopId && effectiveLoopId !== loop.id ? 'text-cyan-50/35' : 'text-cyan-50/75'}`}><span className="h-2 w-2 rounded-full" style={{ backgroundColor: loop.color }} />{loop.name}</span> : null;
+                return loop ? <span key={loop.id} className="flex items-center gap-1.5 text-cyan-50/75"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: loop.color }} />{loop.name}</span> : null;
               })}
               {layout.visibleLoops.size === 0 && <span className="text-muted-foreground">No visible connections</span>}
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 }

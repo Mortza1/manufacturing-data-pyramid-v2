@@ -72,6 +72,13 @@ export function getWalkthroughLevelName(index: number, count: number) {
     : `Level ${index + 1}`;
 }
 
+function getDefaultWalkthroughDraft(): V2Draft {
+  return {
+    levels: Array.from({ length: 5 }).map((_, i) => ({ name: getWalkthroughLevelName(i, 5) })),
+    sectors: Array.from({ length: 4 }).map((_, i) => ({ name: `Sector ${i + 1}` })),
+  };
+}
+
 const AUTO_FILL_DATA_CATALOGUE: Record<string, Record<string, string[]>> = {
   'Signal / Physical': {
     Product: ['Product Dimensions', 'Surface Image', 'Product Geometry Snapshot', 'Surface Defect Signal'],
@@ -226,6 +233,9 @@ interface V2State {
   showOnlyLoopId: string | null;
   loopSectorContext: 'active' | 'all';
   connectionsView: '3d' | '2d';
+  connections2DLoopId: string | null;
+  isConnectionsPanelCollapsed: boolean;
+  lastSpecificLoopId: string | null;
   expandedLoopIds: string[];
   loopBuilder: V2LoopBuilder | null;
   selectedConnectionId: string | null;
@@ -255,6 +265,8 @@ interface V2State {
   setShowOnlyLoop: (loopId: string | null) => void;
   setLoopSectorContext: (context: 'active' | 'all') => void;
   setConnectionsView: (view: '3d' | '2d') => void;
+  setConnections2DLoop: (loopId: string | null) => void;
+  setConnectionsPanelCollapsed: (collapsed: boolean) => void;
   toggleLoopExpanded: (loopId: string) => void;
   selectConnection: (connectionId: string) => void;
   updateConnection: (connectionId: string, patch: Partial<Pick<V2Connection, 'label' | 'description'>>) => boolean;
@@ -264,6 +276,7 @@ interface V2State {
   setConnectionArrowThickness: (thickness: number) => void;
   addExampleLoops: () => number;
   finishConnections: () => void;
+  restartWalkthrough: () => void;
   requestViewReset: () => void;
 
   draft: V2Draft;
@@ -310,6 +323,9 @@ export const useV2Store = create<V2State>()(
       showOnlyLoopId: null,
       loopSectorContext: 'active',
       connectionsView: '3d',
+      connections2DLoopId: null,
+      isConnectionsPanelCollapsed: false,
+      lastSpecificLoopId: null,
       expandedLoopIds: [],
       loopBuilder: null,
       selectedConnectionId: null,
@@ -370,6 +386,7 @@ export const useV2Store = create<V2State>()(
             },
           },
           selectedLoopId: loop.id,
+          lastSpecificLoopId: loop.id,
           showOnlyLoopId: null,
           selectedConnectionId: null,
           loopBuilder: {
@@ -540,6 +557,7 @@ export const useV2Store = create<V2State>()(
       }),
       selectLoop: (selectedLoopId) => set((state) => ({
         selectedLoopId,
+        lastSpecificLoopId: selectedLoopId ?? state.lastSpecificLoopId,
         selectedConnectionId: null,
         showOnlyLoopId: state.showOnlyLoopId ? selectedLoopId : state.showOnlyLoopId,
       })),
@@ -548,7 +566,31 @@ export const useV2Store = create<V2State>()(
         selectedLoopId: showOnlyLoopId,
       }),
       setLoopSectorContext: (loopSectorContext) => set({ loopSectorContext }),
-      setConnectionsView: (connectionsView) => set({ connectionsView }),
+      setConnectionsView: (connectionsView) => set((state) => {
+        if (connectionsView !== '2d') {
+          return { connectionsView };
+        }
+        const loops = state.activeCase?.overlays.loops || [];
+        const loopIds = new Set(loops.map((loop) => loop.id));
+        const connections2DLoopId = [
+          state.selectedLoopId,
+          state.lastSpecificLoopId,
+          loops[0]?.id || null,
+        ].find((loopId): loopId is string => Boolean(loopId && loopIds.has(loopId))) || null;
+        return {
+          connectionsView,
+          connections2DLoopId,
+          isConnectionsPanelCollapsed: state.connectionsView === '2d'
+            ? state.isConnectionsPanelCollapsed
+            : true,
+        };
+      }),
+      setConnections2DLoop: (connections2DLoopId) => set((state) => ({
+        connections2DLoopId: state.activeCase?.overlays.loops.some((loop) => loop.id === connections2DLoopId)
+          ? connections2DLoopId
+          : null,
+      })),
+      setConnectionsPanelCollapsed: (isConnectionsPanelCollapsed) => set({ isConnectionsPanelCollapsed }),
       toggleLoopExpanded: (loopId) => set((state) => ({
         expandedLoopIds: state.expandedLoopIds.includes(loopId)
           ? state.expandedLoopIds.filter((id) => id !== loopId)
@@ -559,7 +601,7 @@ export const useV2Store = create<V2State>()(
         return connection
           ? {
             selectedConnectionId: connection.id,
-            selectedLoopId: connection.loop_id,
+            selectedLoopId: state.connectionsView === '2d' ? state.selectedLoopId : connection.loop_id,
           }
           : state;
       }),
@@ -635,6 +677,8 @@ export const useV2Store = create<V2State>()(
           } : null,
           selectedLoopId: state.selectedLoopId === loopId ? null : state.selectedLoopId,
           showOnlyLoopId: state.showOnlyLoopId === loopId ? null : state.showOnlyLoopId,
+          connections2DLoopId: state.connections2DLoopId === loopId ? null : state.connections2DLoopId,
+          lastSpecificLoopId: state.lastSpecificLoopId === loopId ? null : state.lastSpecificLoopId,
           expandedLoopIds: state.expandedLoopIds.filter((id) => id !== loopId),
           loopBuilder: state.loopBuilder?.loopId === loopId ? null : state.loopBuilder,
         }));
@@ -725,17 +769,51 @@ export const useV2Store = create<V2State>()(
             },
           },
           selectedLoopId: loops[0].id,
+          lastSpecificLoopId: loops[0].id,
+          connections2DLoopId: get().connectionsView === '2d'
+            ? loops[0].id
+            : get().connections2DLoopId,
           expandedLoopIds: [...new Set([...get().expandedLoopIds, loops[0].id])],
         });
         return loops.length;
       },
       finishConnections: () => set({ connectionsFinished: true }),
+      restartWalkthrough: () => set({
+        activeCase: null,
+        isEditingStructure: true,
+        walkthroughStage: 'structure',
+        dataLevelIndex: 0,
+        skippedLevelIds: [],
+        dataAutoFillNotice: null,
+        showV2Labels: true,
+        selectedVisualiseObjectId: null,
+        visualiseExploded: false,
+        visualiseFocusedLevelId: null,
+        visualiseOnlyLevelId: null,
+        visualiseHiddenSectorIds: [],
+        visualiseSurfaceOpacity: 0.72,
+        visualiseDataDensity: 'all',
+        visualiseObjectScale: 1,
+        visualiseLabelScale: 1,
+        selectedLoopId: null,
+        showOnlyLoopId: null,
+        loopSectorContext: 'active',
+        connectionsView: '3d',
+        connections2DLoopId: null,
+        isConnectionsPanelCollapsed: false,
+        lastSpecificLoopId: null,
+        expandedLoopIds: [],
+        loopBuilder: null,
+        selectedConnectionId: null,
+        connectionArrowThickness: 1,
+        connectionsFinished: false,
+        viewResetNonce: 0,
+        draft: getDefaultWalkthroughDraft(),
+        autoFillLevelNames: true,
+      }),
       requestViewReset: () => set((state) => ({ viewResetNonce: state.viewResetNonce + 1 })),
 
-      draft: {
-        levels: Array.from({ length: 5 }).map((_, i) => ({ name: getWalkthroughLevelName(i, 5) })),
-        sectors: Array.from({ length: 4 }).map((_, i) => ({ name: `Sector ${i + 1}` })),
-      },
+      draft: getDefaultWalkthroughDraft(),
       autoFillLevelNames: true,
       setDraftLevels: (levels) => set((state) => ({ draft: { ...state.draft, levels } })),
       setDraftSectors: (sectors) => set((state) => ({ draft: { ...state.draft, sectors } })),
@@ -1060,7 +1138,7 @@ export const useV2Store = create<V2State>()(
     }),
     {
       name: 'manufacturing-v2-case-storage',
-        version: 6,
+      version: 7,
       migrate: (persistedState: any) => {
         const activeCase = persistedState?.activeCase;
         const isEditingStructure = activeCase
@@ -1076,6 +1154,8 @@ export const useV2Store = create<V2State>()(
              ? 0.2
              : 0.72,
            connectionsFinished: persistedState?.connectionsFinished ?? false,
+           connectionsView: persistedState?.connectionsView === '2d' ? '2d' : '3d',
+           connections2DLoopId: persistedState?.connections2DLoopId ?? null,
           autoFillLevelNames: persistedState?.autoFillLevelNames ?? true,
           showV2Labels: persistedState?.showV2Labels ?? true,
            selectedVisualiseObjectId: null,
@@ -1103,6 +1183,8 @@ export const useV2Store = create<V2State>()(
         dataLevelIndex: state.dataLevelIndex,
         skippedLevelIds: state.skippedLevelIds,
         connectionsFinished: state.connectionsFinished,
+         connectionsView: state.connectionsView,
+         connections2DLoopId: state.connections2DLoopId,
         autoFillLevelNames: state.autoFillLevelNames,
         showV2Labels: state.showV2Labels,
         draft: state.draft,

@@ -19,7 +19,6 @@ import { ForgingControls } from './components/ForgingControls';
 import { useStore } from './store';
 import { ModeSelector } from './v2/components/ModeSelector';
 import { WalkthroughUI } from './v2/components/WalkthroughUI';
-import { V2CrossSection } from './v2/components/V2CrossSection';
 import { useV2Store } from './v2/store';
 
 const queryClient = new QueryClient();
@@ -40,7 +39,7 @@ function Home() {
     <div className={`h-[100dvh] w-full relative bg-background text-foreground font-sans overflow-hidden ${presentationMode ? 'presentation-stage' : ''}`}>
       {/* 3D Background */}
       <div className="absolute inset-0 z-0">
-        {showCrossSection ? <V2CrossSection /> : <PyramidScene />}
+        {!showCrossSection && <PyramidScene />}
       </div>
 
       {/* UI Overlay */}

@@ -472,6 +472,13 @@ function V2Connections() {
         const selectedRelevant = !selectedConnectionId || selected;
         const opacity = loopRelevant && selectedRelevant ? 0.95 : 0.12;
         const width = (selected ? 3.4 : loopRelevant ? 2.2 : 1.2) * connectionArrowThickness;
+        const loopColor = loop?.color || '#67e8f9';
+        const lightColor = new THREE.Color(loopColor).lerp(new THREE.Color('#ffffff'), 0.62);
+        const darkColor = new THREE.Color(loopColor).lerp(new THREE.Color('#000000'), 0.4);
+        const gradientColors = route.points.map((_, index) => {
+          const progress = index / Math.max(1, route.points.length - 1);
+          return lightColor.clone().lerp(darkColor, progress).toArray() as [number, number, number];
+        });
         return (
           <group
             key={connection.id}
@@ -480,12 +487,8 @@ function V2Connections() {
               selectConnection(connection.id);
             }}
           >
-            <Line points={route.points} color={loop?.color || '#67e8f9'} lineWidth={width} transparent opacity={opacity} depthTest={false} depthWrite={false} renderOrder={20} />
+            <Line points={route.points} color="#ffffff" vertexColors={gradientColors} lineWidth={width} transparent opacity={opacity} depthTest={false} depthWrite={false} renderOrder={20} />
             <Line points={route.points} color="#ffffff" lineWidth={12} transparent opacity={0} depthTest={false} depthWrite={false} renderOrder={21} />
-            <mesh position={route.arrowPosition} quaternion={route.arrowQuaternion} renderOrder={22}>
-              <coneGeometry args={[Math.min(0.15, 0.11 * connectionArrowThickness), route.arrowHeight, 8]} />
-              <meshBasicMaterial color={loop?.color || '#67e8f9'} transparent opacity={opacity} toneMapped={false} depthTest={false} depthWrite={false} />
-            </mesh>
           </group>
         );
       })}
