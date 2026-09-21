@@ -1,0 +1,123 @@
+Stay in Free mode only. Do not switch to Power or Max. Work only in Manufacturing_Data_Pyramid_v2.
+
+Apply only the following confirmed Stage 4 fixes. Do not change anything else.
+
+1. Fix the 2D Cross-Section toggle
+
+The toggle wiring is already correct. Fix the two confirmed problems:
+
+Persistence
+
+Persist connectionsView in the v2 store.
+Migration must normalize older state:
+'2d' → '2d'
+missing/invalid → '3d'
+Rehydration must not silently reset a selected 2D view to 3D.
+
+Layout
+
+V2CrossSection must occupy a clearly visible main visualisation area to the left of the Walkthrough panel.
+Do not let the opaque right-side panel cover the SVG.
+Use an explicit responsive two-area layout:
+
+Visualisation area | Walkthrough panel
+
+On smaller widths, reflow/stack rather than covering the SVG.
+When connectionsView === '2d', PyramidScene must not be mounted in that main viewport.
+The SVG must render independently of WebGL.
+
+Add a small visible heading in the visual area:
+
+2D Cross-Section Loop View
+
+so it is obvious that the renderer changed.
+
+Keep the existing 2D triangular pyramid, level bands, sector-coloured nodes, loop-coloured SVG arrows, legends, Fit View and node-label controls.
+
+Do not change the 2D SVG arrow construction.
+
+2. Replace 3D arrowheads with directional gradient lines
+
+This applies only to the 3D Loop View.
+
+Remove the 3D cone/arrowhead meshes completely.
+
+Preserve:
+
+existing connection routes;
+world-space source/target attachment;
+click/selection behaviour;
+loop filtering;
+thickness control;
+loop colours;
+Explode/Assemble behaviour.
+
+Render every 3D connection using a continuous source-to-target colour gradient:
+
+lighter shade at source → loop base colour through the middle → darker/stronger shade at target
+
+Direction is therefore encoded as:
+
+LIGHT → DARK
+
+Derive the gradient from each loop's existing stored colour rather than assigning new colours.
+
+Prefer per-vertex colour interpolation using custom BufferGeometry / line geometry if compatible with the current renderer.
+
+If that is unreliable, use a reasonable number of contiguous curved line segments with interpolated colours.
+
+Keep the curve smooth and continuous.
+
+Rename Arrow Thickness to:
+
+Connection Thickness
+
+Add a small legend/hint:
+
+Connection direction: Light → Dark
+
+No 3D arrowheads should remain.
+
+3. Preserve everything else
+
+Do not alter:
+
+loop model;
+continuous loop builder;
+Loop Table;
+Predictive Maintenance;
+Process Optimisation;
+Show Only This Loop;
+sector context/highlighting;
+Stage 4 opacity;
+pan/rotate behaviour;
+Data Display;
+Object Size;
+Label Size;
+Structure;
+Data;
+Visualise;
+Explorer;
+Forging Case Study;
+Advanced placeholder.
+
+Do not implement Save/database yet.
+
+Acceptance tests
+
+Verify:
+
+Clicking 2D Cross-Section visibly replaces the 3D viewport with the SVG view.
+The Walkthrough panel does not cover the SVG.
+Reload/rehydration does not unexpectedly revert the selected view.
+Switching 2D ↔ 3D preserves selected loop and case state.
+2D works without WebGL.
+Existing 2D SVG arrows remain unchanged.
+3D has no cone arrowheads.
+Every 3D connection visibly progresses light at source → dark at target.
+Gradient follows the existing curved route.
+Different loops retain their own colour identity.
+Connection Thickness works.
+Explorer and Forging remain unchanged.
+
+Run typecheck, production build and diff checks. Do not add any other scope.
