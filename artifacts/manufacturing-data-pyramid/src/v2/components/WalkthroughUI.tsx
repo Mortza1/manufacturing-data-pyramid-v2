@@ -517,6 +517,7 @@ function ConnectionsStage() {
     setWalkthroughStage,
     selectedLoopId,
     showOnlyLoopId,
+    loopSectorContext,
     expandedLoopIds,
     loopBuilder,
     selectedConnectionId,
@@ -529,6 +530,7 @@ function ConnectionsStage() {
     cancelLoop,
     selectLoop,
     setShowOnlyLoop,
+    setLoopSectorContext,
     toggleLoopExpanded,
     updateConnection,
     updateLoop,
@@ -718,6 +720,23 @@ function ConnectionsStage() {
               {loops.map((loop) => <button key={loop.id} onClick={() => selectLoop(loop.id)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${selectedLoopId === loop.id ? 'border-indigo-300/60 bg-indigo-300/20 text-indigo-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}><span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: loop.color }} />{loop.name}</button>)}
               {selectedLoopId && <button onClick={() => setShowOnlyLoop(showOnlyLoopId ? null : selectedLoopId)} className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-1 text-[10px] font-semibold text-cyan-100">{showOnlyLoopId ? 'Show All Loops' : 'Show Only This Loop'}</button>}
             </div>
+            {showOnlyLoopId && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Sector context</span>
+                {([
+                  ['active', 'Active only'],
+                  ['all', 'Show all'],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => setLoopSectorContext(value)}
+                    className={`rounded border px-2 py-1 text-[10px] font-semibold ${loopSectorContext === value ? 'border-cyan-300/60 bg-cyan-300/20 text-cyan-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <button onClick={() => setVisualiseExploded(!visualiseExploded)} className="rounded border border-white/10 bg-white/5 px-2.5 py-2 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">{visualiseExploded ? 'Assemble Pyramid' : 'Explode Pyramid'}</button>
               <div className="flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-1">

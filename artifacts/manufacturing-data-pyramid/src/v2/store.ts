@@ -224,6 +224,7 @@ interface V2State {
   visualiseLabelScale: number;
   selectedLoopId: string | null;
   showOnlyLoopId: string | null;
+  loopSectorContext: 'active' | 'all';
   expandedLoopIds: string[];
   loopBuilder: V2LoopBuilder | null;
   selectedConnectionId: string | null;
@@ -251,6 +252,7 @@ interface V2State {
   cancelLoop: () => void;
   selectLoop: (loopId: string | null) => void;
   setShowOnlyLoop: (loopId: string | null) => void;
+  setLoopSectorContext: (context: 'active' | 'all') => void;
   toggleLoopExpanded: (loopId: string) => void;
   selectConnection: (connectionId: string) => void;
   updateConnection: (connectionId: string, patch: Partial<Pick<V2Connection, 'label' | 'description'>>) => boolean;
@@ -304,6 +306,7 @@ export const useV2Store = create<V2State>()(
       visualiseLabelScale: 1,
       selectedLoopId: null,
       showOnlyLoopId: null,
+      loopSectorContext: 'active',
       expandedLoopIds: [],
       loopBuilder: null,
       selectedConnectionId: null,
@@ -541,6 +544,7 @@ export const useV2Store = create<V2State>()(
         showOnlyLoopId,
         selectedLoopId: showOnlyLoopId,
       }),
+      setLoopSectorContext: (loopSectorContext) => set({ loopSectorContext }),
       toggleLoopExpanded: (loopId) => set((state) => ({
         expandedLoopIds: state.expandedLoopIds.includes(loopId)
           ? state.expandedLoopIds.filter((id) => id !== loopId)

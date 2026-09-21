@@ -44,9 +44,14 @@ function getConnectionRoute(
   const points = curve.getPoints(24);
   const endpoint = curve.getPoint(1);
   const tangent = curve.getTangent(1).normalize();
-  const arrowPosition = endpoint.clone().addScaledVector(tangent, -arrowHeight / 2);
+  const effectiveArrowHeight = Math.min(arrowHeight, attachedStart.distanceTo(endpoint) * 0.4);
+  const arrowBaseCenter = endpoint.clone().addScaledVector(tangent, -effectiveArrowHeight);
+  const shaftPoints = points.filter((point) => point.distanceTo(endpoint) >= effectiveArrowHeight);
+  if (shaftPoints.length === 0) shaftPoints.push(attachedStart);
+  shaftPoints.push(arrowBaseCenter);
+  const arrowPosition = endpoint.clone().addScaledVector(tangent, -effectiveArrowHeight / 2);
   const arrowQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
-  return { points, endpoint, arrowPosition, arrowQuaternion };
+  return { points: shaftPoints, endpoint, arrowPosition, arrowQuaternion, arrowHeight: effectiveArrowHeight };
 }
 
 function V2DataObject({
@@ -168,6 +173,7 @@ function V2Level({
   connectionCurrentObjectId,
   visibleObjectIds,
   participatingSectorIds,
+  loopSectorContext,
   selectLoopObject,
   setSelectedVisualiseObjectId,
 }: {
@@ -191,6 +197,7 @@ function V2Level({
   connectionCurrentObjectId: string | null;
   visibleObjectIds: Set<string>;
   participatingSectorIds: Set<string> | null;
+  loopSectorContext: 'active' | 'all';
   selectLoopObject: (id: string) => void;
   setSelectedVisualiseObjectId: (id: string | null) => void;
 }) {
@@ -208,17 +215,23 @@ function V2Level({
   return (
     <group position={[0, y + levelOffset, 0]} rotation={[0, rotY, 0]}>
       {levelVisible && sectors.map((sector, sectorIndex) => {
-        if (
-          visualiseHiddenSectorIds.includes(sector.id) ||
-          (participatingSectorIds !== null && !participatingSectorIds.has(sector.id))
-        ) return null;
-        const surfaceOpacity = visualiseSurfaceOpacity * (levelFocused ? 1 : 0.28);
+        const participating = participatingSectorIds === null || participatingSectorIds.has(sector.id);
+        if (visualiseHiddenSectorIds.includes(sector.id)) return null;
+        if (!participating && (participatingSectorIds === null || loopSectorContext === 'active')) return null;
+        const surfaceOpacity = participating
+          ? visualiseSurfaceOpacity * (levelFocused ? 1 : 0.28)
+          : Math.min(0.06, visualiseSurfaceOpacity * 0.25);
+        const edgeOpacity = participating
+          ? Math.min(0.35, Math.max(0.08, visualiseSurfaceOpacity * (levelFocused ? 0.72 : 0.3)))
+          : Math.min(0.025, visualiseSurfaceOpacity * 0.12);
         return (
           <React.Fragment key={sector.id}>
             <mesh castShadow receiveShadow>
               <cylinderGeometry args={[top, base, height, 1, 1, false, sectorIndex * sectorAngle, sectorAngle]} />
               <meshStandardMaterial
                 color={SECTOR_COLORS[sectorIndex % SECTOR_COLORS.length]}
+                emissive={SECTOR_COLORS[sectorIndex % SECTOR_COLORS.length]}
+                emissiveIntensity={participating ? 0.28 : 0.04}
                 transparent
                 opacity={surfaceOpacity}
                 side={THREE.DoubleSide}
@@ -231,7 +244,7 @@ function V2Level({
                <lineBasicMaterial
                  color={SECTOR_COLORS[sectorIndex % SECTOR_COLORS.length]}
                  transparent
-                 opacity={Math.max(0.12, visualiseSurfaceOpacity * (levelFocused ? 0.9 : 0.45))}
+                 opacity={edgeOpacity}
                />
             </lineSegments>
           </React.Fragment>
@@ -309,6 +322,7 @@ export function V2PreviewPyramid() {
   const walkthroughStage = useV2Store((state) => state.walkthroughStage);
   const selectedLoopId = useV2Store((state) => state.selectedLoopId);
   const showOnlyLoopId = useV2Store((state) => state.showOnlyLoopId);
+  const loopSectorContext = useV2Store((state) => state.loopSectorContext);
   const loopBuilder = useV2Store((state) => state.loopBuilder);
   const selectLoopObject = useV2Store((state) => state.selectLoopObject);
   const levels = activeCase && !isEditingStructure ? activeCase.levels : [];
@@ -370,6 +384,7 @@ export function V2PreviewPyramid() {
           connectionCurrentObjectId={loopBuilder?.currentObjectId ?? null}
            visibleObjectIds={connectionVisibleObjectIds}
            participatingSectorIds={showOnlyLoopId ? loopSectorIdsByLevel?.get(level.id) ?? new Set<string>() : null}
+           loopSectorContext={loopSectorContext}
           selectLoopObject={(objectId) => { if (!builderPaused) selectLoopObject(objectId); }}
           setSelectedVisualiseObjectId={setSelectedVisualiseObjectId}
         />
@@ -381,7 +396,9 @@ export function V2PreviewPyramid() {
           : null;
         if (
           visualiseHiddenSectorIds.includes(sector.id) ||
-          (participatingSectorIds !== null && !participatingSectorIds.has(sector.id))
+          (participatingSectorIds !== null &&
+            loopSectorContext === 'active' &&
+            !participatingSectorIds.has(sector.id))
         ) return null;
         const numSectors = Math.max(3, sectors.length);
         const angle = ((index + 0.5) * Math.PI * 2) / numSectors + (numSectors === 4 ? Math.PI / 4 : 0);
@@ -466,7 +483,7 @@ function V2Connections() {
             <Line points={route.points} color={loop?.color || '#67e8f9'} lineWidth={width} transparent opacity={opacity} depthTest={false} depthWrite={false} renderOrder={20} />
             <Line points={route.points} color="#ffffff" lineWidth={12} transparent opacity={0} depthTest={false} depthWrite={false} renderOrder={21} />
             <mesh position={route.arrowPosition} quaternion={route.arrowQuaternion} renderOrder={22}>
-              <coneGeometry args={[Math.min(0.15, 0.11 * connectionArrowThickness), Math.min(0.44, 0.32 * connectionArrowThickness), 8]} />
+              <coneGeometry args={[Math.min(0.15, 0.11 * connectionArrowThickness), route.arrowHeight, 8]} />
               <meshBasicMaterial color={loop?.color || '#67e8f9'} transparent opacity={opacity} toneMapped={false} depthTest={false} depthWrite={false} />
             </mesh>
           </group>
