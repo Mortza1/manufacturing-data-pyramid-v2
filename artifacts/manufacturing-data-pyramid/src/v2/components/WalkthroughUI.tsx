@@ -1,16 +1,16 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Check, ChevronLeft, ChevronRight, Edit2, Eye, EyeOff, Lock, Wand2, GraduationCap, Grid3X3, Plus, SkipForward, Trash2, Move, Maximize2, Minimize2, RotateCcw, X } from 'lucide-react';
-import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, type V2DataDensity, type V2DataDraft, type V2MetadataPatch } from '../store';
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { ArrowRight, Check, ChevronLeft, ChevronRight, Edit2, Eye, EyeOff, Lock, Wand2, GraduationCap, Grid3X3, Link2, Plus, SkipForward, Trash2, Move, Maximize2, Minimize2, RotateCcw, X } from 'lucide-react';
+import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, type V2ConnectionDraft, type V2DataDensity, type V2DataDraft, type V2MetadataPatch } from '../store';
 import { getSectorIdForGridCell } from '../geometry';
 
 const STAGES = ['Structure', 'Data', 'Visualise', 'Connections', 'Save'];
 
-function Progress({ currentStage }: { currentStage: number }) {
+function Progress({ currentStage, completedStages = [] }: { currentStage: number; completedStages?: number[] }) {
   return (
     <div className="flex items-center gap-1 overflow-x-auto border-b border-white/5 bg-black/25 px-5 py-3 [&::-webkit-scrollbar]:hidden">
       {STAGES.map((stage, idx) => {
-        const active = idx === currentStage;
-        const past = idx < currentStage;
+        const active = idx === currentStage && !completedStages.includes(idx);
+        const past = completedStages.includes(idx) || idx < currentStage;
         return (
           <div key={stage} className={`flex shrink-0 items-center gap-1.5 text-[11px] font-semibold ${active ? 'text-indigo-300' : past ? 'text-emerald-300' : 'text-muted-foreground'}`}>
             <span className={`flex h-5 w-5 items-center justify-center rounded-full border ${active ? 'border-indigo-300 bg-indigo-400/20' : past ? 'border-emerald-300 bg-emerald-400/20' : 'border-white/10 bg-black/40'}`}>
@@ -503,8 +503,270 @@ function VisualiseStage() {
           ) : (
             <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-xs leading-relaxed text-muted-foreground">Click any glowing data object in the pyramid to inspect its stored metadata. Presentation controls move only the view; the saved grid address remains unchanged.</div>
           )}
+          <button onClick={() => setWalkthroughStage('connections')} className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-400 py-3 text-sm font-bold text-slate-950 hover:bg-indigo-300"><Link2 size={16} /> Continue to Connections <ChevronRight size={17} /></button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ConnectionsStage() {
+  const {
+    activeCase,
+    setWalkthroughStage,
+    connectionSourceObjectId,
+    connectionTargetObjectId,
+    selectedConnectionId,
+    connectionLoopFilter,
+    setConnectionLoopFilter,
+    connectionArrowThickness,
+    setConnectionArrowThickness,
+    selectConnection,
+    clearConnectionSelection,
+    createConnection,
+    updateConnection,
+    deleteConnection,
+    addExampleConnections,
+    finishConnections,
+    connectionsFinished,
+    visualiseExploded,
+    setVisualiseExploded,
+    visualiseSurfaceOpacity,
+    setVisualiseSurfaceOpacity,
+    visualiseDataDensity,
+    setVisualiseDataDensity,
+    visualiseObjectScale,
+    setVisualiseObjectScale,
+    visualiseLabelScale,
+    setVisualiseLabelScale,
+    visualiseOnlyLevelId,
+    visualiseHiddenSectorIds,
+  } = useV2Store();
+  const [draft, setDraft] = useState<V2ConnectionDraft>({
+    label: '',
+    description: '',
+    loop: '',
+    color: '#67e8f9',
+  });
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const selectedConnection = activeCase?.overlays.connectivity.find((connection) => connection.id === selectedConnectionId);
+  const source = activeCase?.overlays.data.find((object) => object.id === connectionSourceObjectId);
+  const target = activeCase?.overlays.data.find((object) => object.id === connectionTargetObjectId);
+  const loops = Array.from(new Set(activeCase?.overlays.connectivity.map((connection) => connection.loop).filter(Boolean) || []));
+  const visibleObjectIds = useMemo(() => {
+    if (!activeCase) return new Set<string>();
+    const visible = new Set<string>();
+    activeCase.levels.forEach((level) => {
+      const levelObjects = activeCase.overlays.data.filter((object) => object.level_id === level.id);
+      const ordered = visualiseDataDensity === 'all'
+        ? levelObjects
+        : [...levelObjects]
+          .sort((a, b) => a.grid_y - b.grid_y || a.grid_x - b.grid_x || a.id.localeCompare(b.id))
+          .filter((object, index, objects) => {
+            const sameSectorBefore = objects.slice(0, index).filter((candidate) => candidate.sector_id === object.sector_id).length;
+            return sameSectorBefore < visualiseDataDensity;
+          });
+      ordered.forEach((object) => {
+        if ((visualiseOnlyLevelId === null || visualiseOnlyLevelId === level.id) && !visualiseHiddenSectorIds.includes(object.sector_id)) {
+          visible.add(object.id);
+        }
+      });
+    });
+    return visible;
+  }, [activeCase, visualiseDataDensity, visualiseOnlyLevelId, visualiseHiddenSectorIds]);
+
+  useEffect(() => {
+    if (selectedConnection) {
+      setDraft({
+        label: selectedConnection.label,
+        description: selectedConnection.description,
+        loop: selectedConnection.loop,
+        color: selectedConnection.color,
+      });
+    } else {
+      setDraft({ label: '', description: '', loop: '', color: '#67e8f9' });
+    }
+  }, [selectedConnectionId]);
+
+  if (!activeCase) return null;
+
+  const objectContext = (object: typeof source) => {
+    if (!object) return null;
+    const level = activeCase.levels.find((item) => item.id === object.level_id);
+    const sector = activeCase.sectors.find((item) => item.id === object.sector_id);
+    return {
+      object,
+      levelName: level?.name || object.level_id,
+      sectorName: sector?.name || object.sector_id,
+    };
+  };
+  const sourceContext = objectContext(source);
+  const targetContext = objectContext(target);
+  const submitConnection = () => {
+    if (!source || !target) {
+      setNotice('Select a source and a different target in the pyramid first.');
+      return;
+    }
+    const result = selectedConnectionId
+      ? updateConnection(selectedConnectionId, draft)
+      : createConnection(draft);
+    if (!result && !selectedConnectionId) {
+      setNotice('That source-to-target connection already exists, or the connection details are incomplete.');
+      return;
+    }
+    setNotice(selectedConnectionId ? 'Connection updated.' : 'Connection created.');
+  };
+  const startNewConnection = () => {
+    clearConnectionSelection();
+    setNotice(null);
+  };
+  const removeSelectedConnection = () => {
+    if (!selectedConnectionId || !window.confirm('Delete this connection? The endpoint data objects will remain unchanged.')) return;
+    deleteConnection(selectedConnectionId);
+    setNotice('Connection deleted.');
+  };
+  const generateExamples = () => {
+    const count = addExampleConnections(Array.from(visibleObjectIds));
+    setNotice(count > 0 ? `Added ${count} example connection${count === 1 ? '' : 's'}.` : 'No new example connections were available from the currently visible objects.');
+  };
+
+  return (
+    <div className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6">
+      <header className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-indigo-300/75">Walkthrough / Connections</p>
+            <h2 className="mt-1 text-xl font-bold text-indigo-100">Map the data flow</h2>
+            <p className="mt-1 text-xs leading-relaxed text-indigo-100/65">Select visible data objects directly in the pyramid, then define a directional relationship.</p>
+          </div>
+          <Link2 size={22} className="mt-1 shrink-0 text-indigo-200/70" />
+        </div>
+      </header>
+      <Progress currentStage={3} completedStages={connectionsFinished ? [0, 1, 2, 3] : [0, 1, 2]} />
+      <div className="min-h-0 flex-1 overflow-y-auto p-5">
+        <div className="space-y-4">
+          {connectionsFinished && (
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-400/25 bg-emerald-400/10 p-4">
+              <Check size={17} className="mt-0.5 shrink-0 text-emerald-300" />
+              <p className="text-xs leading-relaxed text-emerald-100/80">Connections are complete. A future Review / Save stage will be available here; no database persistence is performed yet.</p>
+            </div>
+          )}
+          <section className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Guided connection</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">Select Source → Select Target → Configure → Create</p>
+              </div>
+              <button onClick={startNewConnection} className="rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">Clear Selection</button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[{ label: 'Source', context: sourceContext, accent: 'border-cyan-300/40 bg-cyan-300/10 text-cyan-50' }, { label: 'Target', context: targetContext, accent: 'border-amber-300/40 bg-amber-300/10 text-amber-50' }].map(({ label, context, accent }) => (
+                <div key={label} className={`rounded-lg border p-3 ${context ? accent : 'border-white/10 bg-white/[0.02]'}`}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+                  {context ? (
+                    <>
+                      <p className="mt-1 truncate text-xs font-bold">{context.object.name}</p>
+                      <p className="mt-1 text-[10px] opacity-75">L{(activeCase.levels.find((item) => item.id === context.object.level_id)?.index ?? 0) + 1} · {context.levelName}</p>
+                      <p className="text-[10px] opacity-75">{context.sectorName} · cell ({context.object.grid_x + 1}, {context.object.grid_y + 1})</p>
+                    </>
+                  ) : <p className="mt-2 text-[11px] text-muted-foreground">Click a visible data object in the 3D view.</p>}
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-center gap-2 rounded border border-white/10 bg-black/25 px-3 py-2 text-xs font-bold text-indigo-100">
+              <span className="truncate">{source?.name || 'Source Data'}</span>
+              <ArrowRight size={15} className="shrink-0 text-indigo-300" />
+              <span className="truncate">{target?.name || 'Target Data'}</span>
+            </div>
+            {source && target && (
+              <div className="mt-3 space-y-3 border-t border-white/10 pt-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Connection label / name" value={draft.label} onChange={(value) => setDraft((current) => ({ ...current, label: value }))} required />
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Loop / group
+                    <input list="v2-connection-loops" value={draft.loop} onChange={(event) => setDraft((current) => ({ ...current, loop: event.target.value }))} placeholder="e.g. Quality flow" className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2.5 py-2 text-xs text-foreground outline-none focus:border-cyan-300/60" />
+                    <datalist id="v2-connection-loops">{loops.map((loop) => <option key={loop} value={loop} />)}</datalist>
+                  </label>
+                </div>
+                <Field label="Optional description / note" value={draft.description} onChange={(value) => setDraft((current) => ({ ...current, description: value }))} multiline />
+                <label className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Arrow colour
+                  <input aria-label="Arrow colour" type="color" value={draft.color} onChange={(event) => setDraft((current) => ({ ...current, color: event.target.value }))} className="h-7 w-10 cursor-pointer rounded border border-white/10 bg-transparent p-0.5" />
+                  <span className="font-mono normal-case text-muted-foreground/70">{draft.color}</span>
+                </label>
+                <div className="flex flex-wrap justify-end gap-2">
+                  {selectedConnectionId && <button onClick={removeSelectedConnection} className="rounded border border-rose-300/25 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100 hover:bg-rose-400/20">Delete Connection</button>}
+                  <button onClick={submitConnection} className="rounded bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300">{selectedConnectionId ? 'Update Connection' : 'Create Connection'}</button>
+                </div>
+              </div>
+            )}
+            {notice && <p className="mt-3 rounded border border-indigo-300/20 bg-indigo-300/5 px-2.5 py-2 text-[10px] leading-relaxed text-indigo-100/80">{notice}</p>}
+          </section>
+
+          <section className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Connection display</p>
+              <button onClick={generateExamples} className="rounded border border-indigo-300/25 bg-indigo-300/10 px-2.5 py-1.5 text-[10px] font-semibold text-indigo-100 hover:bg-indigo-300/20"><Wand2 size={12} className="mr-1 inline" /> Add Example Connections</button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-28 shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">Arrow thickness</span>
+              <input aria-label="Arrow thickness" type="range" min="0.7" max="1.8" step="0.05" value={connectionArrowThickness} onChange={(event) => setConnectionArrowThickness(Number(event.target.value))} className="w-full accent-indigo-300" />
+              <span className="w-10 text-right font-mono text-[10px] text-muted-foreground">{Math.round(connectionArrowThickness * 100)}%</span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Loop filter</span>
+              {['all', ...loops].map((loop) => <button key={loop} onClick={() => setConnectionLoopFilter(loop)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${connectionLoopFilter === loop ? 'border-indigo-300/60 bg-indigo-300/20 text-indigo-100' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}>{loop === 'all' ? 'All Connections' : loop}</button>)}
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <button onClick={() => setVisualiseExploded(!visualiseExploded)} className="rounded border border-white/10 bg-white/5 px-2.5 py-2 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">{visualiseExploded ? 'Assemble Pyramid' : 'Explode Pyramid'}</button>
+              <div className="flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-1">
+                <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Data</span>
+                {([1, 2, 3, 'all'] as V2DataDensity[]).map((density) => <button key={density} onClick={() => setVisualiseDataDensity(density)} className={`min-w-7 rounded px-1.5 py-1 text-[10px] font-semibold ${visualiseDataDensity === density ? 'bg-cyan-300/20 text-cyan-100' : 'text-muted-foreground hover:bg-white/10'}`}>{density === 'all' ? 'All' : density}</button>)}
+              </div>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <label className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">Object size <input aria-label="Connections object size" type="range" min="0.7" max="1.35" step="0.01" value={visualiseObjectScale} onChange={(event) => setVisualiseObjectScale(Number(event.target.value))} className="w-full accent-cyan-300" /></label>
+              <label className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">Label size <input aria-label="Connections label size" type="range" min="0.75" max="1.35" step="0.01" value={visualiseLabelScale} onChange={(event) => setVisualiseLabelScale(Number(event.target.value))} className="w-full accent-cyan-300" /></label>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <span className="w-28 shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">Surface opacity</span>
+              <input aria-label="Connections surface opacity" type="range" min="0.18" max="1" step="0.01" value={visualiseSurfaceOpacity} onChange={(event) => setVisualiseSurfaceOpacity(Number(event.target.value))} className="w-full accent-cyan-300" />
+              <span className="w-10 text-right font-mono text-[10px] text-muted-foreground">{Math.round(visualiseSurfaceOpacity * 100)}%</span>
+            </div>
+            <p className="mt-3 text-[10px] text-muted-foreground">Other Visualise controls remain available through Back to Visualise. Hidden endpoints temporarily hide their arrows without deleting connections.</p>
+          </section>
+
+          <section className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-200/80">Connection table</p><p className="mt-1 text-[10px] text-muted-foreground">{activeCase.overlays.connectivity.length} stored relationship{activeCase.overlays.connectivity.length === 1 ? '' : 's'}</p></div>
+              {selectedConnectionId && <button onClick={startNewConnection} className="rounded border border-white/10 bg-white/5 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground">Create New</button>}
+            </div>
+            {activeCase.overlays.connectivity.length === 0 ? (
+              <p className="rounded border border-white/10 bg-black/20 p-3 text-[11px] leading-relaxed text-muted-foreground">No connections yet. Connections are optional; you can finish this stage with zero relationships.</p>
+            ) : (
+              <div className="overflow-x-auto rounded border border-white/10">
+                <table className="w-full min-w-[920px] text-left text-[10px]">
+                  <thead className="bg-white/[0.04] uppercase tracking-wider text-muted-foreground"><tr><th className="px-2 py-2">Connection</th><th className="px-2 py-2">Loop / Group</th><th className="px-2 py-2">Source Data</th><th className="px-2 py-2">Source Level</th><th className="px-2 py-2">Source Sector</th><th className="px-2 py-2">Source Cell</th><th className="px-2 py-2">Target Data</th><th className="px-2 py-2">Target Level</th><th className="px-2 py-2">Target Sector</th><th className="px-2 py-2">Target Cell</th><th className="px-2 py-2">Direction</th><th className="px-2 py-2">Colour</th></tr></thead>
+                  <tbody>
+                    {activeCase.overlays.connectivity.map((connection) => {
+                      const sourceObject = activeCase.overlays.data.find((object) => object.id === connection.source_object_id);
+                      const targetObject = activeCase.overlays.data.find((object) => object.id === connection.target_object_id);
+                      const sourceLevel = activeCase.levels.find((level) => level.id === sourceObject?.level_id);
+                      const targetLevel = activeCase.levels.find((level) => level.id === targetObject?.level_id);
+                      const sourceSector = activeCase.sectors.find((sector) => sector.id === sourceObject?.sector_id);
+                      const targetSector = activeCase.sectors.find((sector) => sector.id === targetObject?.sector_id);
+                      return <tr key={connection.id} onClick={() => selectConnection(connection.id)} className={`cursor-pointer border-t border-white/5 ${selectedConnectionId === connection.id ? 'bg-indigo-300/15' : 'hover:bg-white/[0.04]'}`}><td className="max-w-[150px] truncate px-2 py-2 font-semibold text-foreground">{connection.label}</td><td className="px-2 py-2 text-indigo-100/80">{connection.loop}</td><td className="px-2 py-2 text-cyan-100">{sourceObject?.name || 'Missing object'}</td><td className="px-2 py-2">{sourceLevel?.name || '—'}</td><td className="px-2 py-2">{sourceSector?.name || '—'}</td><td className="px-2 py-2 font-mono">({sourceObject ? sourceObject.grid_x + 1 : '—'}, {sourceObject ? sourceObject.grid_y + 1 : '—'})</td><td className="px-2 py-2 text-amber-100">{targetObject?.name || 'Missing object'}</td><td className="px-2 py-2">{targetLevel?.name || '—'}</td><td className="px-2 py-2">{targetSector?.name || '—'}</td><td className="px-2 py-2 font-mono">({targetObject ? targetObject.grid_x + 1 : '—'}, {targetObject ? targetObject.grid_y + 1 : '—'})</td><td className="px-2 py-2 text-indigo-100">Source → Target</td><td className="px-2 py-2"><span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: connection.color }} title={connection.color} /></td></tr>;
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+      <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-[#07111c] px-5 py-3">
+        <button onClick={() => setWalkthroughStage('visualise')} className="flex items-center gap-1.5 rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-300/20"><ChevronLeft size={14} /> Back to Visualise</button>
+        <button onClick={finishConnections} className="flex items-center gap-1.5 rounded bg-emerald-400 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-300">Finish Connections <Check size={14} /></button>
+      </footer>
     </div>
   );
 }
@@ -514,7 +776,7 @@ export function WalkthroughUI() {
   const isEditingStructure = useV2Store((state) => state.isEditingStructure);
   const walkthroughStage = useV2Store((state) => state.walkthroughStage);
   const currentStage = activeCase && !isEditingStructure
-    ? walkthroughStage === 'visualise' ? 2 : 1
+    ? walkthroughStage === 'connections' ? 3 : walkthroughStage === 'visualise' ? 2 : 1
     : 0;
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-end p-4 md:p-6 pointer-events-none">
@@ -522,6 +784,8 @@ export function WalkthroughUI() {
         ? <DataBoard />
         : walkthroughStage === 'visualise' && activeCase && !isEditingStructure
           ? <VisualiseStage />
+          : walkthroughStage === 'connections' && activeCase && !isEditingStructure
+            ? <ConnectionsStage />
           : <div className="pointer-events-auto flex h-[calc(100dvh-7rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-xl border border-indigo-400/20 bg-[#070b14]/95 shadow-2xl backdrop-blur-xl"><div className="shrink-0 border-b border-indigo-400/20 bg-indigo-400/10 p-5"><h2 className="flex items-center gap-2 text-xl font-bold text-indigo-100"><GraduationCap className="text-indigo-300" /> Walkthrough</h2><p className="mt-1 text-sm text-indigo-100/65">Define your manufacturing data strategy step by step.</p></div><Progress currentStage={currentStage} /><div className="min-h-0 flex-1 overflow-y-auto p-5"><StructureStage /></div></div>}
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Html } from '@react-three/drei';
+import { Html, Line } from '@react-three/drei';
 import { a, useSpring } from '@react-spring/three';
 import * as THREE from 'three';
 import { useStore } from '../../store';
@@ -9,6 +9,7 @@ import type { V2Level, V2Object, V2Sector } from '../types';
 
 const SECTOR_COLORS = ['#38bdf8', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#facc15', '#2dd4bf', '#818cf8'];
 const EXPLODED_LEVEL_SPACING = 0.72;
+type ConnectionRole = 'source' | 'target' | null;
 
 function filterObjectsByDensity(objects: V2Object[], density: V2DataDensity) {
   if (density === 'all') return objects;
@@ -23,6 +24,27 @@ function filterObjectsByDensity(objects: V2Object[], density: V2DataDensity) {
     });
 }
 
+function getConnectionRoute(start: THREE.Vector3, end: THREE.Vector3, connectionId: string, objectScale: number) {
+  const direction = end.clone().sub(start);
+  direction.normalize();
+  const attachedStart = start.clone().addScaledVector(direction, 0.34 * objectScale);
+  const attachedEnd = end.clone().addScaledVector(direction, -0.42 * objectScale);
+  const midpoint = attachedStart.clone().lerp(attachedEnd, 0.5);
+  const lateral = new THREE.Vector3(-direction.z, 0, direction.x);
+  if (lateral.lengthSq() < 0.01) lateral.set(1, 0, 0);
+  lateral.normalize();
+  const lane = ((connectionId.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 3) - 1) * 0.16;
+  const control = midpoint
+    .addScaledVector(lateral, lane)
+    .add(new THREE.Vector3(0, 0.5 + Math.min(start.distanceTo(end) * 0.14, 0.75), 0));
+  const curve = new THREE.QuadraticBezierCurve3(attachedStart, control, attachedEnd);
+  const points = curve.getPoints(24);
+  const tangent = curve.getTangent(0.985).normalize();
+  const arrowPosition = attachedEnd.clone().addScaledVector(tangent, -0.16);
+  const arrowQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
+  return { points, arrowPosition, arrowQuaternion };
+}
+
 function V2DataObject({
   object,
   position,
@@ -33,6 +55,7 @@ function V2DataObject({
   showLabel,
   objectScale,
   labelScale,
+  connectionRole,
   onSelect,
 }: {
   object: V2Object;
@@ -44,6 +67,7 @@ function V2DataObject({
   showLabel: boolean;
   objectScale: number;
   labelScale: number;
+  connectionRole: ConnectionRole;
   onSelect: () => void;
 }) {
   const reducedMotion = useStore((state) => state.reducedMotion);
@@ -65,6 +89,8 @@ function V2DataObject({
       : kind.includes('image') || kind.includes('geometry') || kind.includes('cad')
         ? <octahedronGeometry args={[0.27]} />
         : <boxGeometry args={[0.34, 0.34, 0.34]} />;
+  const roleColor = connectionRole === 'source' ? '#22d3ee' : connectionRole === 'target' ? '#f59e0b' : color;
+  const displayColor = selected ? '#ffffff' : roleColor;
 
   return (
     <a.group
@@ -84,8 +110,8 @@ function V2DataObject({
         <mesh castShadow>
           {shape}
           <a.meshStandardMaterial
-            color={selected ? '#ffffff' : color}
-            emissive={color}
+            color={displayColor}
+            emissive={roleColor}
             emissiveIntensity={selected ? 1.2 : 0.55}
             transparent
             opacity={opacity}
@@ -96,7 +122,13 @@ function V2DataObject({
         {visible && (selected || hovered) && (
           <mesh rotation={[Math.PI / 2, 0, 0]}>
             <torusGeometry args={[selected ? 0.42 * objectScale : 0.31 * objectScale, 0.018 * objectScale, 8, 24]} />
-            <meshBasicMaterial color={selected ? '#ffffff' : color} transparent opacity={subdued ? 0.35 : 0.8} toneMapped={false} />
+            <meshBasicMaterial color={selected ? '#ffffff' : roleColor} transparent opacity={subdued ? 0.35 : 0.8} toneMapped={false} />
+          </mesh>
+        )}
+        {visible && connectionRole && (
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.46 * objectScale, 0.028 * objectScale, 8, 24]} />
+            <meshBasicMaterial color={roleColor} transparent opacity={0.95} toneMapped={false} />
           </mesh>
         )}
       </a.group>
@@ -128,6 +160,10 @@ function V2Level({
   visualiseDataDensity,
   visualiseObjectScale,
   visualiseLabelScale,
+  connectionMode,
+  connectionSourceObjectId,
+  connectionTargetObjectId,
+  selectConnectionObject,
   setSelectedVisualiseObjectId,
 }: {
   level: V2Level;
@@ -146,6 +182,10 @@ function V2Level({
   visualiseDataDensity: V2DataDensity;
   visualiseObjectScale: number;
   visualiseLabelScale: number;
+  connectionMode: boolean;
+  connectionSourceObjectId: string | null;
+  connectionTargetObjectId: string | null;
+  selectConnectionObject: (id: string) => void;
   setSelectedVisualiseObjectId: (id: string | null) => void;
 }) {
   const { base, top, height, y } = getLevelBaseTop(index, totalLevels);
@@ -216,7 +256,18 @@ function V2Level({
             showLabel={visibleObjects.length <= 16}
             objectScale={visualiseObjectScale}
             labelScale={visualiseLabelScale}
-            onSelect={() => setSelectedVisualiseObjectId(selected ? null : object.id)}
+            connectionRole={
+              connectionMode
+                ? object.id === connectionSourceObjectId
+                  ? 'source'
+                  : object.id === connectionTargetObjectId
+                    ? 'target'
+                    : null
+                : null
+            }
+            onSelect={() => connectionMode
+              ? selectConnectionObject(object.id)
+              : setSelectedVisualiseObjectId(selected ? null : object.id)}
           />
         );
       })}
@@ -238,6 +289,10 @@ export function V2PreviewPyramid() {
   const visualiseDataDensity = useV2Store((state) => state.visualiseDataDensity);
   const visualiseObjectScale = useV2Store((state) => state.visualiseObjectScale);
   const visualiseLabelScale = useV2Store((state) => state.visualiseLabelScale);
+  const walkthroughStage = useV2Store((state) => state.walkthroughStage);
+  const connectionSourceObjectId = useV2Store((state) => state.connectionSourceObjectId);
+  const connectionTargetObjectId = useV2Store((state) => state.connectionTargetObjectId);
+  const selectConnectionObject = useV2Store((state) => state.selectConnectionObject);
   const levels = activeCase && !isEditingStructure ? activeCase.levels : [];
   const sectors = activeCase && !isEditingStructure ? activeCase.sectors : [];
   const objects = activeCase && !isEditingStructure ? activeCase.overlays.data : [];
@@ -268,9 +323,14 @@ export function V2PreviewPyramid() {
           visualiseDataDensity={visualiseDataDensity}
           visualiseObjectScale={visualiseObjectScale}
           visualiseLabelScale={visualiseLabelScale}
+          connectionMode={walkthroughStage === 'connections'}
+          connectionSourceObjectId={connectionSourceObjectId}
+          connectionTargetObjectId={connectionTargetObjectId}
+          selectConnectionObject={selectConnectionObject}
           setSelectedVisualiseObjectId={setSelectedVisualiseObjectId}
         />
       ))}
+      {activeCase && !isEditingStructure && walkthroughStage === 'connections' && <V2Connections />}
       {activeCase && !isEditingStructure && showV2Labels && sectors.map((sector, index) => {
         if (visualiseHiddenSectorIds.includes(sector.id)) return null;
         const numSectors = Math.max(3, sectors.length);
@@ -282,6 +342,92 @@ export function V2PreviewPyramid() {
               {sector.name}
             </div>
           </Html>
+        );
+      })}
+    </group>
+  );
+}
+
+function V2Connections() {
+  const activeCase = useV2Store((state) => state.activeCase);
+  const visualiseExploded = useV2Store((state) => state.visualiseExploded);
+  const visualiseOnlyLevelId = useV2Store((state) => state.visualiseOnlyLevelId);
+  const visualiseHiddenSectorIds = useV2Store((state) => state.visualiseHiddenSectorIds);
+  const visualiseDataDensity = useV2Store((state) => state.visualiseDataDensity);
+  const visualiseObjectScale = useV2Store((state) => state.visualiseObjectScale);
+  const selectedConnectionId = useV2Store((state) => state.selectedConnectionId);
+  const connectionLoopFilter = useV2Store((state) => state.connectionLoopFilter);
+  const connectionArrowThickness = useV2Store((state) => state.connectionArrowThickness);
+  const selectConnection = useV2Store((state) => state.selectConnection);
+
+  const visibleObjectIds = useMemo(() => {
+    if (!activeCase) return new Set<string>();
+    const visibleIds = new Set<string>();
+    activeCase.levels.forEach((level) => {
+      const levelObjects = activeCase.overlays.data.filter((object) => object.level_id === level.id);
+      filterObjectsByDensity(levelObjects, visualiseDataDensity).forEach((object) => {
+        if (
+          (visualiseOnlyLevelId === null || visualiseOnlyLevelId === level.id) &&
+          !visualiseHiddenSectorIds.includes(object.sector_id)
+        ) {
+          visibleIds.add(object.id);
+        }
+      });
+    });
+    return visibleIds;
+  }, [activeCase, visualiseDataDensity, visualiseOnlyLevelId, visualiseHiddenSectorIds]);
+
+  const lines = useMemo(() => {
+    if (!activeCase) return [];
+    const objectMap = new Map(activeCase.overlays.data.map((object) => [object.id, object]));
+    const levelIndexMap = new Map(activeCase.levels.map((level, index) => [level.id, index]));
+    return activeCase.overlays.connectivity.flatMap((connection) => {
+      const source = objectMap.get(connection.source_object_id);
+      const target = objectMap.get(connection.target_object_id);
+      const sourceIndex = source ? levelIndexMap.get(source.level_id) : undefined;
+      const targetIndex = target ? levelIndexMap.get(target.level_id) : undefined;
+      if (!source || !target || sourceIndex === undefined || targetIndex === undefined) return [];
+      if (!visibleObjectIds.has(source.id) || !visibleObjectIds.has(target.id)) return [];
+      const sourceRender = gridCellToRenderPosition(source.grid_x, source.grid_y, activeCase.grid.width, activeCase.grid.height, sourceIndex, activeCase.levels.length);
+      const targetRender = gridCellToRenderPosition(target.grid_x, target.grid_y, activeCase.grid.width, activeCase.grid.height, targetIndex, activeCase.levels.length);
+      const sourceY = getLevelBaseTop(sourceIndex, activeCase.levels.length).y + (visualiseExploded ? (sourceIndex - (activeCase.levels.length - 1) / 2) * EXPLODED_LEVEL_SPACING : 0) + 0.24;
+      const targetY = getLevelBaseTop(targetIndex, activeCase.levels.length).y + (visualiseExploded ? (targetIndex - (activeCase.levels.length - 1) / 2) * EXPLODED_LEVEL_SPACING : 0) + 0.24;
+      return [{
+        connection,
+        route: getConnectionRoute(
+          new THREE.Vector3(sourceRender[0], sourceY, sourceRender[2]),
+          new THREE.Vector3(targetRender[0], targetY, targetRender[2]),
+          connection.id,
+          visualiseObjectScale,
+        ),
+      }];
+    });
+  }, [activeCase, visibleObjectIds, visualiseExploded, visualiseObjectScale]);
+
+  if (!activeCase) return null;
+  return (
+    <group>
+      {lines.map(({ connection, route }) => {
+        const selected = selectedConnectionId === connection.id;
+        const loopRelevant = connectionLoopFilter === 'all' || connection.loop === connectionLoopFilter;
+        const selectedRelevant = !selectedConnectionId || selected;
+        const opacity = loopRelevant && selectedRelevant ? 0.95 : 0.12;
+        const width = (selected ? 3.4 : loopRelevant ? 2.2 : 1.2) * connectionArrowThickness;
+        return (
+          <group
+            key={connection.id}
+            onClick={(event) => {
+              event.stopPropagation();
+              selectConnection(connection.id);
+            }}
+          >
+            <Line points={route.points} color={selected ? '#ffffff' : connection.color} lineWidth={width} transparent opacity={opacity} depthTest={false} depthWrite={false} renderOrder={20} />
+            <Line points={route.points} color="#ffffff" lineWidth={12} transparent opacity={0} depthTest={false} depthWrite={false} renderOrder={21} />
+            <mesh position={route.arrowPosition} quaternion={route.arrowQuaternion} renderOrder={22}>
+              <coneGeometry args={[(selected ? 0.18 : 0.14) * connectionArrowThickness, (selected ? 0.46 : 0.38) * connectionArrowThickness, 8]} />
+              <meshBasicMaterial color={selected ? '#ffffff' : connection.color} transparent opacity={opacity} toneMapped={false} depthTest={false} depthWrite={false} />
+            </mesh>
+          </group>
         );
       })}
     </group>

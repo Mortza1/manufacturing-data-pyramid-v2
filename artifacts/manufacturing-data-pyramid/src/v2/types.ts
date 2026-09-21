@@ -39,7 +39,11 @@ export interface V2Connection {
   id: string;
   source_object_id: string;
   target_object_id: string;
-  name: string;
+  direction: 'source_to_target';
+  label: string;
+  description: string;
+  loop: string;
+  color: string;
 }
 
 export interface V2Overlays {

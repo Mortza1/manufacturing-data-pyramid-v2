@@ -84,7 +84,7 @@ function CameraRig({ cancelRef }: { cancelRef: React.MutableRefObject<(() => voi
     const target = new THREE.Vector3(0, 0, 0);
     const destination = new THREE.Vector3(10, 6.5, 10);
 
-    if (v2Mode === 'walkthrough' && walkthroughStage === 'visualise' && v2ActiveCase) {
+    if (v2Mode === 'walkthrough' && (walkthroughStage === 'visualise' || walkthroughStage === 'connections') && v2ActiveCase) {
       const centerGeometry = getLevelBaseTop((v2ActiveCase.levels.length - 1) / 2, v2ActiveCase.levels.length);
       const centerY = centerGeometry.y - 0.5;
       const targetLevelId = visualiseOnlyLevelId ?? visualiseFocusedLevelId;
