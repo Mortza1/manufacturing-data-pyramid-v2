@@ -1,0 +1,669 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me rather than escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+Implement Walkthrough Stage 5 — Review & Save, Pass 2 only.
+
+Stage 5 Pass 1 is working:
+
+PostgreSQL persistence exists;
+named users exist;
+projects exist;
+immutable project_versions exist;
+complete JSONB snapshots are saved;
+Version 1 saving works;
+exact-version API retrieval works;
+local Zustand persistence remains the working-draft mechanism.
+
+Do not redesign that architecture.
+
+This Pass 2 adds:
+
+Open Saved Project;
+User → Project → Version selection;
+exact-version reopen;
+Save New Version;
+Save As New Project from a loaded project/version;
+clear current-project/version context in the UI.
+
+Preserve all existing Walkthrough stages, visualisations, loops, Restart Walkthrough, Explorer, Forging Case Study and Advanced placeholder.
+
+A. SAVED PROJECT BROWSER
+1. Add Open Project
+
+Add a clearly accessible:
+
+Open Project
+
+action in the Walkthrough header/menu.
+
+It should be accessible throughout the Walkthrough, not only from Stage 5.
+
+Clicking it opens a Project Browser modal/drawer.
+
+Do not immediately overwrite the current working case merely by opening the browser.
+
+2. Project Browser hierarchy
+
+The browser should use three dependent selectors:
+
+User
+
+Project
+
+Version
+
+Flow:
+
+User → Project → Version → Open Version
+
+User
+
+Dropdown contains existing named users from PostgreSQL.
+
+Example:
+
+abhi_pm
+
+Project
+
+Once a user is selected, show only projects belonging to that user.
+
+Sort projects sensibly, preferably most recently updated first.
+
+Display:
+
+project name;
+optional description;
+latest version number if convenient.
+Version
+
+Once a project is selected, show all immutable versions for that project.
+
+Prefer descending order:
+
+v5
+v4
+v3
+v2
+v1
+
+Display where available:
+
+version number;
+version note/label;
+creation date/time.
+3. Exact version selection
+
+The Version selector must load an exact immutable version.
+
+Do not silently substitute the project's latest version.
+
+If the user selects:
+
+v2
+
+then:
+
+Open Version
+
+must retrieve exactly v2 from PostgreSQL.
+
+B. OPENING A SAVED VERSION
+4. Confirmation before replacing working draft
+
+Opening a saved version will replace the current local Walkthrough working case.
+
+Before doing so show:
+
+Open saved version?
+
+Opening this version will replace the current Walkthrough working draft. Saved database versions will not be affected.
+
+Buttons:
+
+Cancel
+
+Open Version
+
+For this pass, a confirmation on every replacement is acceptable rather than building complex dirty-state detection.
+
+5. Validate snapshot before loading
+
+Retrieve the exact version through the existing API.
+
+Validate the returned snapshot before hydrating the client.
+
+Require:
+
+correct format identifier;
+supported schemaVersion;
+valid case;
+valid IDs;
+valid level/sector references;
+valid canonical grid placement;
+valid loop references;
+valid connection source/target references.
+
+Reuse the existing runtime/Zod validation wherever practical.
+
+If validation fails:
+
+do not replace the current working case;
+show a clear error.
+6. Reconstruct the complete active case
+
+Once validated, replace the current Walkthrough activeCase with the saved snapshot's case.
+
+Restore exactly the saved project content:
+
+case ID;
+levels;
+level order;
+level names;
+sectors;
+sector order;
+sector names;
+grid;
+all data objects;
+all metadata;
+level_id;
+sector_id;
+grid_x;
+grid_y;
+models if present;
+agents if present;
+decisions if present;
+loops;
+loop IDs;
+loop names;
+descriptions;
+colours;
+ordered connection segments;
+connection IDs;
+sequence;
+source object IDs;
+target object IDs;
+labels/descriptions.
+
+Do not reconstruct the case from derived XYZ values.
+
+7. Reset transient presentation state safely
+
+Opening a saved version should restore project content, not stale UI interaction state.
+
+Reset transient/presentation state to safe defaults, including:
+
+selected data object;
+hovered object;
+selected connection;
+expanded table rows if appropriate;
+loop builder;
+camera transition state;
+focus/isolate selections;
+temporary pan/zoom;
+temporary 2D viewport;
+panel collapse state if necessary.
+
+Preserve reasonable application defaults such as:
+
+Data Display = All;
+Object Size = default;
+Label Size = default;
+no temporary isolation;
+full normal visualisation.
+
+Do not modify the actual loaded snapshot to achieve this.
+
+8. Walkthrough stage after opening
+
+After an exact saved version is successfully loaded, take the user to:
+
+Stage 5 — Review & Save
+
+so they can immediately see what project/version they opened.
+
+They can use the existing:
+
+Back to Connections;
+3D View;
+2D Cross-Section;
+earlier walkthrough navigation
+
+to inspect/edit the loaded project.
+
+All earlier stages must remain editable.
+
+C. TRACK LOADED PROJECT CONTEXT
+9. Store working project context separately from activeCase
+
+Keep database/project identity outside the canonical V2Case snapshot itself.
+
+Add suitable client working-context state such as:
+
+loaded user ID;
+loaded user name;
+loaded project ID;
+loaded project name;
+loaded source version ID;
+loaded source version number.
+
+This context describes where the working draft came from.
+
+Do not mix these database envelope identifiers into level/object/loop records.
+
+10. Display current project context
+
+In Stage 5 clearly show, when relevant:
+
+Current project
+
+abhi_pm / Test - Data Pyramid Project
+
+Loaded from
+
+v1
+
+If the project has newer versions than the one opened, it is useful to show:
+
+Latest saved version: v4
+
+without automatically changing the loaded case.
+
+D. SAVE NEW VERSION
+11. Add Save New Version
+
+If the working draft belongs to an existing saved project, Stage 5 should offer:
+
+Save New Version
+
+Ask for:
+
+Version Note — optional
+
+Do not ask the user to recreate the User or Project identity for every version save.
+
+12. Version numbering rule
+
+This is critical.
+
+Never calculate the next version from the version currently opened.
+
+Server-side, determine the project's current highest existing version number inside the save transaction.
+
+Then:
+
+next_version = highest_existing_version + 1
+
+Example:
+
+Existing:
+
+v1
+v2
+v3
+v4
+
+User opens v1, edits it, then clicks Save New Version.
+
+Result:
+
+v5
+
+not another v2.
+
+13. Historical versions are immutable
+
+Never update or overwrite an existing project_versions row during normal editing.
+
+v1, v2, v3 etc. remain permanently retrievable.
+
+Saving edits always appends another immutable snapshot.
+
+14. Save transaction
+
+Saving a new version should happen atomically:
+
+confirm project exists;
+confirm selected project/user relationship;
+determine current maximum version number inside the transaction;
+validate current activeCase;
+create complete snapshot;
+insert new immutable version;
+update projects.current_version_id;
+update project timestamp;
+commit.
+
+Preserve the unique constraint on:
+
+(project_id, version_number)
+
+Handle any concurrency conflict safely rather than overwriting.
+
+15. Snapshot content for every version
+
+Every new version must again contain the complete project snapshot, not a diff.
+
+Use:
+
+format: manufacturing-data-pyramid-v2
+
+schemaVersion: 1
+
+case: activeCase
+
+This ensures any saved version can be opened independently.
+
+Do not require earlier versions to reconstruct a later one.
+
+16. Save success message
+
+After saving, display clearly:
+
+Saved successfully
+
+Example:
+
+abhi_pm / Test - Data Pyramid Project / v2
+
+Optionally show:
+
+version note;
+saved date/time.
+
+Then update the working database context so:
+
+loaded source version = newly saved version.
+
+E. SAVE AS NEW PROJECT
+17. Preserve Save As New Project
+
+Even when an existing project/version has been opened, retain:
+
+Save As New Project
+
+This creates a new Project ID and starts that project at:
+
+v1
+
+Use the current activeCase as the snapshot content.
+
+Ask for:
+
+User;
+New Project Name;
+Project Description;
+Version Note.
+
+This effectively supports:
+
+Open existing project → modify → branch into a completely separate project
+
+without introducing formal branching/version trees.
+
+18. Do not confuse Save New Version and Save As New Project
+
+UI should make the difference obvious.
+
+Existing project:
+
+Save New Version
+Append these changes to the current project history.
+
+Save As New Project
+Create a separate project starting at Version 1.
+
+Do not use ambiguous generic Save wording.
+
+F. NEW PROJECT / OPEN PROJECT / RESTART
+19. Distinguish these actions
+
+Walkthrough should now conceptually support:
+
+Open Project
+
+load a database project/version.
+
+Save As New Project
+
+archive current working case as a new named project/v1.
+
+Save New Version
+
+append to current saved project.
+
+Restart Walkthrough
+
+destructively clear the current working draft and return to Stage 1.
+
+Do not conflate these behaviours.
+
+20. Clear loaded database context on Restart
+
+When Restart Walkthrough is confirmed:
+
+in addition to the existing working-case reset, clear:
+
+loaded project ID;
+loaded version ID;
+loaded version number;
+loaded user/project context.
+
+A restarted blank Walkthrough must not accidentally retain the ability to Save New Version into the previously opened project.
+
+G. PROJECT BROWSER API
+21. Add/complete API endpoints needed for Pass 2
+
+Reuse the existing Stage 5 API structure.
+
+Support at least:
+
+Users
+
+list users.
+
+Projects
+
+list projects for selected user;
+retrieve project metadata.
+
+Versions
+
+list versions for project;
+retrieve exact immutable version;
+append new version.
+
+Use project/version IDs internally rather than trusting project names as identifiers.
+
+22. Useful API response metadata
+
+Project/version listing should provide enough metadata for the UI without loading every large JSON snapshot.
+
+Project list can return:
+
+project ID;
+name;
+description;
+latest/current version;
+updated timestamp.
+
+Version list can return:
+
+version ID;
+version number;
+version note/label;
+created timestamp;
+creator/user display name if convenient.
+
+Only exact-version retrieval needs to return the full JSONB snapshot.
+
+H. LOADING / ERROR STATES
+23. Add proper request states
+
+For:
+
+user loading;
+project loading;
+version loading;
+opening version;
+saving version;
+
+provide clear:
+
+loading state;
+success state;
+error state.
+
+Disable duplicate submission while a save/open request is active.
+
+Never discard the current working draft because of a failed network request.
+
+24. Database/API errors
+
+If loading or saving fails:
+
+show a clear error;
+keep current activeCase intact;
+allow retry;
+do not silently fall back to a different project/version.
+I. LOCAL WORKING DRAFT
+25. Continue using Zustand as the draft
+
+Keep the existing local Zustand/browser persistence.
+
+The architecture remains:
+
+Zustand/local storage
+= active working draft
+
+PostgreSQL
+= explicitly saved immutable project versions.
+
+Opening a database version hydrates the working draft.
+
+Subsequent edits occur locally until another explicit database save.
+
+J. DO NOT ADD AUTHENTICATION YET
+26. Named users remain demo/course identities
+
+Continue treating User Name as a named participant/project owner.
+
+Do not add:
+
+passwords;
+login;
+sessions;
+permissions;
+production authentication.
+
+Keep the schema extensible so authenticated identities can be introduced later.
+
+K. PRESERVE EXISTING FUNCTIONALITY
+27. Do not regress
+
+Preserve:
+
+Stage 1 Structure;
+Stage 2 Data;
+Stage 3 Visualise;
+Stage 4 Connections;
+3D gradient connections;
+2D Cross-Section;
+loops;
+Loop Table;
+collapsible panel;
+2D pan/zoom;
+Restart Walkthrough;
+Stage 5 Review;
+initial Save As New Project;
+Explorer;
+Forging Case Study;
+Advanced placeholder.
+
+Do not implement Advanced functionality in this task.
+
+L. ACCEPTANCE TESTS
+28. Project browser
+
+Verify:
+
+Open Project is accessible from Walkthrough.
+User dropdown retrieves saved named users.
+Selecting a user loads only that user's projects.
+Selecting a project loads all saved versions.
+Versions display number, note and date.
+Exact selected version is retrieved.
+29. Reopen
+
+Verify:
+
+Open v1 reconstructs the exact v1 case.
+Level IDs/names/order match.
+Sector IDs/names/order match.
+Data object IDs/metadata match.
+grid_x/grid_y match.
+Loops match.
+Ordered connection segments match.
+No derived XYZ becomes canonical state.
+Transient UI state resets safely.
+30. Versioning
+
+Verify:
+
+Open v1.
+Modify the working case.
+Save New Version.
+If latest before save was v1, new version is v2.
+v1 remains unchanged and retrievable.
+Open v1 again and verify old content.
+Open v2 and verify changed content.
+
+Also explicitly test:
+
+Existing project has v1–v4.
+
+Open v1.
+Modify.
+Save New Version.
+Result must be v5.
+31. Save As New Project
+
+Verify:
+
+Open an existing saved project/version.
+Modify it.
+Save As New Project with a different name.
+New project receives a new project ID and starts at v1.
+Original project/history remains unchanged.
+32. Failure safety
+
+Verify:
+
+Failed open does not destroy the local draft.
+Failed save does not destroy the local draft.
+Duplicate clicks do not create duplicate versions.
+Database historical versions remain immutable.
+33. Restart
+
+Verify:
+
+Restart clears loaded project/version context.
+Fresh Walkthrough cannot accidentally Save New Version into a previously loaded project.
+34. Regression
+
+Verify:
+
+3D Connections still work.
+2D Cross-Section still works.
+Explorer remains unchanged.
+Forging Case Study remains unchanged.
+
+Run:
+
+database/API tests;
+exact snapshot retrieval checks;
+TypeScript/typecheck;
+production build;
+git diff --check.
+
+Do not add any other scope.
