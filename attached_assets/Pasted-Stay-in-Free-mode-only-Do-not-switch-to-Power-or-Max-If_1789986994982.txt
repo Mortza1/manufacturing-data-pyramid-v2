@@ -1,0 +1,349 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me instead of escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This task is Walkthrough Stage 4 — CONNECTIONS only.
+
+Structure, Data and Visualise are now working. Preserve them exactly. Do not implement Stage 5 Save/database, profiles, case library, versioning, Advanced mode, Models, Agents or Decisions in this task.
+
+Preserve Explorer and Forging Case Study unchanged.
+
+1. Enter Connections correctly
+
+From Walkthrough Visualise, add:
+
+Continue to Connections
+
+When clicked:
+
+remain in the familiar 3D pyramid;
+keep all existing Visualise controls available where sensible;
+update progress to:
+
+Structure ✓ → Data ✓ → Visualise ✓ → Connections active → Save locked
+
+Add:
+
+Back to Visualise
+
+and
+
+Finish Connections
+
+Finish Connections should only advance the walkthrough state toward the future Review/Save stage; do not implement database persistence yet.
+
+Connections must be optional. The user may finish this stage with zero connections.
+
+2. Guided connection creation
+
+Make the primary workflow:
+
+Select Source → Select Target → Configure → Create
+
+The user should create a connection by interacting directly with the existing data objects in the 3D pyramid.
+
+Step 1:
+
+Select Source
+
+user clicks/taps a visible data object;
+clearly highlight it as the source;
+show its name, level and sector in the Connections panel.
+
+Step 2:
+
+Select Target
+
+user clicks/taps another visible data object;
+clearly highlight it as the target;
+show its name, level and sector;
+source and target cannot be the same object.
+
+Before creation clearly display:
+
+Source Data → Target Data
+
+so the connection direction cannot be misunderstood.
+
+Provide Cancel / Clear Selection.
+
+3. Connection fields
+
+After source and target are selected, allow:
+
+Connection label/name
+Optional description/note
+Loop / Group name
+Arrow colour
+
+Loop/group should accept a custom name.
+
+If existing loops already exist, allow choosing one or entering a new loop name.
+
+A connection must store at minimum:
+
+stable connection ID
+source_object_id
+target_object_id
+direction
+label
+description/note if used
+loop/group
+display colour/style
+
+Do not store screen coordinates or arbitrary XYZ coordinates as the connection identity.
+
+4. Directional 3D arrows
+
+Render every connection as a clearly directional arrow:
+
+source → target
+
+Requirements:
+
+visible arrowhead at the target;
+source and target endpoints attach to the actual rendered data objects;
+connection endpoints must be derived from the current live rendered positions of those objects;
+prefer a slightly curved/routed path rather than a straight line through the pyramid when this improves readability;
+route the arrow slightly away from pyramid surfaces where practical so it is not easily hidden;
+preserve good visibility from different camera angles.
+
+Do not use a plain undirected line.
+
+5. Connections must follow presentation transforms
+
+Connections reference object IDs, not fixed scene coordinates.
+
+Therefore arrows must remain correctly attached when the user:
+
+rotates the pyramid;
+zooms;
+Explodes / Assembles;
+Focuses a level;
+Shows Only a level;
+hides/shows sectors;
+changes Object Size;
+changes Data Display density.
+
+If either endpoint is currently hidden because of:
+
+Data Display 1 / 2 / 3;
+hidden sector;
+Show Only level;
+
+hide that connection arrow temporarily.
+
+Do not delete the stored connection.
+
+When both endpoints become visible again, the arrow must reappear.
+
+6. Loop / Group behaviour
+
+Allow multiple connections to belong to one named loop/group.
+
+Add a compact loop filter:
+
+All Connections
+
+plus one option for each existing named loop/group.
+
+Selecting a loop should:
+
+make that loop's arrows visually prominent;
+dim or hide unrelated connection arrows;
+preserve the underlying data and connections.
+
+Where practical, provide:
+
+Show only this loop
+
+This may temporarily hide unrelated arrows, but should not delete any data or relationships.
+
+The same data object may participate in multiple loops.
+
+7. Edit and delete connections
+
+Clicking/selecting an existing arrow or its corresponding table row should open a connection detail/edit panel.
+
+Allow editing:
+
+label;
+description/note;
+loop/group;
+colour.
+
+Also provide:
+
+Delete Connection
+
+with confirmation.
+
+Deleting a connection must remove only that connection.
+
+It must never delete either endpoint data object.
+
+For this first pass, changing source/target may be handled either through explicit Change Source / Change Target actions or by delete-and-recreate if that is safer. Do not compromise stability just to support endpoint editing.
+
+8. Connection table
+
+Add a clear Connection Table view/panel in Stage 4.
+
+Each row represents one stored connection.
+
+Show user-meaningful logical information rather than raw rendering coordinates.
+
+Include columns such as:
+
+Connection
+Loop / Group
+Source Data
+Source Level
+Source Sector
+Source Cell
+Target Data
+Target Level
+Target Sector
+Target Cell
+Direction
+Colour
+
+The cell values should come from the data objects' canonical:
+
+grid_x, grid_y
+
+Example cell display:
+
+(2, 7)
+
+Use the actual configured level names and sector names, not only IDs.
+
+Clicking a table row should highlight/select that connection in the 3D view.
+
+Selecting a connection in 3D should highlight the corresponding table row.
+
+9. Do not expose raw XYZ by default
+
+Do not make derived 3D X/Y/Z coordinates part of the normal connection table.
+
+For the user, the meaningful location is:
+
+Level + Sector + Grid Cell
+
+XYZ remains an internal rendering value derived from the logical placement.
+
+Do not add an XYZ editor.
+
+If an advanced technical-coordinate view is useful later, it can be added separately. It is not required in this Stage 4 pass.
+
+10. Add Example Connections
+
+Provide an optional:
+
+Add Example Connections
+
+for demonstration purposes.
+
+Requirements:
+
+deterministic/local logic only;
+no external AI/API calls;
+use existing visible data objects;
+generate only a small number of plausible directional relationships;
+group them into sensible example loop(s);
+never delete or overwrite manually created connections;
+do not generate self-connections or duplicate source-target connections.
+
+If meaningful automatic matching cannot be done reliably from the current object catalogue, keep this modest rather than inventing large numbers of questionable relationships.
+
+11. Connection display controls
+
+Add compact presentation controls for:
+
+Arrow Thickness
+
+and allow the connection/loop colour to be edited.
+
+Arrow Thickness must be display-only and must not alter connection logic.
+
+Keep arrows prominent enough to remain visible against translucent pyramid surfaces.
+
+Do not create excessive glow/neon effects.
+
+12. Do NOT build the 2D triangular section yet
+
+We plan to add a second connection visualisation after this core connection model is proven:
+
+3D View ↔ 2D triangular cross-sectional connection view
+
+Do not implement that view in this task.
+
+You may show a disabled/placeholder label such as:
+
+2D Connection View — coming next
+
+only if it fits cleanly, but do not build incomplete functionality.
+
+13. Preserve canonical Data placement
+
+Creating/editing/deleting connections must never change:
+
+level_id
+sector_id
+grid_x
+grid_y
+
+Connections relate existing objects; they do not reposition them.
+
+14. Preserve working functionality
+
+Do not regress:
+
+Structure;
+Data stage;
+Auto-fill;
+Clear Current Level;
+8×8 snap-grid placement;
+Visualise assembled geometry;
+Explode / Assemble;
+sector visibility;
+Surface opacity;
+Data Display 1 / 2 / 3 / All;
+Object Size;
+Label Size;
+metadata inspection/editing;
+Move on Data Board;
+Focus Camera;
+Show Only / Show All Levels;
+Show/Hide Labels;
+unrestricted rotate/zoom;
+Explorer;
+Forging Case Study;
+Advanced placeholder.
+15. Acceptance test
+
+Before reporting completion, verify through code/state inspection and all available runtime tests:
+
+Visualise → Continue to Connections works.
+Progress shows Connections active.
+User can select a source object.
+User can select a different target object.
+Direction is visibly Source → Target.
+Connection can be named and assigned to a custom loop/group.
+Directional coloured arrow appears.
+Arrow references object IDs and derives live endpoints.
+Arrow remains attached after Explode/Assemble.
+Hidden endpoint causes its arrow to hide temporarily.
+Restoring the endpoint restores the arrow.
+Loop filtering works.
+Edit connection works.
+Delete connection removes only the relationship.
+Connection table correctly shows source/target level, sector and grid cell.
+Table selection and 3D connection selection remain synchronized.
+Back to Visualise works without losing connections.
+Finish Connections works even with zero connections.
+No canonical object placement changes.
+Explorer and Forging Case Study remain unchanged.
+
+Because the automated Replit preview may lack WebGL hardware acceleration, clearly distinguish build/state checks from behaviours that require final verification in a real WebGL browser.
+
+Do not add any other scope.
