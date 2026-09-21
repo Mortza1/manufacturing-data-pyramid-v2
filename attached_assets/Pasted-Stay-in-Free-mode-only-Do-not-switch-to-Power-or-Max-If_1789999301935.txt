@@ -1,0 +1,249 @@
+Stay in Free mode only. Do not switch to Power or Max. If this cannot be completed in Free mode, stop and tell me rather than escalating.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This is a small Stage 4 3D Connections visual/UX refinement only.
+
+The current 2D Cross-Section is working well. Do not modify the 2D Cross-Section in this task.
+
+Do not change Structure, Data, Visualise, Loop Table, loop creation, Restart Walkthrough, panel collapse, Explorer, Forging Case Study, Advanced placeholder or Save/database.
+
+Implement only the following.
+
+1. Make 3D gradient connections genuinely smooth
+
+The new Light → Dark gradient concept is correct, but the current 3D lines look visibly segmented/edgy.
+
+Render each 3D connection as a smooth continuous curved line.
+
+Preserve:
+
+source attachment;
+target attachment;
+existing route shape;
+loop colour;
+Light → Dark direction encoding;
+Connection Thickness;
+selection/click behaviour;
+Explode/Assemble behaviour.
+
+Improve only the visual smoothness.
+
+Prefer:
+
+a sufficiently sampled smooth curve;
+continuous per-vertex colour interpolation;
+a line implementation that visually appears as one continuous path.
+
+Do not use a small number of visibly separate line segments.
+
+If the gradient implementation requires segmented geometry internally, use enough subdivisions/interpolation that no angular colour/geometry stepping is visually apparent.
+
+The desired result is:
+
+one smooth flowing curve from source to target, light at the source and progressively darkening toward the target.
+
+No 3D arrowheads.
+
+2. Simplify the 3D loop filter UI
+
+The current UI contains both:
+
+All Loops
+Show All Loops
+
+which is confusing and redundant.
+
+In the 3D Loop View, simplify the interaction.
+
+Keep the Loop Filter row:
+
+All Loops | Predictive Maintenance | Process Optimisation | [other loops...]
+
+Remove the separate Show All Loops button.
+
+Clicking All Loops should itself restore the normal all-loops view.
+
+3. Rename Show Only This Loop to Isolate Loop
+
+When a specific loop is selected, provide one clear secondary action:
+
+Isolate Loop
+
+Behaviour:
+
+selected loop remains visible/prominent;
+hide all other loop connection lines;
+hide data objects that do not participate in the selected loop;
+keep all data objects participating in the selected loop visible;
+preserve stored loops and data.
+
+When isolation is active, the same button may read:
+
+Exit Isolation
+
+or the user can click All Loops to restore the complete 3D connection/data view.
+
+Do not use the wording Show All Loops anymore.
+
+4. Remove Sector Context / Active Only from 3D
+
+Remove the current:
+
+SECTOR CONTEXT
+
+Active only | Show all
+
+controls from the 3D Connections view.
+
+We no longer want sectors to disappear based on loop participation.
+
+5. Always show all pyramid sectors in 3D
+
+In Stage 4 3D Connections:
+
+all configured sector volumes on all levels should always remain visible, regardless of:
+
+selected loop;
+Isolate Loop;
+loop membership.
+
+When Isolate Loop is active:
+
+hide unrelated connections;
+hide unrelated data objects;
+do not hide any pyramid sector surfaces.
+
+The full pyramid should remain visible as structural context.
+
+6. All sectors use the same surface-opacity setting
+
+All sector volumes should use the same user-controlled Surface Opacity value.
+
+Do not:
+
+make participating sectors more opaque;
+make non-participating sectors more transparent;
+zero non-participating sector opacity;
+use Active Only sector highlighting.
+
+Every sector surface should use the same opacity.
+
+Stage 4 should continue to start at approximately:
+
+20% Surface Opacity
+
+and the existing slider should control all sector surfaces consistently.
+
+Edge lines should remain subdued enough that the surfaces do not revert to a wireframe appearance.
+
+7. Loop selection versus Loop isolation
+
+Make the distinction clear:
+
+Select a loop
+
+Clicking:
+
+Predictive Maintenance
+
+or
+
+Process Optimisation
+
+should:
+
+highlight/emphasise that loop;
+keep other loops/data visible but subdued as appropriate;
+keep every sector visible.
+Isolate Loop
+
+Explicitly clicking:
+
+Isolate Loop
+
+should:
+
+hide other loop lines;
+hide non-participating data objects;
+keep all participating loop objects;
+keep the complete pyramid and all sectors visible.
+All Loops
+
+Clicking:
+
+All Loops
+
+restores:
+
+all stored loop connections;
+all normally visible data objects;
+full pyramid.
+
+There should be no separate Show All Loops control.
+
+8. Preserve 2D behaviour exactly
+
+Do not modify:
+
+2D one-loop-at-a-time rule;
+triangular cross-section;
+SVG arrowheads;
+2D pan/zoom;
+Fit View;
+2D node placement;
+panel layout;
+2D legends.
+
+The 3D simplifications above do not need to be copied into the 2D controls.
+
+9. Preserve everything else
+
+Do not change:
+
+Loop entities;
+continuous loop builder;
+Undo Last Segment;
+Finish Loop;
+Predictive Maintenance;
+Process Optimisation;
+Loop Table;
+Restart Walkthrough;
+collapsible panel;
+Structure;
+Data;
+Visualise;
+metadata editing;
+Data Display;
+Object Size;
+Label Size;
+Explode/Assemble;
+Explorer;
+Forging Case Study;
+Advanced placeholder.
+
+Do not implement Save/database in this task.
+
+10. Acceptance checks
+
+Verify:
+
+3D connections render as visually smooth continuous curves.
+Light → Dark gradient remains continuous along the whole route.
+No 3D arrowheads return.
+All Loops appears only once as the all-loop restore option.
+Separate Show All Loops button is removed.
+Selecting one loop highlights it.
+Isolate Loop hides unrelated connections.
+Isolate Loop hides unrelated data objects.
+All pyramid sectors remain visible during loop isolation.
+SECTOR CONTEXT / Active only / Show all is removed from 3D.
+Every sector uses the same Surface Opacity value.
+Initial Stage 4 opacity remains approximately 20%.
+Clicking All Loops exits loop isolation and restores the normal view.
+2D Cross-Section is unchanged.
+Explorer and Forging Case Study remain unchanged.
+
+Run TypeScript/typecheck, production build and git diff --check.
+
+Do not add any other scope.

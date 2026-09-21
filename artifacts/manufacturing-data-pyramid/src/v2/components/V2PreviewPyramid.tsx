@@ -26,7 +26,6 @@ function getConnectionRoute(
   sourceObject: V2Object,
   targetObject: V2Object,
   objectScale: number,
-  arrowHeight: number,
 ) {
   const direction = end.clone().sub(start);
   direction.normalize();
@@ -41,17 +40,7 @@ function getConnectionRoute(
     .addScaledVector(lateral, lane)
     .add(new THREE.Vector3(0, 0.5 + Math.min(start.distanceTo(end) * 0.14, 0.75), 0));
   const curve = new THREE.QuadraticBezierCurve3(attachedStart, control, attachedEnd);
-  const points = curve.getPoints(24);
-  const endpoint = curve.getPoint(1);
-  const tangent = curve.getTangent(1).normalize();
-  const effectiveArrowHeight = Math.min(arrowHeight, attachedStart.distanceTo(endpoint) * 0.4);
-  const arrowBaseCenter = endpoint.clone().addScaledVector(tangent, -effectiveArrowHeight);
-  const shaftPoints = points.filter((point) => point.distanceTo(endpoint) >= effectiveArrowHeight);
-  if (shaftPoints.length === 0) shaftPoints.push(attachedStart);
-  shaftPoints.push(arrowBaseCenter);
-  const arrowPosition = endpoint.clone().addScaledVector(tangent, -effectiveArrowHeight / 2);
-  const arrowQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
-  return { points: shaftPoints, endpoint, arrowPosition, arrowQuaternion, arrowHeight: effectiveArrowHeight };
+  return { points: curve.getSpacedPoints(96) };
 }
 
 function V2DataObject({
@@ -455,7 +444,6 @@ function V2Connections() {
           source,
           target,
           visualiseObjectScale,
-          Math.min(0.44, 0.32 * connectionArrowThickness),
         ),
       }];
     });
