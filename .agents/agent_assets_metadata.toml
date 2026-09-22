@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Xf_Immz76C1hxu-BZ_1nj"
+uri = "file://.local/outputs/Manufacturing-Data-Pyramid.pptx"
+type = "slides"
+title = "Manufacturing Data Pyramid.pptx"
