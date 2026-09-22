@@ -1,0 +1,28 @@
+kind = "slides"
+previewPath = "/manufacturing-data-pyramid-deck/"
+title = "Manufacturing Data Pyramid"
+description = "An eight-slide technical overview of the Manufacturing Data Pyramid workspace, covering its modeling workflow, connected loops, immutable project history, and safe resume behavior."
+version = "1.0.0"
+id = "artifacts/manufacturing-data-pyramid-deck"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/manufacturing-data-pyramid-deck/" ]
+localPort = 19568
+
+[services.development]
+run = "pnpm --filter @workspace/manufacturing-data-pyramid-deck run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/manufacturing-data-pyramid-deck", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/manufacturing-data-pyramid-deck/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19568"
+BASE_PATH = "/manufacturing-data-pyramid-deck/"

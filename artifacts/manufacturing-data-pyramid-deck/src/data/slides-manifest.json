@@ -1,0 +1,66 @@
+[
+  {
+    "id": "7e52f2a9-4b15-46c2-9b2a-1e566c8c2d01",
+    "position": 1,
+    "filepath": "src/pages/slides/ManufacturingDataPyramid.tsx",
+    "title": "Manufacturing Data Pyramid",
+    "description": "A structured workspace for modeling manufacturing systems.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "18cd8d7a-85d2-4a4c-9b4b-eef6df1a2e02",
+    "position": 2,
+    "filepath": "src/pages/slides/ConnectedModel.tsx",
+    "title": "One workspace, one connected model",
+    "description": "Structure, data, and relationships move through one staged workflow.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "d9a0c376-6b68-4ae3-9dd2-4b70b4c6f103",
+    "position": 3,
+    "filepath": "src/pages/slides/BuildTheStructure.tsx",
+    "title": "Build the structure",
+    "description": "Levels, sectors, grid positions, and stable identifiers establish the model.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f2d4c8a1-8f22-4c50-b0a7-98eaf3d1a204",
+    "position": 4,
+    "filepath": "src/pages/slides/ModelTheSystem.tsx",
+    "title": "Model the manufacturing system",
+    "description": "The overlay structure brings data elements, models, agents, and decisions together.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a5c7e931-3db0-4c85-9e18-5f2a7b6d3305",
+    "position": 5,
+    "filepath": "src/pages/slides/TraceConnections.tsx",
+    "title": "Trace connections as ordered loops",
+    "description": "Named loops and ordered segments support 3D and 2D inspection.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "c8e2b4f6-1a39-45d0-86a7-7b5f9e2c4406",
+    "position": 6,
+    "filepath": "src/pages/slides/ImmutableHistory.tsx",
+    "title": "Save an immutable project history",
+    "description": "Named users, projects, snapshots, and server-controlled versions preserve history.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "b3f9a6d2-7c18-4e55-a0d4-2f6b8e1c5507",
+    "position": 7,
+    "filepath": "src/pages/slides/OpenSafely.tsx",
+    "title": "Open and resume safely",
+    "description": "Exact-version retrieval validates before replacing the local working draft.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "e6a1d8c4-2f57-4b90-8c36-9d7e5a0b6608",
+    "position": 8,
+    "filepath": "src/pages/slides/CurrentProductBehavior.tsx",
+    "title": "Current product behavior",
+    "description": "The current walkthrough combines review, visualization, persistence, and restart controls.",
+    "speakerNotes": ""
+  }
+]
