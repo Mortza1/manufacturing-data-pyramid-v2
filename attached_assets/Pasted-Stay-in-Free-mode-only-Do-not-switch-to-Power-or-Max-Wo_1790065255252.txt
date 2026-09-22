@@ -1,0 +1,425 @@
+Stay in Free mode only. Do not switch to Power or Max.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+This is a very small final Stage 5 save-UX refinement, followed by the existing Task #14 persistence regression check.
+
+Do not change anything else.
+
+Preserve all currently working:
+
+Structure;
+Data;
+Visualise;
+Connections;
+3D view;
+2D Cross-Section;
+panel collapse;
+Fit View;
+project/version database architecture;
+Open Project;
+exact-version selection/opening;
+Restart Walkthrough;
+Explorer;
+Forging Case Study;
+Advanced placeholder.
+PART 1 — SAVE TO AN EXISTING PROJECT
+1. Add an explicit Stage 5 save-target choice
+
+In Review & Save, make the save destination clear.
+
+Provide two choices:
+
+Save to Existing Project
+
+Save As New Project
+
+Do not merge these into one ambiguous form.
+
+2. Save to Existing Project
+
+When Save to Existing Project is selected, show:
+
+User
+
+dropdown
+
+followed by:
+
+Project
+
+dropdown
+
+followed by:
+
+Version Note (optional)
+
+The Project dropdown must contain only projects belonging to the selected User.
+
+Reuse the existing API:
+
+GET /api/users/:userId/projects
+
+Do not create another project-list endpoint.
+
+3. User dropdown
+
+Reuse the existing named users already stored in PostgreSQL.
+
+When the selected User changes:
+
+load that user's existing projects;
+clear any previously selected Project;
+do not accidentally retain a project belonging to another user.
+4. Project dropdown
+
+After a User is selected, list that user's saved projects.
+
+For each project display at least:
+
+project name;
+optionally latest version number;
+optionally short description where useful.
+
+Sort sensibly, preferably most recently updated first.
+
+Selecting the project should clearly establish:
+
+This is the project whose next immutable version will be created.
+
+Do not ask the user to type the existing project name manually.
+
+5. Save New Version
+
+Once an existing Project is selected, show:
+
+Save New Version
+
+The save operation must reuse the existing:
+
+POST /api/projects/:projectId/versions
+
+Send:
+
+selected project ID in the route;
+selected User ID as creatorUserId;
+current complete Stage 5 snapshot;
+optional Version Note.
+
+Do not create a new API endpoint.
+
+6. Version number remains server-controlled
+
+The user does not select or type the new version number.
+
+Continue the existing rule:
+
+next version = highest existing version + 1
+
+Example:
+
+Project currently contains:
+
+v1
+v2
+v3
+
+Saving through Save to Existing Project produces:
+
+v4
+
+Existing historical versions remain immutable.
+
+7. Support saving to an existing project even when it was not the loaded project
+
+This is important.
+
+The current working pyramid may:
+
+have been created from scratch;
+have been loaded from another project;
+have been loaded from another version.
+
+If the user deliberately selects:
+
+User A → Project X → Save New Version
+
+then append the current working snapshot to Project X.
+
+Do not require Project X to be the project originally loaded into the Walkthrough.
+
+The selected save destination is explicit and intentional.
+
+8. Update working project context after successful save
+
+Only after a successful and verified save:
+
+update the loaded/current project context to the selected:
+
+User ID/name;
+Project ID/name;
+newly created Version ID;
+new version number;
+latest version number.
+
+The newly saved version becomes the current source version for subsequent Save New Version operations.
+
+If the request fails:
+
+do not change current project context;
+do not change the local working case;
+show the existing clear error state.
+PART 2 — PRESERVE SAVE AS NEW PROJECT
+9. Keep Save As New Project
+
+Preserve the existing new-project path.
+
+When selected, show:
+
+User;
+New Project Name;
+Project Description;
+Version Note.
+
+Saving creates:
+
+new Project ID → Version 1
+
+using the existing:
+
+POST /api/projects
+
+Do not alter this currently working server flow.
+
+10. Make the distinction obvious
+
+Suggested explanatory text:
+
+Save to Existing Project
+Create the next version in an existing project history.
+
+Save As New Project
+Create a separate project starting at Version 1.
+
+PART 3 — DO NOT CHANGE OPEN PROJECT
+11. Preserve the existing Open Project flow exactly
+
+The current Open Project flow already correctly provides:
+
+User → Project → Version
+
+including exact historical version selection.
+
+Do not redesign it.
+
+Preserve:
+
+exact-version dropdown;
+exact immutable snapshot retrieval;
+validation;
+loaded project context;
+Visualise landing;
+collapsed-panel behaviour.
+PART 4 — SAFETY
+12. Preserve snapshot/version rules
+
+Continue to use:
+
+complete JSONB snapshots;
+schemaVersion = 1;
+server-side Zod/semantic validation;
+immutable version rows;
+unique (project_id, version_number);
+transactional next-version creation;
+Zustand as the local working draft.
+
+Do not alter the persistence architecture.
+
+13. Loading and errors
+
+For the new project dropdown:
+
+show appropriate:
+
+loading;
+no projects available;
+error;
+selected project state.
+
+Disable Save New Version until:
+
+User is selected;
+Project is selected;
+no save request is currently running.
+
+Prevent duplicate submissions.
+
+PART 5 — TASK #14 REGRESSION CHECK
+
+Once the above targeted UI change is implemented and normal build/type checks pass, perform Task #14 — Catch save and open regressions before release.
+
+Keep Task #14 focused on persistence/save/open behaviour.
+
+Its existing scope includes:
+
+project listing;
+version listing;
+exact-version retrieval;
+snapshot validation;
+server-side version incrementing;
+failure safety preserving the current local draft.
+
+Extend its regression coverage only enough to include the new existing-project save-selection path introduced above.
+
+14. Regression test: project listing
+
+Verify:
+
+Users load correctly.
+Choosing User A shows only User A's projects.
+Changing to User B clears the old project selection.
+User B sees only User B's projects.
+15. Regression test: save to selected existing project
+
+Example:
+
+User:
+
+abhi_pm
+
+Existing project:
+
+Test - Data Pyramid Project
+
+Current latest version:
+
+v1
+
+Select that project and save the current working pyramid.
+
+Verify:
+
+new version is v2;
+project ID remains unchanged;
+v1 remains unchanged;
+v2 contains the new complete snapshot;
+projects.current_version_id points to v2 if that pointer is used.
+16. Regression test: version numbering
+
+Explicitly test:
+
+Existing project:
+
+v1
+v2
+v3
+v4
+
+Open or work from an older snapshot such as v1.
+
+Select the same existing project and Save New Version.
+
+Result must be:
+
+v5
+
+not v2.
+
+17. Regression test: exact-version retrieval
+
+Verify that Open Project still allows:
+
+selecting v1;
+selecting v2;
+selecting any other stored version.
+
+Open each independently and confirm its snapshot corresponds to that exact immutable version.
+
+Do not silently substitute the latest version.
+
+18. Regression test: Save As New Project
+
+Verify the existing flow still works:
+
+select/create User;
+enter a new project name;
+save;
+new project receives new Project ID;
+starts at v1;
+original projects remain unchanged.
+19. Regression test: failure safety
+
+Verify that failed:
+
+project listing;
+exact-version open;
+Save New Version;
+Save As New Project
+
+do not destroy or replace the current local activeCase.
+
+Local Zustand draft must remain available for retry.
+
+20. Regression test: snapshot integrity
+
+For a saved/retrieved test version compare at minimum:
+
+levels;
+sectors;
+grid;
+data object IDs;
+metadata;
+level_id;
+sector_id;
+grid_x;
+grid_y;
+loops;
+loop IDs;
+connection IDs;
+connection sequence;
+source object IDs;
+target object IDs.
+21. No unrelated changes
+
+Do not change anything else during either the implementation or Task #14 regression work.
+
+In particular do not modify:
+
+3D camera behaviour;
+pyramid positioning/framing;
+opacity;
+panel layout/collapse;
+2D Cross-Section;
+connection gradient;
+Structure;
+Data;
+Visualise;
+Connections;
+Restart Walkthrough;
+Explorer;
+Forging Case Study;
+Advanced placeholder.
+
+If Task #14 exposes an unrelated failure, report it rather than making an unrelated product change.
+
+22. Final verification
+
+After implementation run:
+
+TypeScript/typecheck;
+API tests relevant to project/version persistence;
+production build;
+git diff --check;
+Task #14 regression checks.
+
+Report separately:
+
+Implementation result
+
+and
+
+Task #14 regression result
+
+including any failures or items requiring manual browser verification.
+
+Do not add any other scope.
