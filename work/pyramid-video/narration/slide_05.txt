@@ -1,0 +1,1 @@
+The data pyramid organises information into usable assets. Data is mapped by organisational level and by sector, with each data brick capturing source, characteristics, preparation needs and intended purpose. This helps expose what is available and what is missing.

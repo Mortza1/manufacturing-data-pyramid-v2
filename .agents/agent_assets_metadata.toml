@@ -6,3 +6,32 @@ id = "Xf_Immz76C1hxu-BZ_1nj"
 uri = "file://.local/outputs/Manufacturing-Data-Pyramid.pptx"
 type = "slides"
 title = "Manufacturing Data Pyramid.pptx"
+logical_id = "e6db3f68-2371-4da1-bf59-53fdbea2b541"
+
+[[outputs]]
+id = "aqkwjjI49m_YAwiOmOQwp"
+uri = "file://output/Pyramid_Paradigm_Narrated_Presentation.mp4"
+type = "video"
+title = "Pyramid Paradigm narrated presentation"
+description = "Final 10-slide 1920×1080 narrated MP4 with H.264 video and AAC audio."
+logical_id = "1d5656db-b364-4497-879b-8b43530b5326"
+content_hash = "sha256:c06199f28708da910dd4b863678995fecc914a5c92e68ede0cb17a7608171d44"
+size = 21006916
+mtime_ms = 1790091141000
+storage_uri = "gcs://replit-rams-assets-kira/rams/assets/repl:1e3c3a2f-8a1b-4662-9e72-083f0a90ecd0/1d5656db-b364-4497-879b-8b43530b5326/71723e20-afe6-4c73-8cbc-1eac23c99777"
+storage_version_token = "1790091184633849"
+content_type = "video/mp4"
+
+[[outputs]]
+id = "TYnwqiHEKydfYGW8IHMVq"
+uri = "file://output/timings.json"
+type = "unspecified"
+title = "Pyramid Paradigm slide timings"
+description = "Measured narration and frame-rounded visual timings for all ten slides, including TTS metadata and output paths."
+logical_id = "32c6c6dc-b55a-4b20-8cb7-4cbfeb875158"
+content_hash = "sha256:dc3427ee971ebc65c5452690069883e32a818239a29b5184e0465645b6c11c64"
+size = 12946
+mtime_ms = 1790091141272
+storage_uri = "gcs://replit-rams-assets-kira/rams/assets/repl:1e3c3a2f-8a1b-4662-9e72-083f0a90ecd0/32c6c6dc-b55a-4b20-8cb7-4cbfeb875158/475320ea-4771-448e-b7f1-3e9e7d0fa54c"
+storage_version_token = "1790091185352005"
+content_type = "application/octet-stream"

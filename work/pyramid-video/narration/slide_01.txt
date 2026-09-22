@@ -1,0 +1,1 @@
+Welcome. This presentation introduces the Pyramid Paradigm for Manufacturing Systems: a configurable framework for industrial AI strategy, architecture and decision support. The purpose is to create a clear shared structure for mapping organisational levels, data, models, agents, connectivity and decisions.

@@ -1,0 +1,1 @@
+The models pyramid shows that manufacturing value comes from combining model families. Physics-based models, statistical methods, vision models, optimisation and AI can coexist. The right model is chosen based on the question, available data and decision context.

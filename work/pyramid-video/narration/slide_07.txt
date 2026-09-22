@@ -1,0 +1,1 @@
+The agentic and connectivity view shows how selected data and models become purposeful agents. Agents consume defined inputs, apply model logic, produce outputs and trigger actions. Connectivity then routes those outputs to people, systems, assets and decisions.
