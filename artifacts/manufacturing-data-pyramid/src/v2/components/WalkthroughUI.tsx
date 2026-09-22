@@ -1168,7 +1168,7 @@ function ReviewSaveStage() {
       });
       if (!response.ok) throw new Error(await getApiError(response));
       const saved = await response.json() as {
-        project: { id: string; ownerUserId: string; name: string; description: string };
+        project: { id: string; ownerUserId: string; name: string; description: string; updatedAt: string };
         version: { id: string; versionNumber: number; createdAt: string; snapshot: unknown };
       };
       const verified = JSON.stringify(saved.version.snapshot) === JSON.stringify(snapshot);
@@ -1281,28 +1281,50 @@ function ReviewSaveStage() {
           </section>
 
            <section className="rounded-xl border border-white/10 bg-black/20 p-4">
-             <div className="mb-3 flex items-start justify-between gap-3">
-               <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-200/80">{loadedProjectContext && !saveAsNewProject ? 'Loaded project context' : 'Project identity'}</p><p className="mt-1 text-[10px] text-muted-foreground">{loadedProjectContext && !saveAsNewProject ? `Saving a new immutable version of v${loadedProjectContext.sourceVersionNumber}.` : 'Save this complete snapshot as a separate project starting at version 1.'}</p></div>
-               {loadedProjectContext && !saveAsNewProject && <button onClick={() => setSaveAsNewProject(true)} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-100 hover:bg-cyan-300/20">Save As New Project</button>}
+             <div className="mb-3">
+               <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-200/80">Save destination</p>
+               <p className="mt-1 text-[10px] text-muted-foreground">Choose whether this snapshot becomes the next version of an existing project or starts a separate project history.</p>
              </div>
-             {loadedProjectContext && !saveAsNewProject ? (
+             <div className="mb-4 grid gap-2 sm:grid-cols-2">
+               <button type="button" onClick={() => chooseSaveTarget('existing')} aria-pressed={!saveAsNewProject} className={`rounded border p-3 text-left transition ${!saveAsNewProject ? 'border-emerald-300/45 bg-emerald-300/10' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'}`}>
+                 <p className="text-xs font-bold text-foreground">Save to Existing Project</p>
+                 <p className="mt-1 text-[10px] text-muted-foreground">Create the next immutable version in an existing project history.</p>
+               </button>
+               <button type="button" onClick={() => chooseSaveTarget('new')} aria-pressed={saveAsNewProject} className={`rounded border p-3 text-left transition ${saveAsNewProject ? 'border-emerald-300/45 bg-emerald-300/10' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'}`}>
+                 <p className="text-xs font-bold text-foreground">Save As New Project</p>
+                 <p className="mt-1 text-[10px] text-muted-foreground">Create a separate project starting at version 1.</p>
+               </button>
+             </div>
+             {!saveAsNewProject ? (
                <div className="grid gap-3 sm:grid-cols-2">
-                 <div className="rounded border border-white/10 bg-white/[0.03] p-3"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">User</p><p className="mt-1 text-sm font-semibold text-foreground">{loadedProjectContext.userName}</p></div>
-                 <div className="rounded border border-white/10 bg-white/[0.03] p-3"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Project</p><p className="mt-1 text-sm font-semibold text-foreground">{loadedProjectContext.projectName}</p></div>
-                 <div className="sm:col-span-2 rounded border border-cyan-300/15 bg-cyan-300/5 p-3 text-[10px] text-cyan-100/70">Latest saved version: v{loadedProjectContext.latestVersionNumber} · Loaded source: v{loadedProjectContext.sourceVersionNumber}</div>
+                 <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">User
+                   <select value={ownerUserId} onChange={(event) => chooseExistingUser(event.target.value)} disabled={saveState.status === 'saving' || users.length === 0} className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2.5 py-2 text-xs text-foreground outline-none focus:border-emerald-300/60 disabled:cursor-not-allowed disabled:opacity-50">
+                     <option value="">{users.length === 0 ? 'No existing users' : 'Select user'}</option>
+                     {users.map((user) => <option key={user.id} value={user.id}>{user.displayName}</option>)}
+                   </select>
+                 </label>
+                 <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Project
+                   <select value={selectedProjectId} onChange={(event) => { setSelectedProjectId(event.target.value); setSaveState({ status: 'idle' }); }} disabled={!ownerUserId || projectLoadState !== 'ready' || saveState.status === 'saving'} className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2.5 py-2 text-xs text-foreground outline-none focus:border-emerald-300/60 disabled:cursor-not-allowed disabled:opacity-50">
+                     <option value="">{projectLoadState === 'loading' ? 'Loading projects…' : projectLoadState === 'error' ? 'Projects unavailable' : projects.length === 0 ? 'No projects available' : 'Select project'}</option>
+                     {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                   </select>
+                 </label>
+                 {projectLoadState === 'error' && <p className="sm:col-span-2 rounded border border-rose-300/25 bg-rose-400/10 p-3 text-[10px] text-rose-100">{projectLoadError || 'Projects could not be loaded.'}</p>}
+                 {projectLoadState === 'ready' && ownerUserId && projects.length === 0 && <p className="sm:col-span-2 rounded border border-white/10 bg-black/20 p-3 text-[10px] text-muted-foreground">This user has no saved projects yet. Choose Save As New Project to create one.</p>}
+                 {selectedProject && <div className="sm:col-span-2 rounded border border-emerald-300/15 bg-emerald-300/5 p-3 text-[10px] text-emerald-100/75"><p className="font-bold text-emerald-50">Next immutable version will be saved to {selectedProject.name}</p><p className="mt-1">{selectedProject.description || 'No project description.'}</p></div>}
                  <div className="sm:col-span-2"><Field label="Version note (optional)" value={versionNote} onChange={setVersionNote} multiline /></div>
                </div>
              ) : (
                <div className="grid gap-3 sm:grid-cols-2">
-                 <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">User Name
-                   <select value={isCreatingUser || users.length === 0 ? '__new__' : ownerUserId} onChange={(event) => { const value = event.target.value; setIsCreatingUser(value === '__new__'); setOwnerUserId(value === '__new__' ? '' : value); }} className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2.5 py-2 text-xs text-foreground outline-none focus:border-emerald-300/60">
+                 <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">User
+                   <select value={isCreatingUser || users.length === 0 ? '__new__' : ownerUserId} onChange={(event) => { const value = event.target.value; setIsCreatingUser(value === '__new__'); setOwnerUserId(value === '__new__' ? '' : value); setSaveState({ status: 'idle' }); }} disabled={saveState.status === 'saving'} className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2.5 py-2 text-xs text-foreground outline-none focus:border-emerald-300/60 disabled:cursor-not-allowed disabled:opacity-50">
                      <option value="">Select existing user</option>
                      {users.map((user) => <option key={user.id} value={user.id}>{user.displayName}</option>)}
                      <option value="__new__">+ New User</option>
                    </select>
                  </label>
                  {isCreatingUser && <Field label="New user name" value={newUserName} onChange={setNewUserName} required />}
-                 <Field label="Project name" value={projectName} onChange={setProjectName} required />
+                 <Field label="New project name" value={projectName} onChange={setProjectName} required />
                  <div className="sm:col-span-2"><Field label="Project description (optional)" value={projectDescription} onChange={setProjectDescription} multiline /></div>
                  <div className="sm:col-span-2"><Field label="Version note (optional)" value={versionNote} onChange={setVersionNote} multiline /></div>
                </div>
@@ -1316,9 +1338,8 @@ function ReviewSaveStage() {
       <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-[#07111c] px-5 py-3">
          <div className="flex flex-wrap items-center gap-2">
            <button onClick={() => setWalkthroughStage('connections')} className="flex items-center gap-1.5 rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-300/20"><ChevronLeft size={14} /> Back to Connections</button>
-           {loadedProjectContext && !saveAsNewProject && <button onClick={() => setSaveAsNewProject(true)} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-300/20">Save As New Project</button>}
          </div>
-         <button onClick={() => saveProject(saveAsNewProject)} disabled={saveState.status === 'saving'} className="flex items-center gap-1.5 rounded bg-emerald-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-300 disabled:cursor-wait disabled:opacity-50"><Save size={14} /> {saveState.status === 'saving' ? 'Saving…' : loadedProjectContext && !saveAsNewProject ? 'Save New Version' : 'Save as New Project'}</button>
+          <button onClick={() => saveProject(saveAsNewProject)} disabled={saveState.status === 'saving' || (saveAsNewProject ? !activeUserName || !projectName.trim() : !ownerUserId || !selectedProjectId || projectLoadState !== 'ready')} className="flex items-center gap-1.5 rounded bg-emerald-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"><Save size={14} /> {saveState.status === 'saving' ? 'Saving…' : saveAsNewProject ? 'Save as New Project' : 'Save New Version'}</button>
       </footer>
     </div>
   );
