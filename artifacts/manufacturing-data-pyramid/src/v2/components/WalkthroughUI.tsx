@@ -947,6 +947,17 @@ type ReviewUser = {
   displayName: string;
 };
 
+type ReviewProject = {
+  id: string;
+  ownerUserId: string;
+  name: string;
+  description: string;
+  currentVersionId?: string | null;
+  updatedAt: string;
+};
+
+type SaveTarget = 'existing' | 'new';
+
 type ReviewSaveState =
   | { status: 'idle' }
   | { status: 'saving' }
@@ -968,14 +979,19 @@ function ReviewSaveStage() {
   const setWalkthroughPanelCollapsed = useV2Store((state) => state.setWalkthroughPanelCollapsed);
   const fitWalkthroughView = useV2Store((state) => state.fitWalkthroughView);
   const [users, setUsers] = useState<ReviewUser[]>([]);
+  const [projects, setProjects] = useState<ReviewProject[]>([]);
   const [ownerUserId, setOwnerUserId] = useState('');
   const [isCreatingUser, setIsCreatingUser] = useState(!loadedProjectContext);
   const [newUserName, setNewUserName] = useState('');
   const [projectName, setProjectName] = useState(loadedProjectContext?.projectName || activeCase?.name || '');
   const [projectDescription, setProjectDescription] = useState(loadedProjectContext?.projectDescription || '');
   const [versionNote, setVersionNote] = useState('');
-  const [saveAsNewProject, setSaveAsNewProject] = useState(!loadedProjectContext);
+  const [selectedProjectId, setSelectedProjectId] = useState(loadedProjectContext?.projectId || '');
+  const [saveTarget, setSaveTarget] = useState<SaveTarget>(loadedProjectContext ? 'existing' : 'new');
+  const [projectLoadState, setProjectLoadState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [projectLoadError, setProjectLoadError] = useState('');
   const [saveState, setSaveState] = useState<ReviewSaveState>({ status: 'idle' });
+  const saveAsNewProject = saveTarget === 'new';
 
   useEffect(() => {
     let cancelled = false;
@@ -1008,8 +1024,42 @@ function ReviewSaveStage() {
     setIsCreatingUser(false);
     setProjectName(loadedProjectContext.projectName);
     setProjectDescription(loadedProjectContext.projectDescription);
-    setSaveAsNewProject(false);
+    setSelectedProjectId(loadedProjectContext.projectId);
+    setSaveTarget('existing');
   }, [loadedProjectContext]);
+
+  useEffect(() => {
+    if (saveAsNewProject || isCreatingUser || !ownerUserId) {
+      setProjects([]);
+      setProjectLoadState('idle');
+      setProjectLoadError('');
+      return;
+    }
+    let cancelled = false;
+    setProjectLoadState('loading');
+    setProjectLoadError('');
+    fetch(`/api/users/${ownerUserId}/projects`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await getApiError(response));
+        return response.json() as Promise<{ projects: ReviewProject[] }>;
+      })
+      .then((result) => {
+        if (cancelled) return;
+        setProjects(result.projects);
+        setSelectedProjectId((current) => result.projects.some((project) => project.id === current) ? current : '');
+        setProjectLoadState('ready');
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setProjects([]);
+        setSelectedProjectId('');
+        setProjectLoadState('error');
+        setProjectLoadError(error instanceof Error ? error.message : 'Projects could not be loaded.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ownerUserId, isCreatingUser, saveAsNewProject]);
 
   const summary = useMemo(() => {
     if (!activeCase) return null;
@@ -1047,6 +1097,7 @@ function ReviewSaveStage() {
   if (isWalkthroughPanelCollapsed) return <CollapsedWalkthroughRail />;
 
   const selectedUser = users.find((user) => user.id === ownerUserId);
+  const selectedProject = projects.find((project) => project.id === selectedProjectId);
   const activeUserName = isCreatingUser ? newUserName.trim() : selectedUser?.displayName || loadedProjectContext?.userName || '';
   const snapshot = {
     format: 'manufacturing-data-pyramid-v2' as const,
@@ -1059,24 +1110,54 @@ function ReviewSaveStage() {
     setWalkthroughStage('connections');
   };
 
+  const chooseSaveTarget = (target: SaveTarget) => {
+    setSaveTarget(target);
+    setSaveState({ status: 'idle' });
+    if (target === 'existing') {
+      setIsCreatingUser(false);
+      if (!ownerUserId && loadedProjectContext) {
+        setOwnerUserId(loadedProjectContext.userId);
+        setSelectedProjectId(loadedProjectContext.projectId);
+      }
+    } else if (ownerUserId) {
+      setIsCreatingUser(false);
+    } else {
+      setIsCreatingUser(users.length === 0);
+    }
+  };
+
+  const chooseExistingUser = (userId: string) => {
+    setOwnerUserId(userId);
+    setSelectedProjectId('');
+    setProjects([]);
+    setProjectLoadState(userId ? 'loading' : 'idle');
+    setProjectLoadError('');
+    setSaveState({ status: 'idle' });
+  };
+
   const saveProject = async (branchAsNewProject = saveAsNewProject) => {
-    if ((branchAsNewProject || !loadedProjectContext) && !activeUserName) {
+    if (!branchAsNewProject && (!ownerUserId || !selectedProjectId)) {
+      setSaveState({ status: 'error', message: 'Choose a user and existing project before saving a new version.' });
+      return;
+    }
+    if (branchAsNewProject && !activeUserName) {
       setSaveState({ status: 'error', message: 'Choose an existing user or enter a new user name.' });
       return;
     }
-    if ((branchAsNewProject || !loadedProjectContext) && !projectName.trim()) {
+    if (branchAsNewProject && !projectName.trim()) {
       setSaveState({ status: 'error', message: 'Enter a project name before saving.' });
       return;
     }
     setSaveState({ status: 'saving' });
     try {
-      const response = await fetch(loadedProjectContext && !branchAsNewProject
-        ? `/api/projects/${loadedProjectContext.projectId}/versions`
+      const savingToExistingProject = !branchAsNewProject;
+      const response = await fetch(savingToExistingProject
+        ? `/api/projects/${selectedProjectId}/versions`
         : '/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loadedProjectContext && !branchAsNewProject
-          ? { creatorUserId: loadedProjectContext.userId, versionNote: versionNote.trim(), snapshot }
+        body: JSON.stringify(savingToExistingProject
+          ? { creatorUserId: ownerUserId, versionNote: versionNote.trim(), snapshot }
           : {
             ...(ownerUserId ? { ownerUserId } : { userName: activeUserName }),
             projectName: projectName.trim(),
@@ -1092,7 +1173,7 @@ function ReviewSaveStage() {
       };
       const verified = JSON.stringify(saved.version.snapshot) === JSON.stringify(snapshot);
       if (!verified) throw new Error('The saved version returned a different snapshot and was not loaded into the current project context.');
-      const nextUserName = loadedProjectContext && !branchAsNewProject ? loadedProjectContext.userName : activeUserName;
+      const nextUserName = selectedUser?.displayName || activeUserName;
       setLoadedProjectContext({
         userId: saved.project.ownerUserId,
         userName: nextUserName,
@@ -1101,9 +1182,18 @@ function ReviewSaveStage() {
         projectDescription: saved.project.description,
         sourceVersionId: saved.version.id,
         sourceVersionNumber: saved.version.versionNumber,
-        latestVersionNumber: Math.max(loadedProjectContext?.latestVersionNumber || 0, saved.version.versionNumber),
+        latestVersionNumber: saved.version.versionNumber,
       });
-      setSaveAsNewProject(false);
+      setSaveTarget('existing');
+      setIsCreatingUser(false);
+      setOwnerUserId(saved.project.ownerUserId);
+      setSelectedProjectId(saved.project.id);
+      setProjects((current) => [
+        saved.project,
+        ...current.filter((project) => project.id !== saved.project.id),
+      ]);
+      setProjectLoadState('ready');
+      setProjectLoadError('');
       setProjectName(saved.project.name);
       setProjectDescription(saved.project.description);
       setSaveState({
