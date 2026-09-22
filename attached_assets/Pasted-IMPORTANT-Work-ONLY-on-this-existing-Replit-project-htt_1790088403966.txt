@@ -1,0 +1,480 @@
+IMPORTANT: Work ONLY on this existing Replit project:
+
+https://replit.com/t/collaboration-xtiwbtm4t3/repls/ManufacturingDataPyramidv2
+
+Do NOT create a new Repl/project.
+
+TASK
+
+Turn the existing 10-slide dark-mode “Pyramid Paradigm for Manufacturing Systems” presentation into a professionally narrated MP4 video presentation.
+
+NON-NEGOTIABLE REQUIREMENTS
+
+1. THIS MUST REMAIN A FREE-PLAN SOLUTION.
+
+- Do not use any paid API.
+- Do not use any API key.
+- Do not use ElevenLabs, OpenAI TTS, Azure Speech, Google Cloud TTS, AWS Polly or any other paid/credit-based speech service.
+- Do not enable any paid Replit deployment/service.
+- Do not upgrade the Replit plan.
+- Do not switch to a paid Agent mode.
+- Keep this workflow compatible with the Replit Free plan.
+- If any proposed component requires payment, chargeable credits, paid inference, or an upgraded plan, DO NOT use it.
+- Replace it with a completely free/local/open-source alternative.
+- If the requested workflow cannot be completed within the Free plan, stop and explain exactly which part cannot be completed instead of silently switching to a paid solution.
+
+2. USE THE EXISTING PRESENTATION EXACTLY AS THE VISUAL SOURCE.
+
+The source presentation is the dark-mode version of:
+
+“Manufacturing-Data-Pyramid_Idea_&_directions_Dark.pptx”
+
+There are exactly 10 slides.
+
+Do not redesign the slides.
+
+Do not regenerate any graphics.
+
+Do not modify:
+
+- wording
+- titles
+- names
+- logos
+- icons
+- layout
+- colours
+- slide contents
+- diagrams
+- typography
+
+The rendered video slides must remain visually faithful to the supplied presentation.
+
+Render/export slides at 1920 × 1080 or better before video generation.
+
+Do not use low-resolution screenshots.
+
+Preserve the original 16:9 aspect ratio.
+
+If direct high-quality PPTX rendering is difficult in the Replit environment, DO NOT recreate the slides in HTML/CSS or generate substitute graphics.
+
+Instead, use supplied/exported high-resolution 1920×1080 slide PNGs as the authoritative visual source.
+
+3. NARRATION
+
+Use a professional MALE BRITISH ENGLISH voice.
+
+Choose the best-quality completely free and locally runnable text-to-speech solution available in the Replit environment.
+
+IMPORTANT:
+
+Do NOT assume Piper is mandatory.
+
+Replit should evaluate suitable free/local/open-source TTS options and select the best practical voice/model that can actually run within the available Replit Free-plan resources.
+
+The selection criteria should be:
+
+1. natural speech quality
+2. British English pronunciation
+3. clearly male voice
+4. professional and confident delivery
+5. suitability for an industrial/technical consultancy presentation
+6. stable local execution
+7. acceptable generation speed
+8. compatibility with Replit Free-plan CPU/RAM/storage limits
+9. no API key
+10. no paid inference or credits
+
+If several suitable completely free/local British male voices are available, generate short test samples before producing the final narration and select the most natural one.
+
+If the highest-quality candidate is too resource-intensive for the Replit Free plan, automatically fall back to the best lighter free/local alternative.
+
+Potential open-source engines may be considered, but do not restrict the choice to any single engine.
+
+Piper may be used if it is the best practical option, but it is NOT mandatory.
+
+Do not ask me to choose the TTS engine unless no suitable fully free/local British male voice can be run.
+
+Make the quality-versus-resource decision yourself and proceed with the best viable free option.
+
+VOICE STYLE
+
+The narration should sound:
+
+- calm
+- professional
+- confident
+- natural
+- technically credible
+- suitable for manufacturing and industrial consultancy
+
+Target approximately:
+
+145–155 words per minute.
+
+Natural pauses should follow punctuation.
+
+Avoid:
+
+- robotic delivery
+- excessive pauses
+- exaggerated emotion
+- American pronunciation
+- artificial speed-up
+
+Do NOT unnaturally speed up narration simply to shorten the video.
+
+4. SYNCHRONISATION
+
+This is essential.
+
+Generate narration separately for every slide.
+
+Use this workflow:
+
+Narration text for Slide N
+↓
+Generate Slide-N audio
+↓
+Measure actual audio duration
+↓
+Set Slide-N video duration based on actual audio duration
+↓
+Move automatically to Slide N+1
+
+Slide timing MUST be driven by the actual narration audio duration.
+
+Do NOT use hard-coded guessed slide timings.
+
+For every slide add approximately:
+
+- 0.3–0.5 seconds silence before narration begins
+- 0.4–0.7 seconds silence after narration finishes
+
+Therefore the visual duration should normally be:
+
+actual narration duration
++
+introductory pause
++
+ending pause
+
+Do not cut narration.
+
+Do not transition to the next slide while the narration is still playing.
+
+If technically straightforward, use a very subtle:
+
+0.2–0.4 second crossfade
+
+between slides.
+
+The crossfade must not make slide text blurry or interfere with narration.
+
+If clean crossfades introduce technical or visual problems, use simple cuts instead.
+
+5. VIDEO OUTPUT
+
+Produce the final file at:
+
+/output/Pyramid_Paradigm_Narrated_Presentation.mp4
+
+Preferred video specification:
+
+- 1920 × 1080
+- 16:9
+- 30 fps
+- H.264 video
+- AAC audio
+- high-quality presentation/video bitrate
+- standard MP4 container
+
+The finished MP4 should play normally in:
+
+- Windows
+- macOS
+- PowerPoint
+- Microsoft Teams
+- VLC
+- standard modern web browsers
+
+Also retain the individual narration files:
+
+/output/audio/slide_01.wav
+/output/audio/slide_02.wav
+/output/audio/slide_03.wav
+/output/audio/slide_04.wav
+/output/audio/slide_05.wav
+/output/audio/slide_06.wav
+/output/audio/slide_07.wav
+/output/audio/slide_08.wav
+/output/audio/slide_09.wav
+/output/audio/slide_10.wav
+
+Also create:
+
+/output/timings.json
+
+timings.json must contain for every slide:
+
+- slide number
+- narration text
+- narration duration
+- slide video duration
+- start timestamp
+- end timestamp
+
+6. USE FFMPEG FOR FINAL ASSEMBLY
+
+Use FFmpeg for final video construction.
+
+Keep the workflow deterministic and local.
+
+A suitable pipeline is:
+
+PPTX or high-resolution slide PNGs
+→ slide images
+→ selected free/local TTS narration WAV for each slide
+→ determine exact duration of every WAV
+→ create one video segment per slide
+→ synchronise each slide duration to its narration
+→ concatenate segments
+→ encode final MP4
+
+Do not use online video-rendering APIs.
+
+7. VISUAL QUALITY
+
+The presentation itself is the visual content.
+
+Do NOT add:
+
+- background music
+- sound effects
+- animated text
+- captions over the slides
+- additional logos
+- watermarks
+- stock footage
+- AI-generated replacement graphics
+- decorative elements
+- unrelated animations
+
+Do not crop any slide content.
+
+Do not stretch the slides.
+
+Do not change their aspect ratio.
+
+Keep all slide text crisp and readable.
+
+8. OPTIONAL SUBTLE MOTION
+
+If it genuinely improves the finished video and can be implemented without reducing slide quality, a VERY subtle slow camera zoom may be used.
+
+Maximum:
+
+approximately 1–2% over the duration of a slide.
+
+Requirements:
+
+- never crop slide content
+- never move important text outside the frame
+- never distort the slide
+- never distract from the narration
+
+If there is any risk of affecting slide fidelity, keep the slides completely static.
+
+Static slides are perfectly acceptable.
+
+NARRATION SCRIPT
+
+SLIDE 1
+
+Welcome. This presentation introduces the Pyramid Paradigm for Manufacturing Systems: a configurable framework for industrial AI strategy, architecture and decision support. The purpose is to create a clear shared structure for mapping organisational levels, data, models, agents, connectivity and decisions.
+
+SLIDE 2
+
+Manufacturing needs this type of framework because industrial manufacturing systems are rarely a single-tool problem. It involves plant-scale complexity, heterogeneous information, multiple time horizons and the need to turn insight into action. Also, different parts of a manufacturing organisation view the same system through very different lenses. Shop-floor teams focus on signals, process conditions and immediate performance, while engineering, management and executive functions interpret information in terms of quality, optimisation, resources, risk and strategy. The Pyramid Paradigm provides a shared structure that connects these different perspectives without losing their organisational context. The pyramid gives organisations a practical starting point.
+
+SLIDE 3
+
+At the heart of the paradigm is one structural frame and five connected viewpoints. The structural frame anchors the organisation, while the data, models, agentic, connectivity and decision-making pyramids each reveal a different but connected layer of industrial intelligence.
+
+SLIDE 4
+
+The structural frame can be adapted to each organisation. Levels, sectors and sub-layers can be renamed or expanded, so a small plant, a large enterprise or a multi-site programme can all use the same logic without forcing a fixed template.
+
+SLIDE 5
+
+The data pyramid organises information into usable assets. Data is mapped by organisational level and by sector, with each data brick capturing source, characteristics, preparation needs and intended purpose. This helps expose what is available and what is missing.
+
+SLIDE 6
+
+The models pyramid shows that manufacturing value comes from combining model families. Physics-based models, statistical methods, vision models, optimisation and AI can coexist. The right model is chosen based on the question, available data and decision context.
+
+SLIDE 7
+
+The agentic and connectivity view shows how selected data and models become purposeful agents. Agents consume defined inputs, apply model logic, produce outputs and trigger actions. Connectivity then routes those outputs to people, systems, assets and decisions.
+
+SLIDE 8
+
+The decision-making pyramid makes clear that intelligence is useful at every level. Data and models support shop-floor decisions, engineering choices, management planning and executive strategy, while maintaining context across the organisation.
+
+SLIDE 9
+
+In practice, an engagement can progress through six steps: define the structure, map the data, align the models, design agents, connect flows and enable decisions. Completed pyramids can become reusable templates for future plants, processes and sectors.
+
+SLIDE 10
+
+The overall impact is clarity, readiness, alignment, actionability and scalability. The Pyramid Paradigm gives customers a premium consultancy lens for understanding where to begin, what capabilities they need and how to organise industrial AI into a coherent manufacturing system.
+
+9. AUDIO PROCESSING
+
+Use narration audio with consistent loudness across all slides.
+
+Normalise audio conservatively if required.
+
+Avoid clipping.
+
+Avoid aggressive compression.
+
+Remove unnecessary leading or trailing silence while retaining the intentional pre/post narration pauses.
+
+Do not add music underneath the speech.
+
+If the selected TTS engine outputs a different audio format, convert the final per-slide audio to WAV before video assembly.
+
+The final combined MP4 audio should use AAC.
+
+10. FILE ORGANISATION
+
+Keep intermediate files organised clearly.
+
+Suggested structure:
+
+/input
+  presentation source
+  or high-resolution slide PNGs
+
+/work
+  rendered slide images
+  temporary video segments
+  temporary TTS files
+
+/output
+  Pyramid_Paradigm_Narrated_Presentation.mp4
+  timings.json
+
+/output/audio
+  slide_01.wav
+  slide_02.wav
+  slide_03.wav
+  slide_04.wav
+  slide_05.wav
+  slide_06.wav
+  slide_07.wav
+  slide_08.wav
+  slide_09.wav
+  slide_10.wav
+
+Do not delete the final per-slide WAV files.
+
+11. QUALITY CHECK BEFORE COMPLETION
+
+Before telling me the task is finished, verify all of the following.
+
+VISUAL CHECKS
+
+- Exactly 10 slides are present.
+- Slides are in the correct order.
+- Visuals match the supplied dark presentation.
+- No slide was recreated unnecessarily.
+- Text remains crisp at 1080p.
+- No slide content has been cropped.
+- Original 16:9 aspect ratio is preserved.
+- No unwanted visual overlays were added.
+
+AUDIO CHECKS
+
+- The same professional male British English voice is used consistently.
+- No American voice is used.
+- No narration is missing.
+- No narration is duplicated.
+- Narration is understandable and professionally paced.
+- Audio has no obvious clipping.
+- Audio levels are reasonably consistent between slides.
+- No unwanted long silence exists.
+- No narration has been artificially sped up.
+
+SYNCHRONISATION CHECKS
+
+- Every slide remains visible until its narration finishes.
+- Slide transitions occur only after narration completion.
+- Timing is based on measured audio duration rather than guessed timing.
+- Pre- and post-narration pauses are present.
+- Any transitions are subtle and do not obscure text.
+
+VIDEO CHECKS
+
+- Final video plays from beginning to end without errors.
+- Output resolution is 1920 × 1080.
+- Output uses H.264 video.
+- Output uses AAC audio.
+- Output is a normal MP4 file.
+- The MP4 is suitable for normal desktop/web playback.
+
+FREE-PLAN CHECKS
+
+- No paid service was used.
+- No paid API was used.
+- No chargeable inference endpoint was used.
+- No API key was required.
+- No paid Replit deployment was enabled.
+- No Replit plan upgrade was performed.
+- No paid Agent mode was intentionally selected for this task.
+- TTS generation was completed using a free/local/open-source solution.
+
+12. FINAL REPORT
+
+Do not stop after writing code.
+
+Run the entire pipeline.
+
+Generate the narration.
+
+Measure the audio.
+
+Build the video.
+
+Test the finished MP4.
+
+Fix any errors found during generation or testing.
+
+Only then report completion.
+
+In the final report provide:
+
+1. Final total video duration.
+2. Duration of each slide.
+3. TTS engine/model selected.
+4. Exact TTS voice selected.
+5. Why that voice/model was selected over the other free/local options available.
+6. Confirmation that the voice is male British English.
+7. Confirmation that no paid service/API/API key was used.
+8. Confirmation that the workflow stayed within the free/local requirement.
+9. Final video resolution and codecs.
+10. Exact path:
+
+/output/Pyramid_Paradigm_Narrated_Presentation.mp4
+
+11. Exact location of the per-slide WAV files.
+12. Exact location of timings.json.
+
+IMPORTANT FINAL RULE
+
+Do not stop after creating a script or pipeline.
+
+Actually run it and produce the final MP4.
+
+If any proposed implementation requires paid credits, an API key, a paid model or an upgraded Replit service, reject that implementation and use the best viable free/local alternative instead.
