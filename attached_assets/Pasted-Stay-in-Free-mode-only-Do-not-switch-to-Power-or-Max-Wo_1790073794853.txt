@@ -1,0 +1,184 @@
+Stay in Free mode only. Do not switch to Power or Max.
+
+Work only in Manufacturing_Data_Pyramid_v2.
+
+Implement only the four diagnosed fixes below. Do not change anything else.
+
+1. Deployed Stage 5 API access
+
+Preview mode works, but the deployed app has shown Failed to fetch in Stage 5.
+
+The existing frontend correctly uses same-origin /api/... routes and the API is already mounted at /api. Production GET logs show the proxy is generally working.
+
+Do not redesign the React/API/PostgreSQL architecture.
+
+First:
+
+verify the deployed route mapping forwards all HTTP methods, especially POST, for /api/*;
+verify the production web artifact and API artifact are both part of the same deployment routing configuration;
+correct the deployment health check from /api to /api/healthz;
+keep the current relative /api requests.
+
+Do not modify the version-creation API or database logic unless an actual production request reaches the API and produces a real server error.
+
+If this fix changes deployment configuration, clearly report that republishing is required before production verification.
+
+2. Harden + New User
+
+In:
+
+Stage 5 → Save As New Project
+
+choosing:
+
++ New User
+
+must always reveal:
+
+New User Name
+
+The existing source currently uses separate ownerUserId and isCreatingUser state, which is fragile.
+
+Simplify this narrowly so one user-selection state is the source of truth:
+
+empty/unselected;
+an existing user ID;
+__new__.
+
+Render the New User Name field directly when the selection is __new__.
+
+Preserve the existing save APIs and database model.
+
+Verify:
+
+Existing User → + New User → Existing User
+
+correctly shows/hides the field without stale state.
+
+Also confirm the deployed bundle includes this current branch; if the deployed static bundle is stale, report that republishing is necessary.
+
+3. Structure autofill for variable counts
+
+Remove the exact-count dependency:
+
+semantic level names must not require exactly 5 levels;
+semantic sector names must not require exactly 4 sectors.
+
+Use the known presets sequentially:
+
+Levels
+
+Signal / Physical
+Operational
+Engineering
+Management
+Executive
+
+Sectors
+
+Product
+Resources
+Machines
+People
+
+Autofill should use the first N relevant names for the selected count.
+
+Examples:
+
+3 levels → Signal / Physical, Operational, Engineering
+2 sectors → Product, Resources
+5 levels → existing five names unchanged
+4 sectors → existing four names unchanged
+
+If the configured count exceeds the known presets, use neutral editable fallback names:
+
+Level 6, Level 7, Level 8...
+Sector 5, Sector 6, Sector 7...
+
+Do not invent new manufacturing semantics merely to fill the extra positions.
+
+Preserve stable IDs and all existing user-edited content.
+
+This change should affect only naming/autofill behaviour.
+
+4. Double the 3D pyramid label readability
+
+The diagnosed current bases are approximately:
+
+data labels: 9 px;
+level labels: 10 px;
+sector labels: 10 px;
+scale control: 0.75–1.35.
+
+Increase only the 3D pyramid labels:
+
+data element labels: approximately 9 → 18 px;
+level labels: approximately 10 → 20 px;
+sector labels: approximately 10 → 20 px.
+
+Keep the existing adjustable label-size control and its current 0.75–1.35 behaviour unless a tiny adjustment is technically necessary.
+
+This means:
+
+new 100% ≈ twice the old 100%;
+users can still reduce below the new default;
+users can still increase beyond the new default.
+
+Increase label max-widths proportionally where required so longer names do not wrap excessively.
+
+Preserve:
+
+label colours;
+content;
+label positions;
+pyramid/data geometry.
+
+Do not change the 2D Cross-Section label sizing in this task.
+
+DO NOT CHANGE ANYTHING ELSE
+
+Do not modify:
+
+Walkthrough navigation;
+camera/framing;
+panel collapse;
+20% opacity;
+Fit 3D View;
+Data placement/grid;
+Visualise behaviour;
+Connections;
+loops;
+2D Cross-Section;
+Review summary;
+Open Project exact-version behaviour;
+immutable versioning;
+database schema;
+Explorer;
+Forging Case Study;
+Advanced placeholder.
+
+If another issue is discovered, report it only.
+
+Verification
+
+Check:
+
+preview /api/users;
+deployed routing configuration for /api/*, especially POST;
+health endpoint /api/healthz;
++ New User reliably exposes New User Name;
+3-level / 2-sector autofill;
+5-level / 4-sector autofill unchanged;
+counts above the semantic preset use generic fallback names;
+level, sector and data-element labels are approximately twice their previous visual size and remain adjustable.
+
+Run:
+
+TypeScript/typecheck;
+API checks;
+production build;
+git diff --check.
+
+Report each of the four fixes separately and explicitly state what requires republishing for final production verification.
+
+Do not add any other scope.
