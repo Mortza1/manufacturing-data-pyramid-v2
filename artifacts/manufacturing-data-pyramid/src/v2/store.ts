@@ -77,16 +77,25 @@ export const WALKTHROUGH_LEVEL_PRESET = [
   'Executive',
 ] as const;
 
+export const WALKTHROUGH_SECTOR_PRESET = [
+  'Product',
+  'Resources',
+  'Machines',
+  'People',
+] as const;
+
 export function getWalkthroughLevelName(index: number, count: number) {
-  return count === WALKTHROUGH_LEVEL_PRESET.length
-    ? WALKTHROUGH_LEVEL_PRESET[index] || `Level ${index + 1}`
-    : `Level ${index + 1}`;
+  return WALKTHROUGH_LEVEL_PRESET[index] || `Level ${index + 1}`;
+}
+
+export function getWalkthroughSectorName(index: number) {
+  return WALKTHROUGH_SECTOR_PRESET[index] || `Sector ${index + 1}`;
 }
 
 function getDefaultWalkthroughDraft(): V2Draft {
   return {
     levels: Array.from({ length: 5 }).map((_, i) => ({ name: getWalkthroughLevelName(i, 5) })),
-    sectors: Array.from({ length: 4 }).map((_, i) => ({ name: `Sector ${i + 1}` })),
+    sectors: Array.from({ length: 4 }).map((_, i) => ({ name: getWalkthroughSectorName(i) })),
   };
 }
 
