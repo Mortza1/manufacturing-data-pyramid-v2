@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { AlertCircle, ArrowRight, Check, ChevronLeft, ChevronRight, Database, Edit2, Eye, EyeOff, FolderOpen, Lock, Wand2, GraduationCap, Grid3X3, Link2, Plus, Save, SkipForward, Trash2, Move, Maximize2, Minimize2, RotateCcw, X, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, ChevronLeft, ChevronRight, Database, Edit2, Eye, EyeOff, FolderOpen, Lock, Wand2, GraduationCap, Grid3X3, Link2, Save, SkipForward, Trash2, Move, Maximize2, Minimize2, RotateCcw, X, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, getWalkthroughSectorName, LOOP_COLOR_PALETTE, type V2DataDensity, type V2DataDraft, type V2LoopDraft, type V2MetadataPatch } from '../store';
 import { getSectorIdForGridCell } from '../geometry';
 import { jsonStructurallyEqual } from '../jsonStructuralEquality';
@@ -260,8 +260,7 @@ function DataBoard() {
   const { activeCase, dataLevelIndex, setDataLevelIndex, skippedLevelIds, skipDataLevel, autoFillDataLevel, dataAutoFillNotice, clearDataLevel, moveDataObject, removeDataObject, setWalkthroughStage, reopenStructure, selectedVisualiseObjectId, isWalkthroughPanelCollapsed, setWalkthroughPanelCollapsed } = useV2Store();
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(selectedVisualiseObjectId);
   const [editorCell, setEditorCell] = useState<{ x: number; y: number; sectorId: string } | null>(null);
-  const [placementMode, setPlacementMode] = useState<'add' | 'move' | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [placementMode, setPlacementMode] = useState<'move' | null>(null);
   useEffect(() => {
     if (selectedVisualiseObjectId) setSelectedObjectId(selectedVisualiseObjectId);
   }, [selectedVisualiseObjectId]);
@@ -295,15 +294,10 @@ function DataBoard() {
       setPlacementMode(null);
       return;
     }
-    if (placementMode === 'add') {
-      setIsDragging(false);
-      setEditorCell({ x, y, sectorId });
-    }
   };
   const closeEditor = () => {
     setEditorCell(null);
     setPlacementMode(null);
-    setIsDragging(false);
   };
 
   const autoFill = () => autoFillDataLevel(level.id);
@@ -313,8 +307,6 @@ function DataBoard() {
   return (
     <div
       data-walkthrough-panel
-      onPointerUpCapture={() => setIsDragging(false)}
-      onPointerCancelCapture={() => setIsDragging(false)}
       className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex h-[calc(100dvh-2rem)] w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-cyan-300/20 bg-[#050912]/98 text-foreground shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6 md:h-[calc(100dvh-3rem)]"
     >
       {editorCell && <DataEditor levelId={level.id} sectorId={editorCell.sectorId} gridX={editorCell.x} gridY={editorCell.y} onClose={closeEditor} onCancel={closeEditor} />}
@@ -335,7 +327,7 @@ function DataBoard() {
       <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
         <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
           <section className="rounded-2xl border border-cyan-300/15 bg-[#07111c] p-4 shadow-2xl md:p-6">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-semibold text-cyan-100">Top-down cross-section</p><p className="text-[11px] text-muted-foreground">Click a free cell to place. Select an item, then choose Move to reposition it.</p></div><span className="rounded-full border border-white/10 bg-black/25 px-2.5 py-1 text-[10px] font-mono text-muted-foreground">{objects.length} placed</span></div>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-semibold text-cyan-100">Top-down cross-section</p><p className="text-[11px] text-muted-foreground">Click an empty cell to add data. Select an item, then choose Move to reposition it.</p></div><span className="rounded-full border border-white/10 bg-black/25 px-2.5 py-1 text-[10px] font-mono text-muted-foreground">{objects.length} placed</span></div>
             <div className="mx-auto grid aspect-square w-full max-w-[620px] grid-cols-8 overflow-hidden rounded-lg border-2 border-cyan-300/30 bg-[#050a12]">
               {cells.map((cell) => {
                 const key = `${cell.x}:${cell.y}`;
@@ -350,9 +342,16 @@ function DataBoard() {
                     setSelectedObjectId(item.id);
                     return;
                   }
-                  placeAt(cell.x, cell.y);
+                  if (placementMode === 'move') {
+                    placeAt(cell.x, cell.y);
+                    return;
+                  }
+                  if (item || !sectorId) return;
+                  setSelectedObjectId(null);
+                  setEditorCell({ x: cell.x, y: cell.y, sectorId });
                 };
-                return <button key={key} onPointerDown={() => { setIsDragging(true); selectOrPlace(); }} onPointerEnter={() => { if (isDragging && !item) placeAt(cell.x, cell.y); }} onClick={(event) => { if (event.detail === 0) selectOrPlace(); }} className={`relative min-h-[42px] border border-white/10 p-1 text-left transition-colors ${rightBoundary ? 'border-r-cyan-200/50' : ''} ${bottomBoundary ? 'border-b-cyan-200/50' : ''} ${item ? selected ? 'bg-cyan-300/35 ring-2 ring-inset ring-cyan-200' : 'bg-amber-300/20' : 'bg-emerald-300/[0.04] hover:bg-cyan-300/15'}`} title={`${activeCase.sectors[sectorIndex]?.name || 'Sector'} · cell ${cell.x + 1}, ${cell.y + 1}`}>
+                const cellLabel = `${activeCase.sectors[sectorIndex]?.name || 'Sector'} cell ${cell.x + 1}, ${cell.y + 1}`;
+                return <button key={key} type="button" onClick={selectOrPlace} aria-label={item ? `Select ${item.name}, ${cellLabel}` : `Add data at ${cellLabel}`} className={`relative min-h-[42px] cursor-pointer border border-white/10 p-1 text-left transition-colors ${rightBoundary ? 'border-r-cyan-200/50' : ''} ${bottomBoundary ? 'border-b-cyan-200/50' : ''} ${item ? selected ? 'bg-cyan-300/35 ring-2 ring-inset ring-cyan-200' : 'bg-amber-300/20' : 'bg-emerald-300/[0.04] hover:bg-cyan-300/15'}`} title={cellLabel}>
                   <span className="absolute left-1 top-1 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ['#38bdf8', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#facc15', '#2dd4bf', '#818cf8'][sectorIndex % 8] }} />
                   {item && <span className="mt-1 block truncate text-[9px] font-bold text-amber-50">{item.name}</span>}
                 </button>;
@@ -361,9 +360,17 @@ function DataBoard() {
             <div className="mx-auto mt-3 flex max-w-[620px] flex-wrap gap-3 text-[10px] text-muted-foreground"><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-300/50" />Free</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-300/60" />Occupied</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-cyan-300" />Selected</span>{activeCase.sectors.map((sector, index) => <span key={sector.id}><i className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: ['#38bdf8', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#facc15', '#2dd4bf', '#818cf8'][index % 8] }} />{sector.name}</span>)}</div>
           </section>
           <aside className="space-y-4">
-             <div className="rounded-xl border border-white/10 bg-[#08111d] p-4"><p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-cyan-100/80">Placement</p><div className="grid gap-2"><button onClick={() => { setPlacementMode('add'); setSelectedObjectId(null); }} className={`flex items-center justify-center gap-2 rounded border px-3 py-2.5 text-xs font-bold ${placementMode === 'add' ? 'border-cyan-200 bg-cyan-300/20 text-cyan-100' : 'border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/20'}`}><Plus size={14} /> Add data manually</button><button onClick={() => { if (selectedObjectId) setPlacementMode('move'); }} disabled={!selectedObjectId} className="flex items-center justify-center gap-2 rounded border border-white/10 bg-white/5 px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"><Move size={14} /> Move selected</button><button onClick={autoFill} className="flex items-center justify-center gap-2 rounded border border-indigo-300/25 bg-indigo-300/10 px-3 py-2.5 text-xs font-semibold text-indigo-100 hover:bg-indigo-300/20"><Wand2 size={14} /> Auto-fill free cells</button><button onClick={() => { if (window.confirm(`Clear all data from ${level.name}? This removes manual and auto-filled entries on this level.`)) { clearDataLevel(level.id); setSelectedObjectId(null); setPlacementMode(null); } }} className="flex items-center justify-center gap-2 rounded border border-rose-300/25 bg-rose-400/10 px-3 py-2.5 text-xs font-semibold text-rose-100 hover:bg-rose-400/20"><Trash2 size={14} /> Clear Current Level</button></div><p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">Auto-fill adds two representative data elements per sector where free cells allow. It never overwrites manual entries.</p>{dataAutoFillNotice && <p className="mt-3 rounded border border-amber-300/20 bg-amber-300/5 px-2.5 py-2 text-[10px] leading-relaxed text-amber-100/80">{dataAutoFillNotice}</p>}</div>
+              <div className="rounded-xl border border-white/10 bg-[#08111d] p-4">
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-cyan-100/80">Placement</p>
+                <div className="grid gap-2">
+                  <button onClick={autoFill} className="flex items-center justify-center gap-2 rounded border border-indigo-300/25 bg-indigo-300/10 px-3 py-2.5 text-xs font-semibold text-indigo-100 hover:bg-indigo-300/20"><Wand2 size={14} /> Auto-fill Data</button>
+                  <button onClick={() => { if (window.confirm(`Clear all data from ${level.name}? This removes manual and auto-filled entries on this level.`)) { clearDataLevel(level.id); setSelectedObjectId(null); setPlacementMode(null); } }} className="flex items-center justify-center gap-2 rounded border border-rose-300/25 bg-rose-400/10 px-3 py-2.5 text-xs font-semibold text-rose-100 hover:bg-rose-400/20"><Trash2 size={14} /> Clear Current Level</button>
+                </div>
+                <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">Auto-fill adds two representative data elements per sector where free cells allow. It never overwrites manual entries.</p>
+                {dataAutoFillNotice && <p className="mt-3 rounded border border-amber-300/20 bg-amber-300/5 px-2.5 py-2 text-[10px] leading-relaxed text-amber-100/80">{dataAutoFillNotice}</p>}
+              </div>
             <div className="rounded-xl border border-white/10 bg-[#08111d] p-4"><div className="mb-3 flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-100/80">Sector key</p><Grid3X3 size={15} className="text-cyan-300/70" /></div><div className="space-y-2">{activeCase.sectors.map((sector, index) => <div key={sector.id} className="flex items-center gap-2 text-xs text-muted-foreground"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: ['#38bdf8', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#facc15', '#2dd4bf', '#818cf8'][index % 8] }} />{sector.name}</div>)}</div></div>
-            {selectedObject && <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4"><div className="flex items-start justify-between gap-2"><div><p className="text-[10px] uppercase tracking-wider text-cyan-200/65">Selected data</p><h3 className="mt-1 text-sm font-bold text-cyan-50">{selectedObject.name}</h3></div><button onClick={() => { removeDataObject(selectedObject.id); setSelectedObjectId(null); }} title="Remove data" className="text-muted-foreground hover:text-rose-300"><Trash2 size={14} /></button></div><p className="mt-2 text-[11px] text-muted-foreground">Cell ({selectedObject.grid_x + 1}, {selectedObject.grid_y + 1}) · {activeCase.sectors.find((sector) => sector.id === selectedObject.sector_id)?.name}</p><p className="mt-2 line-clamp-3 text-xs text-cyan-50/70">{selectedObject.description || 'No description provided.'}</p></div>}
+            {selectedObject && <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4"><div className="flex items-start justify-between gap-2"><div><p className="text-[10px] uppercase tracking-wider text-cyan-200/65">Selected data</p><h3 className="mt-1 text-sm font-bold text-cyan-50">{selectedObject.name}</h3></div><div className="flex items-center gap-2"><button type="button" onClick={() => setPlacementMode('move')} className="flex items-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground"><Move size={12} /> Move selected</button><button type="button" onClick={() => { removeDataObject(selectedObject.id); setSelectedObjectId(null); }} title="Remove data" className="text-muted-foreground hover:text-rose-300"><Trash2 size={14} /></button></div></div><p className="mt-2 text-[11px] text-muted-foreground">Cell ({selectedObject.grid_x + 1}, {selectedObject.grid_y + 1}) · {activeCase.sectors.find((sector) => sector.id === selectedObject.sector_id)?.name}</p><p className="mt-2 line-clamp-3 text-xs text-cyan-50/70">{selectedObject.description || 'No description provided.'}</p>{placementMode === 'move' && <p className="mt-2 text-[10px] text-cyan-200/70">Select an empty cell to move this data object.</p>}</div>}
           </aside>
         </div>
       </main>
