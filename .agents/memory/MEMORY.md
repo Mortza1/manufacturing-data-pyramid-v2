@@ -2,3 +2,4 @@
 - [Stage 4 view isolation](stage-4-view-isolation.md) — 2D loop choice and panel presentation must not mutate 3D filters or case data.
 - [Stage 5 persistence](stage-5-persistence.md) — durable saves use immutable JSONB snapshots with separate database, snapshot-schema, and local-storage migration versions.
 - [Static slide video timing](static-slide-video-timing.md) — frame-round static segments and hold one safety frame so narration cannot outlast the slide image.
+- [Transitive dependency refresh](transitive-dependency-refresh.md) — use a numeric pnpm update depth and audit the resolved lockfile; Infinity can leave affected packages unchanged.
