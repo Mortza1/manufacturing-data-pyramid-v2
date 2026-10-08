@@ -295,11 +295,15 @@ function DataBoard() {
       setPlacementMode(null);
       return;
     }
-    if (placementMode === 'add') setEditorCell({ x, y, sectorId });
+    if (placementMode === 'add') {
+      setIsDragging(false);
+      setEditorCell({ x, y, sectorId });
+    }
   };
-  const cancelEditor = () => {
+  const closeEditor = () => {
     setEditorCell(null);
     setPlacementMode(null);
+    setIsDragging(false);
   };
 
   const autoFill = () => autoFillDataLevel(level.id);
@@ -307,8 +311,13 @@ function DataBoard() {
   const goPrevious = () => setDataLevelIndex(Math.max(0, dataLevelIndex - 1));
 
   return (
-    <div data-walkthrough-panel className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex h-[calc(100dvh-2rem)] w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-cyan-300/20 bg-[#050912]/98 text-foreground shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6 md:h-[calc(100dvh-3rem)]">
-      {editorCell && <DataEditor levelId={level.id} sectorId={editorCell.sectorId} gridX={editorCell.x} gridY={editorCell.y} onClose={() => setEditorCell(null)} onCancel={cancelEditor} />}
+    <div
+      data-walkthrough-panel
+      onPointerUpCapture={() => setIsDragging(false)}
+      onPointerCancelCapture={() => setIsDragging(false)}
+      className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex h-[calc(100dvh-2rem)] w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-cyan-300/20 bg-[#050912]/98 text-foreground shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6 md:h-[calc(100dvh-3rem)]"
+    >
+      {editorCell && <DataEditor levelId={level.id} sectorId={editorCell.sectorId} gridX={editorCell.x} gridY={editorCell.y} onClose={closeEditor} onCancel={closeEditor} />}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-cyan-300/15 bg-[#07131f] px-5 py-4">
         <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-300/70">Walkthrough / Data</p><h2 className="mt-1 text-xl font-bold text-cyan-50">Add data to {level.name}</h2><p className="mt-1 text-xs text-muted-foreground">One level at a time · {activeCase.grid.width}×{activeCase.grid.height} sector-aware snap grid</p></div>
          <div className="flex flex-wrap gap-2">
@@ -343,7 +352,7 @@ function DataBoard() {
                   }
                   placeAt(cell.x, cell.y);
                 };
-                return <button key={key} onPointerDown={() => { setIsDragging(true); selectOrPlace(); }} onPointerEnter={() => { if (isDragging && !item) placeAt(cell.x, cell.y); }} onPointerUp={() => setIsDragging(false)} onClick={(event) => { if (event.detail === 0) selectOrPlace(); }} className={`relative min-h-[42px] border border-white/10 p-1 text-left transition-colors ${rightBoundary ? 'border-r-cyan-200/50' : ''} ${bottomBoundary ? 'border-b-cyan-200/50' : ''} ${item ? selected ? 'bg-cyan-300/35 ring-2 ring-inset ring-cyan-200' : 'bg-amber-300/20' : 'bg-emerald-300/[0.04] hover:bg-cyan-300/15'}`} title={`${activeCase.sectors[sectorIndex]?.name || 'Sector'} · cell ${cell.x + 1}, ${cell.y + 1}`}>
+                return <button key={key} onPointerDown={() => { setIsDragging(true); selectOrPlace(); }} onPointerEnter={() => { if (isDragging && !item) placeAt(cell.x, cell.y); }} onClick={(event) => { if (event.detail === 0) selectOrPlace(); }} className={`relative min-h-[42px] border border-white/10 p-1 text-left transition-colors ${rightBoundary ? 'border-r-cyan-200/50' : ''} ${bottomBoundary ? 'border-b-cyan-200/50' : ''} ${item ? selected ? 'bg-cyan-300/35 ring-2 ring-inset ring-cyan-200' : 'bg-amber-300/20' : 'bg-emerald-300/[0.04] hover:bg-cyan-300/15'}`} title={`${activeCase.sectors[sectorIndex]?.name || 'Sector'} · cell ${cell.x + 1}, ${cell.y + 1}`}>
                   <span className="absolute left-1 top-1 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ['#38bdf8', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#facc15', '#2dd4bf', '#818cf8'][sectorIndex % 8] }} />
                   {item && <span className="mt-1 block truncate text-[9px] font-bold text-amber-50">{item.name}</span>}
                 </button>;

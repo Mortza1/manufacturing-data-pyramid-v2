@@ -1,0 +1,73 @@
+Stay in Free mode only. Do not switch to Power or Max.
+Work only in Manufacturing_Data_Pyramid_v2.
+Implement only the confirmed Stage 2 Manual Add Data fix below. Do not change anything else.
+Confirmed cause
+The manual Add Data dialog can reopen because Stage 2 can leave isDragging stuck as true when the dialog opens.
+A grid-cell pointer-down starts dragging and opens the editor. The modal then intercepts the pointer release, so the grid never clears the drag state. After the modal closes, pointer-enter over the grid can trigger another placement and reopen the editor.
+Successful Add also currently closes editorCell but leaves Add placement mode active.
+Required fix
+Use one shared manual-add close/reset path for both:
+- Cancel / close
+- successful Add Data submission
+That reset must clear:
+- the open editor cell;
+- manual Add placement mode;
+- the Stage 2 drag state.
+Closing or completing the Manual Add dialog must therefore exit manual-add mode completely.
+Also, when Add mode opens the manual editor from a grid pointer interaction, immediately clear the drag state so the pointer-down that opened the dialog cannot leave a latent drag behind the overlay.
+Do not rely on a later grid pointer-up to clear it.
+If appropriate, add a defensive pointer-cancel reset for the existing drag state, but do not redesign the placement interaction.
+Intended behaviour
+After the change:
+Add data manually → choose/place cell → dialog opens
+Then:
+Cancel
+should:
+- close the dialog;
+- exit Add mode;
+- leave current level unchanged;
+- leave all existing data unchanged;
+- remain closed even if the mouse moves over the grid.
+Likewise:
+Add data manually → enter data → Add to board
+should:
+- save the new data object;
+- close the dialog;
+- exit manual Add mode;
+- remain closed afterward.
+To add another manual object, the user should deliberately press Add data manually again.
+Do not change anything else
+Do not modify:
+- Save/Open;
+- database/versioning;
+- Structure;
+- autofill;
+- Auto-fill Data;
+- Clear Current Level;
+- canonical grid;
+- Visualise;
+- label sizing;
+- Connections;
+- loops;
+- 2D Cross-Section;
+- camera;
+- panel collapse;
+- Explorer;
+- Forging Case Study;
+- Advanced.
+Acceptance tests
+Verify:
+1. Click Add data manually.
+2. Open the manual data dialog.
+3. Cancel it.
+4. Move the pointer repeatedly over empty grid cells.
+5. Dialog does not reopen.
+6. Change level; dialog remains closed.
+7. Click Add data manually again; it opens normally.
+8. Add a valid data element successfully.
+9. Dialog closes and stays closed afterward.
+10. Existing placed data remains unchanged.
+11. Current level remains unchanged.
+12. Auto-fill and normal board selection still work.
+Run frontend typecheck, production build and git diff --check.
+Do not add any other scope.
