@@ -1,0 +1,81 @@
+Stay in Free mode only. Do not switch to Power or Max.
+Work only in Manufacturing_Data_Pyramid_v2.
+Replace the current Stage 2 manual-add interaction with a simpler direct-cell interaction.
+Do not change anything outside Stage 2 Data placement.
+Required behaviour
+Remove the Add data manually button completely.
+Keep only:
+- Auto-fill Data
+- Clear Current Level
+For every empty grid cell:
+- on hover, show a pointer/finger cursor to indicate it is clickable;
+- hovering alone must never open the editor or place data;
+- clicking/tapping the empty cell opens the existing Add Data dialog for that exact canonical cell.
+The Add Data form should still use the selected cell's existing:
+- level;
+- sector;
+- grid_x;
+- grid_y.
+Closing
+If the user presses Cancel or closes the dialog:
+- close the dialog;
+- clear the temporary selected editor cell;
+- do not enter or retain any Add placement mode;
+- do not leave any drag state active;
+- do not reopen when the pointer moves across the grid.
+Successful Add
+After Add to board:
+- create the data object exactly as before;
+- place it in the clicked canonical cell;
+- close the dialog;
+- return immediately to normal board interaction.
+Adding another object should require clicking another empty cell.
+Remove obsolete manual-add state
+Since the manual-add button/mode is no longer needed:
+- remove the Stage 2 manual placementMode === 'add' interaction path if it is used only for this workflow;
+- remove hover-based onPointerEnter placement for Add mode;
+- remove any Add-mode drag behaviour.
+Do not retain hidden/additional Add mode logic that can reopen the editor.
+Existing occupied cells
+Preserve current occupied-cell behaviour.
+Clicking an existing data object/cell should continue to select/edit/move it as currently intended.
+Do not treat an occupied cell as a request to create another object.
+Move behaviour
+Preserve existing Move functionality for existing data objects.
+If drag/hover logic is genuinely required for Move mode, keep it isolated to Move mode only.
+Add-new-data interaction must never use drag/hover placement.
+Accessibility / touch
+- Desktop: hover shows pointer, click opens form.
+- Touch: tap empty cell opens form.
+- Keyboard: Enter/Space on a focused empty cell may open the form.
+Do not change anything else
+Do not modify:
+- Structure;
+- Auto-fill Data logic;
+- Clear Current Level;
+- canonical grid coordinates;
+- Visualise;
+- Connections;
+- loops;
+- Save/Open;
+- database/versioning;
+- 2D Cross-Section;
+- camera;
+- label sizing;
+- Explorer;
+- Forging Case Study;
+- Advanced.
+Acceptance tests
+1. Hover an empty cell → pointer cursor appears.
+2. Hover across many empty cells → no dialog opens.
+3. Click an empty cell → Add Data dialog opens for that cell.
+4. Cancel → dialog closes and stays closed.
+5. Hover again → nothing opens.
+6. Click another empty cell → dialog opens for the new cell.
+7. Add valid data → object appears in that cell and dialog closes.
+8. Hovering afterward does not reopen anything.
+9. Auto-fill Data still works.
+10. Clear Current Level still works.
+11. Existing-object select/edit/move behaviour still works.
+Run frontend typecheck, production build and git diff --check.
+Do not add any other scope.
