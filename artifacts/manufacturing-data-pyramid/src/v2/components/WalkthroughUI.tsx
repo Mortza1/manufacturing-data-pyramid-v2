@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type 
 import { AlertCircle, ArrowRight, Check, ChevronLeft, ChevronRight, Database, Edit2, Eye, EyeOff, FolderOpen, Lock, Wand2, GraduationCap, Grid3X3, Link2, Plus, Save, SkipForward, Trash2, Move, Maximize2, Minimize2, RotateCcw, X, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { useV2Store, EMPTY_DATA_DRAFT, getWalkthroughLevelName, getWalkthroughSectorName, LOOP_COLOR_PALETTE, type V2DataDensity, type V2DataDraft, type V2LoopDraft, type V2MetadataPatch } from '../store';
 import { getSectorIdForGridCell } from '../geometry';
+import { jsonStructurallyEqual } from '../jsonStructuralEquality';
 import { getVisibleV2ObjectIds } from '../visibility';
 import { V2CrossSection } from './V2CrossSection';
 import { SavedProjectBrowser } from './SavedProjectBrowser';
@@ -222,7 +223,7 @@ function Field({ label, value, onChange, multiline = false, required = false }: 
   return <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}{multiline ? <textarea {...shared} rows={2} /> : <input {...shared} />}</label>;
 }
 
-function DataEditor({ levelId, sectorId, gridX, gridY, onClose }: { levelId: string; sectorId: string; gridX: number; gridY: number; onClose: () => void }) {
+function DataEditor({ levelId, sectorId, gridX, gridY, onClose, onCancel }: { levelId: string; sectorId: string; gridX: number; gridY: number; onClose: () => void; onCancel: () => void }) {
   const addDataObject = useV2Store((state) => state.addDataObject);
   const [draft, setDraft] = useState<V2DataDraft>(EMPTY_DATA_DRAFT);
   const update = (key: keyof V2DataDraft) => (value: string) => setDraft((current) => ({ ...current, [key]: value }));
@@ -235,7 +236,7 @@ function DataEditor({ levelId, sectorId, gridX, gridY, onClose }: { levelId: str
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#03050b]/75 p-4 backdrop-blur-sm">
       <form onSubmit={submit} className="max-h-[90%] w-full max-w-2xl overflow-y-auto rounded-xl border border-cyan-300/20 bg-[#08111d] p-5 shadow-2xl">
-        <div className="mb-4 flex items-start justify-between"><div><h3 className="text-lg font-bold text-cyan-100">Add data element</h3><p className="mt-1 text-xs text-muted-foreground">Placed at cell ({gridX + 1}, {gridY + 1}).</p></div><button type="button" onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button></div>
+        <div className="mb-4 flex items-start justify-between"><div><h3 className="text-lg font-bold text-cyan-100">Add data element</h3><p className="mt-1 text-xs text-muted-foreground">Placed at cell ({gridX + 1}, {gridY + 1}).</p></div><button type="button" onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button></div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Name" value={draft.name} onChange={update('name')} required />
           <Field label="Availability / status" value={draft.availability} onChange={update('availability')} />
@@ -249,7 +250,7 @@ function DataEditor({ levelId, sectorId, gridX, gridY, onClose }: { levelId: str
           <Field label="Intended use" value={draft.intended_use} onChange={update('intended_use')} />
           <div className="sm:col-span-2"><Field label="Description" value={draft.description} onChange={update('description')} multiline /></div>
         </div>
-        <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={onClose} className="rounded border border-white/10 px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-white/5">Cancel</button><button type="submit" className="rounded bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300">Add to board</button></div>
+        <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={onCancel} className="rounded border border-white/10 px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-white/5">Cancel</button><button type="submit" className="rounded bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300">Add to board</button></div>
       </form>
     </div>
   );
@@ -296,6 +297,10 @@ function DataBoard() {
     }
     if (placementMode === 'add') setEditorCell({ x, y, sectorId });
   };
+  const cancelEditor = () => {
+    setEditorCell(null);
+    setPlacementMode(null);
+  };
 
   const autoFill = () => autoFillDataLevel(level.id);
   const goNext = () => setDataLevelIndex(Math.min(activeCase.levels.length - 1, dataLevelIndex + 1));
@@ -303,7 +308,7 @@ function DataBoard() {
 
   return (
     <div data-walkthrough-panel className="pointer-events-auto absolute inset-y-4 right-4 z-20 flex h-[calc(100dvh-2rem)] w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-cyan-300/20 bg-[#050912]/98 text-foreground shadow-2xl backdrop-blur-xl md:inset-y-6 md:right-6 md:h-[calc(100dvh-3rem)]">
-      {editorCell && <DataEditor levelId={level.id} sectorId={editorCell.sectorId} gridX={editorCell.x} gridY={editorCell.y} onClose={() => setEditorCell(null)} />}
+      {editorCell && <DataEditor levelId={level.id} sectorId={editorCell.sectorId} gridX={editorCell.x} gridY={editorCell.y} onClose={() => setEditorCell(null)} onCancel={cancelEditor} />}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-cyan-300/15 bg-[#07131f] px-5 py-4">
         <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-300/70">Walkthrough / Data</p><h2 className="mt-1 text-xl font-bold text-cyan-50">Add data to {level.name}</h2><p className="mt-1 text-xs text-muted-foreground">One level at a time · {activeCase.grid.width}×{activeCase.grid.height} sector-aware snap grid</p></div>
          <div className="flex flex-wrap gap-2">
@@ -338,7 +343,7 @@ function DataBoard() {
                   }
                   placeAt(cell.x, cell.y);
                 };
-                return <button key={key} onPointerDown={() => { setIsDragging(true); selectOrPlace(); }} onPointerEnter={() => { if (isDragging && !item) placeAt(cell.x, cell.y); }} onPointerUp={() => setIsDragging(false)} onClick={selectOrPlace} className={`relative min-h-[42px] border border-white/10 p-1 text-left transition-colors ${rightBoundary ? 'border-r-cyan-200/50' : ''} ${bottomBoundary ? 'border-b-cyan-200/50' : ''} ${item ? selected ? 'bg-cyan-300/35 ring-2 ring-inset ring-cyan-200' : 'bg-amber-300/20' : 'bg-emerald-300/[0.04] hover:bg-cyan-300/15'}`} title={`${activeCase.sectors[sectorIndex]?.name || 'Sector'} · cell ${cell.x + 1}, ${cell.y + 1}`}>
+                return <button key={key} onPointerDown={() => { setIsDragging(true); selectOrPlace(); }} onPointerEnter={() => { if (isDragging && !item) placeAt(cell.x, cell.y); }} onPointerUp={() => setIsDragging(false)} onClick={(event) => { if (event.detail === 0) selectOrPlace(); }} className={`relative min-h-[42px] border border-white/10 p-1 text-left transition-colors ${rightBoundary ? 'border-r-cyan-200/50' : ''} ${bottomBoundary ? 'border-b-cyan-200/50' : ''} ${item ? selected ? 'bg-cyan-300/35 ring-2 ring-inset ring-cyan-200' : 'bg-amber-300/20' : 'bg-emerald-300/[0.04] hover:bg-cyan-300/15'}`} title={`${activeCase.sectors[sectorIndex]?.name || 'Sector'} · cell ${cell.x + 1}, ${cell.y + 1}`}>
                   <span className="absolute left-1 top-1 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ['#38bdf8', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#facc15', '#2dd4bf', '#818cf8'][sectorIndex % 8] }} />
                   {item && <span className="mt-1 block truncate text-[9px] font-bold text-amber-50">{item.name}</span>}
                 </button>;
@@ -1167,7 +1172,7 @@ function ReviewSaveStage() {
         project: { id: string; ownerUserId: string; name: string; description: string; updatedAt: string };
         version: { id: string; versionNumber: number; createdAt: string; snapshot: unknown };
       };
-      const verified = JSON.stringify(saved.version.snapshot) === JSON.stringify(snapshot);
+      const verified = jsonStructurallyEqual(saved.version.snapshot, snapshot);
       if (!verified) throw new Error('The saved version returned a different snapshot and was not loaded into the current project context.');
       const nextUserName = selectedUser?.displayName || activeUserName;
       setLoadedProjectContext({

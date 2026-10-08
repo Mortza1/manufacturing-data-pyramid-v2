@@ -1,0 +1,72 @@
+Stay in Free mode only. Do not switch to Power or Max.
+Work only in Manufacturing_Data_Pyramid_v2.
+Implement only the two confirmed fixes from the completed diagnosis below. Do not change anything else.
+1. Fix false save failures caused by JSONB key ordering
+The API save transaction is succeeding, but after the POST the client compares the submitted snapshot with the PostgreSQL JSONB snapshot using raw JSON.stringify.
+PostgreSQL JSONB may reorder object keys, so semantically identical snapshots compare unequal.
+This causes the UI to report a false failure and prevents project/version context from updating even though the version has already been saved.
+Replace the raw string comparison with a key-order-independent structural equality check, or stable recursively key-sorted serialization before comparison.
+Preserve:
+- existing snapshot schema;
+- PostgreSQL JSONB;
+- immutable versioning;
+- all API routes;
+- server-side validation;
+- Save New Version;
+- Save As New Project.
+Do not change database structure or save semantics.
+After a verified successful save:
+- show success;
+- update loaded project/version context correctly.
+If the actual snapshot content differs structurally, still treat that as a real verification failure.
+Be aware that the database already contains 3 versions, so do not create additional test versions against the existing production project unless necessary.
+2. Fix Stage 2 Manual Add Data reopening after Cancel
+The diagnosis confirmed:
+- modal open state is editorCell;
+- Cancel clears editorCell;
+- but placementMode remains 'add';
+- later pointer/click interaction reopens the modal.
+When the user presses Cancel or closes the Add Data form:
+- clear editorCell;
+- clear/reset placementMode;
+- leave existing placed data untouched;
+- leave the current level unchanged;
+- do not clear the board.
+The modal must remain closed until the user deliberately chooses Add data manually again.
+Also inspect the current pointerdown + click double handling and ensure one normal user interaction cannot reopen the modal twice.
+Preserve successful-add behaviour unless a change is strictly required for this fix.
+3. Do not modify the unresolved project-loading path yet
+The diagnosis did not establish a root cause for the deployed Open Project GET failure.
+Do not guess or change routing/database/API logic for:
+- /api/users
+- /api/users/:id/projects
+- project version listing
+- exact-version retrieval
+as part of this task.
+We will retest that separately after these confirmed fixes are deployed.
+4. Do not change anything else
+Do not modify:
+- Structure/autofill;
+- label sizing;
+- Visualise;
+- camera/framing;
+- opacity;
+- panel collapse;
+- Connections;
+- loops;
+- 2D Cross-Section;
+- project schema;
+- Explorer;
+- Forging Case Study;
+- Advanced.
+Run:
+- frontend typecheck;
+- API typecheck;
+- production build;
+- relevant save verification tests;
+- git diff --check.
+Report separately:
+A. Snapshot-comparison fix
+B. Manual Add Data cancel fix
+C. Whether republishing is required
+Do not add any other scope.
