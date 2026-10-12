@@ -1,0 +1,56 @@
+FREE MODE ONLY. STRICTLY READ-ONLY INSPECTION OF THE STABLE V2 APP.
+Do not modify any source file, database record, configuration, workflow, deployment, or local storage.
+Do not restart anything.
+Do not publish.
+We need only a safe database fingerprint to compare the stable V2 app against the V3 remix.
+Never print the raw DATABASE_URL, passwords, tokens, secrets, or full connection strings.
+Using read-only inspection only, return:
+Connection fingerprints
+1. Whether DATABASE_URL is present.
+2. PostgreSQL scheme/provider if identifiable.
+3. SHA-256 of the complete DATABASE_URL.
+4. SHA-256 of normalized:
+   host | port | database-name
+   using port 5432 if omitted.
+5. SHA-256 of normalized:
+   host | port | database-name | username
+6. Whether SSL/TLS-related options exist, without showing their values.
+PostgreSQL identity
+Using SELECT/read-only metadata only, report:
+- current_database()
+- current_user
+- PostgreSQL server version
+- database OID
+- inet_server_addr() if available
+- inet_server_port() if available
+If permitted by this PostgreSQL instance, also query the PostgreSQL system identifier using a read-only standard metadata function such as pg_control_system().
+Report the system identifier if available. Do not change anything if permission is denied.
+Replit identity
+Report any safe database:
+- resource ID
+- integration ID
+- binding ID
+- development database identifier
+exposed by the stable V2 Replit configuration.
+If none is available, state that explicitly.
+Do not confuse the Repl/app ID with a database resource ID.
+Read-only content information
+Report only:
+- count of v2_users
+- count of v2_projects
+- count of v2_project_versions
+- highest project version number
+- snapshot schema-version distribution
+Do not write anything.
+External connection check
+Inspect code/configuration read-only for:
+- hard-coded PostgreSQL URLs
+- alternate database environment variables
+- dblink
+- foreign servers/tables
+- subscriptions
+- any other mechanism that could access another database
+Output
+Return a report headed:
+V2 Database Isolation Fingerprint
+Do not perform builds, migrations, database writes, workflow restarts, file edits, or publishing.
