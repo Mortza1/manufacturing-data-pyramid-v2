@@ -69,6 +69,10 @@ export default defineConfig({
     strictPort: true,
     host: '0.0.0.0',
     allowedHosts: true,
+    // Local dev only: Replit routes /api to the API server itself.
+    ...(process.env.API_PROXY_TARGET
+      ? { proxy: { '/api': process.env.API_PROXY_TARGET } }
+      : {}),
     fs: {
       strict: true,
     },

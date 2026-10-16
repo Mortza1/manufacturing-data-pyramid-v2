@@ -8,6 +8,7 @@ import { SceneEnvironment } from './SceneEnvironment';
 import { useStore } from '../store';
 import { useV2Store } from '../v2/store';
 import { V2PreviewPyramid } from '../v2/components/V2PreviewPyramid';
+import { AdvancedGraphPyramid } from '../v2/advanced/AdvancedGraphPyramid';
 import { getLevelBaseTop } from '../v2/geometry';
 import { COURSES, getJourneyStep, getLevelY } from '../data';
 import * as THREE from 'three';
@@ -230,8 +231,14 @@ function CameraRig({
           perspectiveCamera.clearViewOffset();
           perspectiveCamera.updateProjectionMatrix();
         }
-        destination.set(12, 8, 14);
-        target.set(0, 2, 0);
+        if (v2Mode === 'advanced') {
+          // Frame the taller graph pyramid + agent halo, shifted right of the side panel.
+          destination.set(13.5, 9.5, 18);
+          target.set(-1.3, 0.6, 1.1);
+        } else {
+          destination.set(12, 8, 14);
+          target.set(0, 2, 0);
+        }
       } else if (forgingCaseStudy) {
         if (perspectiveCamera.view) {
           perspectiveCamera.clearViewOffset();
@@ -496,7 +503,9 @@ export function PyramidScene() {
         <DragGhost />
         <SceneEnvironment />
         <group position={[0, -0.5, 0]}>
-          {v2Mode !== 'explorer' ? (
+          {v2Mode === 'advanced' ? (
+            <AdvancedGraphPyramid />
+          ) : v2Mode !== 'explorer' ? (
             <V2PreviewPyramid />
           ) : forgingCaseStudy ? (
             <>
@@ -527,7 +536,7 @@ export function PyramidScene() {
           />
         )}
         
-        {(v2Mode === 'explorer' || walkthroughStage !== 'visualise') && <Grid
+        {(v2Mode !== 'walkthrough' || walkthroughStage !== 'visualise') && <Grid
           renderOrder={-1} 
           position={[0, -3.0, 0]} 
           infiniteGrid 

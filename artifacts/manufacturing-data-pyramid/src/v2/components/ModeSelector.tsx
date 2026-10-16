@@ -28,9 +28,13 @@ export function ModeSelector() {
         <GraduationCap size={14} /> Walkthrough
       </button>
       <button
-        disabled
-        className="px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 text-muted-foreground/50 cursor-not-allowed"
-        title="Coming Soon"
+        onClick={() => setMode('advanced')}
+        className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+          mode === 'advanced'
+            ? 'bg-fuchsia-500/20 text-fuchsia-200 shadow-sm'
+            : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+        }`}
+        title="Knowledge graph prototype"
       >
         <Rocket size={14} /> Advanced
       </button>

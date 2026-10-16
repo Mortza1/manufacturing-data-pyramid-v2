@@ -20,6 +20,8 @@ import { useStore } from './store';
 import { ModeSelector } from './v2/components/ModeSelector';
 import { WalkthroughUI } from './v2/components/WalkthroughUI';
 import { useV2Store } from './v2/store';
+import { AdvancedUI } from './v2/advanced/AdvancedUI';
+import { useAdvancedStore } from './v2/advanced/store';
 
 const queryClient = new QueryClient();
 
@@ -33,13 +35,16 @@ function Home() {
   const walkthroughStage = useV2Store((state) => state.walkthroughStage);
   const connectionsView = useV2Store((state) => state.connectionsView);
   const isV2 = v2Mode !== 'explorer';
+  const advancedView = useAdvancedStore((state) => state.view);
+  const touring = useAdvancedStore((state) => v2Mode === 'advanced' && Boolean(state.tour));
   const showCrossSection = v2Mode === 'walkthrough' && walkthroughStage === 'connections' && connectionsView === '2d';
+  const hideScene = showCrossSection || (v2Mode === 'advanced' && advancedView !== '3d');
 
   return (
     <div className={`h-[100dvh] w-full relative bg-background text-foreground font-sans overflow-hidden ${presentationMode ? 'presentation-stage' : ''}`}>
       {/* 3D Background */}
       <div className="absolute inset-0 z-0">
-        {!showCrossSection && <PyramidScene />}
+        {!hideScene && <PyramidScene />}
       </div>
 
       {/* UI Overlay */}
@@ -48,7 +53,7 @@ function Home() {
         <ModeSelector />
 
         {/* Header */}
-        <header className={`absolute ${presentationMode ? 'top-4 md:top-5' : 'top-4 md:top-6'} left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto z-20 w-full px-4`}>
+        <header className={`absolute ${presentationMode ? 'top-4 md:top-5' : 'top-4 md:top-6'} left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto z-20 w-full px-4 transition-opacity duration-500 ${touring ? 'opacity-0' : ''}`}>
           <h1 className={`${presentationMode ? 'text-sm md:text-lg opacity-80' : 'text-xl md:text-3xl'} font-extrabold tracking-tight bg-gradient-to-br from-white via-white to-white/40 bg-clip-text text-transparent text-center drop-shadow-sm whitespace-nowrap`}>
             Data Pyramid
           </h1>
@@ -89,7 +94,7 @@ function Home() {
             {forgingCaseStudy ? <ForgingControls /> : <Controls />}
           </>
         ) : (
-          v2Mode === 'walkthrough' && <WalkthroughUI />
+          v2Mode === 'walkthrough' ? <WalkthroughUI /> : <AdvancedUI />
         )}
       </div>
     </div>
